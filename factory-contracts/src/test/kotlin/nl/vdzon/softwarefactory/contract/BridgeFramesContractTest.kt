@@ -8,7 +8,7 @@ import kotlin.test.assertNull
 
 /**
  * Contract-test voor het bridge-frame-formaat ([BridgeHello]/[BridgeRequest]/[BridgeResponse]/
- * [BridgeEvent]), zelfde recept als [nl.vdzon.softwarefactory.contract.AgentResultFileContractTest]:
+ * [BridgeEvent]); de golden JSON hieronder pint het gedeelde wire-formaat vast:
  * round-trip + letterlijke golden-JSON-fixtures (ook gebruikt door de Dart-tests van de
  * Flutter-app, zie `factory-common/src/test/resources/bridge-fixtures/`) + defaults + onbekende
  * velden genegeerd.

@@ -3,7 +3,6 @@ package nl.vdzon.softwarefactory.e2e
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.zaxxer.hikari.HikariDataSource
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.contract.AgentResultRateLimit
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRateLimit
 import nl.vdzon.softwarefactory.runtime.models.AgentRunCompleteRequest
@@ -130,7 +129,7 @@ class AgentCompletionRecoveryE2eTest {
             outcome = "error-claude-cli",
             summaryText = "Claude stopte onverwacht",
             exitCode = 1,
-            rateLimit = AgentResultRateLimit(
+            rateLimit = AgentRunRateLimit(
                 status = "rejected",
                 resetsAt = 1_785_000_000,
                 overageResetsAt = 1_785_003_600,
@@ -182,7 +181,7 @@ class AgentCompletionRecoveryE2eTest {
                 containerName = quotaContainer,
                 outcome = "error-claude-cli",
                 summaryText = "Claude stopte onverwacht",
-                rateLimit = AgentResultRateLimit(status = "rejected"),
+                rateLimit = AgentRunRateLimit(status = "rejected"),
             ).toCompletionRecord(),
             OffsetDateTime.now(clock).plusSeconds(1),
         )
@@ -229,7 +228,7 @@ class AgentCompletionRecoveryE2eTest {
                 outcome = "developed",
                 summaryText = "Claude-quota route implemented",
                 exitCode = 0,
-                rateLimit = AgentResultRateLimit(status = "rejected"),
+                rateLimit = AgentRunRateLimit(status = "rejected"),
             ).toCompletionRecord(),
             OffsetDateTime.now(clock).plusSeconds(1),
         )

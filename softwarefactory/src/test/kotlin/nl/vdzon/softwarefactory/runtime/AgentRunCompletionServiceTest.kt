@@ -46,9 +46,6 @@ import nl.vdzon.softwarefactory.core.contracts.CreditsPause
 import nl.vdzon.softwarefactory.core.contracts.CreditsPauseCoordinator
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
-import nl.vdzon.softwarefactory.contract.AgentResultRateLimit
-import nl.vdzon.softwarefactory.contract.AgentResultVerificationCommand
-import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence
 import nl.vdzon.softwarefactory.runtime.services.AgentRunCompletionService
 import nl.vdzon.softwarefactory.runtime.v2.RuntimeArtifactApi
 import nl.vdzon.softwarefactory.runtime.v2.RuntimeOutputObject
@@ -177,49 +174,6 @@ class AgentRunCompletionServiceTest {
 
         assertTrue(issueTracker.updates.single().values[TrackerField.ERROR].toString().contains("verouderd"))
         assertFalse(issueTracker.updates.any { TrackerField.SUBTASK_PHASE in it.values || TrackerField.AI_PHASE in it.values })
-    }
-
-    @Test
-    fun `developer comment exposes harness verification evidence to reviewer`() {
-        val issueTracker = FakeTrackerApi()
-        val service = completionService(FakeAgentRunRepository(), issueTracker)
-        val head = "a".repeat(40)
-        val tree = "b".repeat(40)
-
-        service.complete(
-            AgentRunCompleteRequest(
-                storyKey = "KAN-69",
-                role = "developer",
-                containerName = "factory-kan-69-developer",
-                outcome = "developed",
-                phase = "developed",
-                summaryText = "Implementatie klaar.",
-                verificationEvidence = AgentResultVerificationEvidence(
-                    configVersion = 1,
-                    testedHeadSha = head,
-                    testedTreeSha = tree,
-                    commands = listOf(
-                        AgentResultVerificationCommand(
-                            commandId = "backend-verify",
-                            startedAt = "2026-05-23T19:59:00Z",
-                            endedAt = "2026-05-23T20:00:00Z",
-                            durationMs = 60_000,
-                            exitCode = 0,
-                            status = "passed",
-                            summary = "BUILD SUCCESS",
-                        ),
-                    ),
-                ),
-                runtimeRepositoryResult = pushedRepositoryResult(),
-                runtimeVerificationResult = passedRuntimeVerification(),
-            ),
-        )
-
-        val comment = issueTracker.agentComments.single()
-        assertTrue(comment.contains("[FACTORY VERIFICATION EVIDENCE]"))
-        assertTrue(comment.contains(tree))
-        assertTrue(comment.contains("backend-verify") && comment.contains("status=`passed`"))
-        assertFalse(comment.contains("BUILD SUCCESS"), "Ruwe commandoutput hoort niet in trackercontext")
     }
 
     @Test
@@ -987,7 +941,7 @@ class AgentRunCompletionServiceTest {
                 startedAt = OffsetDateTime.parse("2026-05-23T19:59:00Z"),
                 endedAt = OffsetDateTime.parse("2026-05-23T20:00:00Z"),
                 outcome = "error",
-                summaryText = "Agent container stopped without writing /work/agent-result.json.",
+                summaryText = "WORKER_LOST: Agent Runtime worker lease expired.",
             )
         }
         val issueTracker = FakeTrackerApi()
@@ -1013,7 +967,7 @@ class AgentRunCompletionServiceTest {
                 role = "developer",
                 containerName = "factory-kan-69-developer",
                 outcome = "error",
-                summaryText = "Agent container stopped without writing /work/agent-result.json.",
+                summaryText = "WORKER_LOST: Agent Runtime worker lease expired.",
                 exitCode = 1,
             ),
         )
@@ -1039,7 +993,7 @@ class AgentRunCompletionServiceTest {
                 outcome = "error-claude-cli",
                 summaryText = "Claude stopte",
                 exitCode = 1,
-                rateLimit = AgentResultRateLimit(
+                rateLimit = AgentRunRateLimit(
                     status = "rejected",
                     resetsAt = java.time.Instant.parse("2026-05-23T20:10:00Z").epochSecond,
                     overageResetsAt = java.time.Instant.parse("2026-05-23T21:00:00Z").epochSecond,
@@ -1067,7 +1021,7 @@ class AgentRunCompletionServiceTest {
                 outcome = "error",
                 summaryText = "Usage limit reached",
                 exitCode = 1,
-                rateLimit = AgentResultRateLimit(status = "rejected", resetsAt = 1),
+                rateLimit = AgentRunRateLimit(status = "rejected", resetsAt = 1),
             ),
         )
 

@@ -11,7 +11,7 @@
     </parent>
     <artifactId>factory-contracts</artifactId>
     <name>factory-contracts</name>
-    <description>Lichte wirecontracten voor agentresultaten en dashboardbridge</description>
+    <description>Lichte wirecontracten voor de dashboardbridge</description>
 
     <dependencies>
         <dependency>

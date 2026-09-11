@@ -265,3 +265,15 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 - Gerichte E2E-tests voor de volledige story, verificatieloop en handmatige poort zijn groen. Een
   volledige run van 90 E2E-tests vond één achterhaalde verwachting dat een PR ontbrak; die test is
   aangepast aan het nieuwe factory-beheerde PR-protocol en afzonderlijk groen herhaald.
+
+### 2026-09-11 — resultbestandcontract verwijderd
+
+- Het gedeelde `AgentResultFile`-wirecontract en zijn golden contracttest zijn verwijderd. Het
+  resterende `factory-contracts` bevat alleen nog de dashboardbridgecontracten.
+- De auditadapter projecteert het getypeerde Runtime-resultaat rechtstreeks naar een intern
+  auditresultaat. `AgentRunCompleteRequest` gebruikt het eigen duurzame rate-limitmodel en bevat
+  geen legacy agentworker-verificatiebewijs meer; verificatie komt uitsluitend uit het afzonderlijke
+  Runtime-v2-resultaat.
+- Retryclassificatie herkent Runtime-worker- en verbindingsfouten in plaats van ontbrekende
+  `/work/agent-result.json`-bestanden. Testcompilatie en 35 gerichte tests voor completion, audit,
+  retries en bridgecontract zijn groen: 36 tests.

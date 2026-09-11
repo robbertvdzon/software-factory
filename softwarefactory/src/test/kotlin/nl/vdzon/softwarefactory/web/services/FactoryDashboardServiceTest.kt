@@ -25,7 +25,7 @@ import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
 import nl.vdzon.softwarefactory.core.contracts.OrchestratorPollResult
 import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
 import nl.vdzon.softwarefactory.core.contracts.NotificationEvent
-import nl.vdzon.softwarefactory.contract.AgentNoDecision
+import nl.vdzon.softwarefactory.core.AgentNoDecision
 import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.DeployTarget
 import nl.vdzon.softwarefactory.config.FactorySecrets

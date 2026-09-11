@@ -14,8 +14,10 @@ class AgentFailurePolicyTest {
         assertTrue(AgentFailurePolicy.isRetryable("error", "api error 500: internal server error"))
         assertTrue(AgentFailurePolicy.isRetryable("error", "Rate limit exceeded, try again later"))
         assertTrue(AgentFailurePolicy.isRetryable("error", "request timeout na 60s"))
-        assertTrue(AgentFailurePolicy.isRetryable("error", "agent exited without writing /work/agent-result.json"))
-        assertTrue(AgentFailurePolicy.isRetryable("error", "container stopped without writing a result"))
+        assertTrue(AgentFailurePolicy.isRetryable("error", "WORKER_LOST: lease expired"))
+        assertTrue(AgentFailurePolicy.isRetryable("error", "repository worker unavailable"))
+        assertTrue(AgentFailurePolicy.isRetryable("error", "connection reset by peer"))
+        assertTrue(AgentFailurePolicy.isRetryable("error", "service unavailable"))
     }
 
     @Test

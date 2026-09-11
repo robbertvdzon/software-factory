@@ -13,14 +13,11 @@ import nl.vdzon.softwarefactory.audit.services.AuditJob
 import nl.vdzon.softwarefactory.audit.services.AuditJobsReader
 import nl.vdzon.softwarefactory.audit.types.AuditOutcomeStatus
 import nl.vdzon.softwarefactory.config.ProjectDashboardSettings
-import nl.vdzon.softwarefactory.contract.AgentResultFile
-import nl.vdzon.softwarefactory.contract.AgentResultKnowledgeUpdate
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.AgentDispatchRequest
 import nl.vdzon.softwarefactory.core.contracts.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
 import nl.vdzon.softwarefactory.core.contracts.recordStarted
-import nl.vdzon.softwarefactory.core.contracts.AgentRunRateLimit
 import nl.vdzon.softwarefactory.core.contracts.AgentRunStart
 import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
@@ -36,6 +33,7 @@ import nl.vdzon.softwarefactory.runtime.v2.AgentRuntimeV2HttpClient
 import nl.vdzon.softwarefactory.runtime.v2.RuntimeJobResultView
 import nl.vdzon.softwarefactory.runtime.v2.RuntimeJobStatus
 import nl.vdzon.softwarefactory.runtime.v2.RuntimePublicationStatus
+import nl.vdzon.softwarefactory.runtime.models.AgentRunKnowledgeUpdatePayload
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
@@ -233,7 +231,7 @@ class AuditGatewayAdapter(
         validateAuditRepositoryResult(storyRun, runtimeResult)?.let { error ->
             return failedAudit(handle, error)
         }
-        val result = runtimeAuditResult(storyRun.storyKey, handle, job.status, job.createdAt, runtimeResult)
+        val result = runtimeAuditResult(storyRun.storyKey, job.status, job.createdAt, runtimeResult)
         val now = OffsetDateTime.now()
         storyRunRepository.close(handle.storyRunId, result.outcome, now)
 
@@ -247,9 +245,7 @@ class AuditGatewayAdapter(
             durationMs = result.durationMs,
             costUsdEst = result.costUsdEst,
             summaryText = result.summaryText,
-            rateLimit = result.rateLimit?.let {
-                AgentRunRateLimit(it.status, it.resetsAt, it.overageResetsAt)
-            },
+            rateLimit = null,
         )
         agentRunRepository.complete(handle.containerName, completionRecord, now)
         agentRunRepository.addUsageToStoryRun(handle.storyRunId, completionRecord)
@@ -362,16 +358,13 @@ class AuditGatewayAdapter(
 
     private fun runtimeAuditResult(
         storyKey: String,
-        handle: AuditDispatchHandle,
         status: RuntimeJobStatus,
         startedAt: OffsetDateTime,
         runtimeResult: RuntimeJobResultView,
-    ): AgentResultFile {
+    ): AuditRuntimeResult {
         val payload = runtimeResult.result
-        return AgentResultFile(
+        return AuditRuntimeResult(
             storyKey = storyKey,
-            role = AgentRole.AUDITOR.markerKeyPart,
-            containerName = handle.containerName,
             phase = payload.text("phase"),
             outcome = payload.text("outcome") ?: status.name.lowercase(),
             summaryText = payload.text("summaryText"),
@@ -391,7 +384,7 @@ class AuditGatewayAdapter(
                 val category = update.text("category") ?: return@mapNotNull null
                 val key = update.text("key") ?: return@mapNotNull null
                 val content = update.text("content") ?: return@mapNotNull null
-                AgentResultKnowledgeUpdate(category, key, content)
+                AgentRunKnowledgeUpdatePayload(category, key, content)
             },
             auditScore = payload.path("auditScore").takeUnless { it.isMissingNode || it.isNull }?.asDouble(),
             auditScoreLabel = payload.text("auditScoreLabel"),
@@ -430,7 +423,7 @@ class AuditGatewayAdapter(
         path(name).takeUnless { it.isMissingNode || it.isNull }?.asText()?.takeIf(String::isNotBlank)
 
     /** Het getypeerde Runtime-rapport is leidend; `summaryText` is alleen de begrensde fallback. */
-    private fun reportContent(result: AgentResultFile): String =
+    private fun reportContent(result: AuditRuntimeResult): String =
         result.auditReportMarkdown?.trim()?.ifBlank { null }
             ?: result.summaryText?.let { ControlJsonStripper.stripTrailingControlJson(it) }?.ifBlank { null }
             ?: "(geen rapporttekst)"
@@ -444,7 +437,7 @@ class AuditGatewayAdapter(
     }
 
     /** Maakt de door de auditor voorgestelde vervolg-story aan (fase `start-next`), of null als er geen was. */
-    private fun proposeStoryIfAny(project: String, result: AgentResultFile): String? {
+    private fun proposeStoryIfAny(project: String, result: AuditRuntimeResult): String? {
         val proposedTitle = result.proposedStoryTitle?.takeIf { it.isNotBlank() } ?: return null
         return runCatching {
             tracker.createStory(
@@ -475,4 +468,27 @@ class AuditGatewayAdapter(
         const val DEFAULT_BASE_BRANCH = "main"
         const val AUDIT_TITLE_PREFIX = "[Audit] "
     }
+
+    private data class AuditRuntimeResult(
+        val storyKey: String,
+        val phase: String?,
+        val outcome: String,
+        val summaryText: String?,
+        val exitCode: Int,
+        val inputTokens: Int,
+        val outputTokens: Int,
+        val cacheReadInputTokens: Int,
+        val cacheCreationInputTokens: Int,
+        val numTurns: Int,
+        val durationMs: Int,
+        val costUsdEst: Double,
+        val knowledgeUpdates: List<AgentRunKnowledgeUpdatePayload>,
+        val auditScore: Double?,
+        val auditScoreLabel: String?,
+        val auditReportMarkdown: String?,
+        val auditQuestions: List<String>,
+        val auditFindingsMarkdown: String?,
+        val proposedStoryTitle: String?,
+        val proposedStoryDescription: String?,
+    )
 }

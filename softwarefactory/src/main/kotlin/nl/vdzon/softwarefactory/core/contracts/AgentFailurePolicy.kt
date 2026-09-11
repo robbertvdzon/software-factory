@@ -15,8 +15,11 @@ object AgentFailurePolicy {
         "api error 500",
         "rate limit",
         "timeout",
-        "without writing /work/agent-result.json",
-        "container stopped without writing",
+        "worker lost",
+        "worker_lost",
+        "worker unavailable",
+        "connection reset",
+        "service unavailable",
     )
 
     fun classify(

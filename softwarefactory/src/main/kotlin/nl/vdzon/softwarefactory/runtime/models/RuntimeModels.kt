@@ -3,8 +3,6 @@ package nl.vdzon.softwarefactory.runtime.models
 import com.fasterxml.jackson.annotation.JsonIgnore
 import nl.vdzon.softwarefactory.runtime.types.*
 
-import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence
-import nl.vdzon.softwarefactory.contract.AgentResultRateLimit
 import nl.vdzon.softwarefactory.core.contracts.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRateLimit
 import nl.vdzon.softwarefactory.support.SupportApi
@@ -20,8 +18,7 @@ data class AgentRunCompleteRequest(
     val costUsdEst: Double = 0.0, val events: List<AgentRunEventPayload> = emptyList(),
     val knowledgeUpdates: List<AgentRunKnowledgeUpdatePayload> = emptyList(),
     val subtasks: List<AgentRunSubtaskPayload> = emptyList(),
-    val verificationEvidence: AgentResultVerificationEvidence? = null,
-    val rateLimit: AgentResultRateLimit? = null,
+    val rateLimit: AgentRunRateLimit? = null,
     /** Alleen voor SUMMARIZER: de twee PO-facing samenvattingen, gebaseerd op wat echt is opgeleverd. */
     val descriptionSummary: String? = null,
     val shortDescriptionSummary: String? = null,
@@ -40,7 +37,7 @@ data class AgentRunCompleteRequest(
     fun toCompletionRecord(): AgentRunCompletionRecord = AgentRunCompletionRecord(
         outcome, inputTokens, outputTokens, cacheReadInputTokens, cacheCreationInputTokens,
         numTurns, durationMs, costUsdEst, summaryText,
-        rateLimit?.let { AgentRunRateLimit(it.status, it.resetsAt, it.overageResetsAt) },
+        rateLimit,
     )
 }
 
