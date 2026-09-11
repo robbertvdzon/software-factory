@@ -13,9 +13,9 @@ import kotlin.test.assertTrue
  * zodat de test enkel de écht menselijke acties stuurt (twee vragen beantwoorden + "start developing").
  *
  * De merge/deploy-keten (SF-154/SF-164: juist dít stuk gaf productie-incidenten) draait via de fake
- * [FakeGitHubApi]: de scripted developer rapporteert het `github-pr`-event (zoals de echte
- * agentworker), waarmee `storyRun.prNumber` via het normale completion-pad gevuld raakt; de
- * merge-subtaak squash-merget vervolgens ECHT naar `main` op de [LocalGitRemote]. De deploy-subtaak
+ * [FakeGitHubApi]: de factory maakt na de eerste Runtime-push zelf idempotent de PR en koppelt het
+ * nummer aan de story-run; de merge-subtaak squash-merget vervolgens ECHT naar `main` op de
+ * [LocalGitRemote]. De deploy-subtaak
  * volgt de `DeployConfig.Skip`-route (geen deploy-config voor `sample`) en advancet op fase `start`;
  * het rest-restart-pad is apart gedekt in `DeploySubtaskHandlerTest`.
  *
@@ -25,9 +25,6 @@ class FullRefineToDevelopE2eTest : E2eTestBase() {
 
     @Test
     fun `story doorloopt refine tot en met merge en deploy`() {
-        // De developer rapporteert (net als de echte agentworker) een github-pr-event, zodat de
-        // afgedwongen merge-subtaak een PR-nummer heeft en de keten tot het einde kan doorlopen.
-        runtime.script.developerReportsPullRequest = true
         val ui = loginUi()
         // De volledige keten (refine→plan→dev→review→test→summary→documentation→merge→deploy) is
         // veel sequentiële, gepollde stappen; in een koude test-JVM (fork-per-class) haalt dat de
@@ -93,7 +90,7 @@ class FullRefineToDevelopE2eTest : E2eTestBase() {
                 AgentRole.REFINER,    // attempt 2: refined
                 AgentRole.PLANNER,    // planned + 4 subtaken
                 AgentRole.DEVELOPER,  // attempt 1: vraag
-                AgentRole.DEVELOPER,  // attempt 2: developed (+ github-pr-event)
+                AgentRole.DEVELOPER,  // attempt 2: developed + Runtime-push; factory maakt de PR
                 AgentRole.REVIEWER,   // dev-subtask review
                 AgentRole.REVIEWER,   // review-subtask
                 AgentRole.TESTER,     // test-subtask

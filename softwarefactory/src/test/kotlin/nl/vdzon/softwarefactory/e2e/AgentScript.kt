@@ -2,7 +2,6 @@ package nl.vdzon.softwarefactory.e2e
 
 import nl.vdzon.softwarefactory.core.contracts.AgentDispatchRequest
 import nl.vdzon.softwarefactory.runtime.models.AgentRunCompleteRequest
-import nl.vdzon.softwarefactory.runtime.models.AgentRunEventPayload
 import nl.vdzon.softwarefactory.runtime.models.AgentRunSubtaskPayload
 import nl.vdzon.softwarefactory.core.AgentRole
 
@@ -33,20 +32,6 @@ class AgentScript {
     /** De subtaken die de planner declareert (volgorde = keten-volgorde). */
     var plannedSubtasks: List<AgentRunSubtaskPayload> = DEFAULT_SUBTASKS
 
-    /** Testerbewijs per tester-attempt: `green` (default), `missing`, `failed` of `mismatch`. */
-    var testerEvidenceModes: List<String> = emptyList()
-
-    fun testerEvidenceMode(attempt: Int): String = testerEvidenceModes.getOrNull(attempt - 1) ?: "green"
-
-    /**
-     * Laat de developer bij het afronden (`developed`) een `github-pr`-event rapporteren, zoals de
-     * echte agentworker doet: het PR-nummer komt uit [E2eTestConfig.FAKE_GITHUB] en bereikt de
-     * story-run via het normale completion-pad (`AgentRunCompletionService.recordReportedBranch`),
-     * zodat de merge-subtaak later `storyRun.prNumber` kan gebruiken. Default UIT: de meeste
-     * flow-tests bewijzen juist óók het foutpad "merge zonder PR-nummer" (SF-244).
-     */
-    var developerReportsPullRequest: Boolean = false
-
     /**
      * Simuleert de deterministische verificatie-poort die in [AgentCli] ná de DEVELOPER draait: zijn
      * de projecttests rood, dan wordt de eigen `developed`-conclusie overruled naar
@@ -54,6 +39,12 @@ class AgentScript {
      * blijft rood (loopback tot de cap).
      */
     var developerVerificationFails: Boolean = false
+
+    /** Verificatie-uitkomst per developer-attempt; `true` simuleert blijvend rood. */
+    var developerVerificationFailures: List<Boolean> = emptyList()
+
+    fun developerVerificationFails(attempt: Int): Boolean =
+        developerVerificationFailures.getOrNull(attempt - 1) ?: developerVerificationFails
 
     fun resultFor(request: AgentDispatchRequest, attempt: Int): AgentRunCompleteRequest {
         val base = AgentRunCompleteRequest(
@@ -75,7 +66,7 @@ class AgentScript {
                 }
             AgentRole.DEVELOPER -> {
                 val developed = base.withQuestionOr(developerAsksQuestion, attempt, "developed-with-questions", "Welke variant wil je geïmplementeerd hebben?", resolved = "developed")
-                val result = if (developerVerificationFails && developed.phase == "developed") {
+                val result = if (developerVerificationFails(attempt) && developed.phase == "developed") {
                     developed.copy(
                         phase = "development-rejected",
                         outcome = "development-rejected",
@@ -84,11 +75,7 @@ class AgentScript {
                 } else {
                     developed
                 }
-                if (developerReportsPullRequest && result.phase == "developed") {
-                    result.copy(events = result.events + githubPrEvent(request))
-                } else {
-                    result
-                }
+                result
             }
             AgentRole.REVIEWER ->
                 base.withQuestionOr(reviewerAsksQuestion, attempt, "reviewed-with-questions", "Is deze review-aanpak akkoord?", resolved = "reviewed")
@@ -101,22 +88,6 @@ class AgentScript {
             else ->
                 base.copy(phase = request.phase)
         }
-    }
-
-    /**
-     * Het `github-pr`-event in hetzelfde wire-formaat als de echte agentworker: JSON met
-     * branchName/prNumber/prUrl. De branch komt uit de dispatch-request (de factory geeft de
-     * story-branch aan de agent mee); het PR-nummer deelt de fake GitHub-API uit.
-     */
-    private fun githubPrEvent(request: AgentDispatchRequest): AgentRunEventPayload {
-        val branchName = requireNotNull(request.branchName?.takeIf { it.isNotBlank() }) {
-            "developerReportsPullRequest vereist een branchName op de dispatch-request"
-        }
-        val pr = E2eTestConfig.FAKE_GITHUB.openPullRequest(branchName)
-        return AgentRunEventPayload(
-            kind = "github-pr",
-            payload = """{"branchName":"$branchName","prNumber":${pr.number},"prUrl":"${pr.url}"}""",
-        )
     }
 
     private fun AgentRunCompleteRequest.withQuestionOr(

@@ -13,9 +13,8 @@ import java.util.concurrent.atomic.AtomicInteger
  * Fake [GitHubApi] voor de e2e-harness: vervangt de `gh`-CLI zodat de merge/deploy-keten
  * end-to-end kan draaien tegen de lokale [LocalGitRemote] (waar geen echte GitHub-PR bestaat).
  *
- *  - [openPullRequest] deelt PR-nummers uit per branch (aangeroepen door de scripted developer,
- *    die het `github-pr`-event rapporteert zoals de echte agentworker — zo raakt
- *    `storyRun.prNumber` via het normale completion-pad gevuld).
+ *  - [openPullRequest] deelt PR-nummers uit per branch wanneer de factory na een Runtime-push zelf
+ *    idempotent de PR aanmaakt en aan de story-run koppelt.
  *  - [mergePullRequest] doet een **echte lokale squash-merge** van de PR-branch naar `main` op de
  *    [LocalGitRemote], zodat de test kan verifiëren dat de merge-subtaak de code echt op main zet.
  *  - [isMerged] rapporteert de merge-status (gebruikt door de PR-monitor in de orchestrator-poll).
@@ -44,6 +43,17 @@ class FakeGitHubApi(private val remote: LocalGitRemote) : GitHubApi {
         val pr = existing ?: PullRequest(nextNumber.incrementAndGet(), branchName).also { byNumber[it.number] = it }
         return pr.toInfo()
     }
+
+    override fun ensureRemoteBranch(targetRepo: String, branchName: String, baseBranch: String): String =
+        remote.ensureBranch(branchName, baseBranch)
+
+    override fun ensurePullRequest(
+        targetRepo: String,
+        branchName: String,
+        baseBranch: String,
+        title: String,
+        body: String,
+    ): PullRequestInfo = openPullRequest(branchName)
 
     /** Alle uitgedeelde PR's — voor test-asserties (bv. "er is precies één PR en die is gemerged"). */
     fun pullRequests(): List<PullRequestInfo> = byNumber.values.map { it.toInfo() }
@@ -95,7 +105,10 @@ class FakeGitHubApi(private val remote: LocalGitRemote) : GitHubApi {
         byNumber.remove(prNumber)
     }
 
-    override fun deleteBranch(targetRepo: String, branchName: String) = Unit
+    override fun deleteBranch(targetRepo: String, branchName: String) = remote.deleteBranch(branchName)
+
+    override fun latestCommitSha(targetRepo: String, branch: String): String? =
+        runCatching { remote.latestCommitSha(branch) }.getOrNull()
 
     private fun PullRequest.toInfo() = PullRequestInfo(
         number = number,

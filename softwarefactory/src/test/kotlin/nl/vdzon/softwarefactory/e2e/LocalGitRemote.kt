@@ -16,6 +16,48 @@ class LocalGitRemote {
     /** Het pad dat als `factory.repo` in de project-beschrijving komt te staan. */
     val path: Path = createSeededBareRepo()
 
+    /** Maakt een branch rechtstreeks in de bare remote; bestaand is idempotent. */
+    fun ensureBranch(branchName: String, baseBranch: String): String {
+        if (!branchExists(branchName)) {
+            git(path, "git", "branch", branchName, baseBranch)
+        }
+        return latestCommitSha(branchName)
+    }
+
+    /** Simuleert de Runtime-worker: één inhoudelijke commit op de bestaande storybranch. */
+    fun commitAgentOutput(branchName: String, marker: String): Pair<String, String> {
+        val before = latestCommitSha(branchName)
+        val work = Files.createTempDirectory("e2e-agent-")
+        try {
+            git(work.parent, "git", "clone", path.toString(), work.toString())
+            git(work, "git", "checkout", branchName)
+            val outputDir = work.resolve("agent-output")
+            Files.createDirectories(outputDir)
+            val filename = marker.lowercase().replace(Regex("[^a-z0-9_.-]"), "-") + ".txt"
+            Files.writeString(outputDir.resolve(filename), "$marker\n")
+            git(work, "git", "add", "-A")
+            git(
+                work,
+                "git", "-c", "user.email=e2e@example.invalid", "-c", "user.name=E2E",
+                "commit", "-m", "E2E agent output: $marker",
+            )
+            git(work, "git", "push", "origin", branchName)
+            return before to latestCommitSha(branchName)
+        } finally {
+            deleteTree(work)
+        }
+    }
+
+    fun latestCommitSha(branchName: String): String =
+        git(path, "git", "rev-parse", branchName).trim()
+
+    fun deleteBranch(branchName: String) {
+        if (branchExists(branchName)) git(path, "git", "branch", "-D", branchName)
+    }
+
+    private fun branchExists(branchName: String): Boolean =
+        runCatching { git(path, "git", "show-ref", "--verify", "refs/heads/$branchName") }.isSuccess
+
     /**
      * Doet wat GitHub bij een squash-merge doet, maar dan lokaal en echt: cloont de bare remote,
      * squash-merget `origin/[branchName]` in `main` en pusht het resultaat terug. Zo kan de
@@ -37,11 +79,7 @@ class LocalGitRemote {
             git(work, "git", "push", "origin", "main")
         } finally {
             // Best-effort opruimen; een achtergebleven temp-clone mag de test niet laten falen.
-            runCatching {
-                Files.walk(work).use { walk ->
-                    walk.sorted(Comparator.reverseOrder()).forEach(Files::deleteIfExists)
-                }
-            }
+            deleteTree(work)
         }
     }
 
@@ -78,6 +116,14 @@ class LocalGitRemote {
         git(seed, "git", "-c", "user.email=e2e@example.invalid", "-c", "user.name=E2E", "commit", "-m", "seed")
         git(seed, "git", "push", "-u", "origin", "main")
         return bare
+    }
+
+    private fun deleteTree(root: Path) {
+        runCatching {
+            Files.walk(root).use { walk ->
+                walk.sorted(Comparator.reverseOrder()).forEach(Files::deleteIfExists)
+            }
+        }
     }
 
     private fun git(cwd: Path, vararg command: String): String {

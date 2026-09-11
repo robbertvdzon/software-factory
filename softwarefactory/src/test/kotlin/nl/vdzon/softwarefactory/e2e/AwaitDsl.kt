@@ -9,7 +9,7 @@ import java.time.Duration
  *
  * Awaitility-helpers die de verwachte eindtoestand pollen via [TrackerTestState] — precies wat de echte
  * `PostgresTrackerClient` ernaartoe schrijft. De pollers in de app draaien op lage intervallen
- * (`SF_POLL_INTERVAL_MS=100`, `softwarefactory.agent-result-poll-ms=100`), dus ruime timeouts met korte
+ * (`SF_POLL_INTERVAL_MS=100`, test-Runtime completion iedere 20 ms), dus ruime timeouts met korte
  * poll-intervallen geven snel groen zonder races.
  */
 class AwaitDsl(

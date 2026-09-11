@@ -9,4 +9,3 @@ spring:
 
 # Lage poll-intervallen zodat de e2e-test snel door de pipeline loopt.
 softwarefactory:
-  agent-result-poll-ms: 100

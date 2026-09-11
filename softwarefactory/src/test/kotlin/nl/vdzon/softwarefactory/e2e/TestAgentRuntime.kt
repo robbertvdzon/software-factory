@@ -1,54 +1,41 @@
 package nl.vdzon.softwarefactory.e2e
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import nl.vdzon.softwarefactory.contract.AgentResultEvent
-import nl.vdzon.softwarefactory.contract.AgentResultFile
-import nl.vdzon.softwarefactory.contract.AgentResultKnowledgeUpdate
-import nl.vdzon.softwarefactory.contract.AgentResultSubtask
-import nl.vdzon.softwarefactory.contract.AgentResultVerificationCommand
-import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence
-import nl.vdzon.softwarefactory.verification.CheckoutIdentityResolver
+import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.AgentDispatchRequest
 import nl.vdzon.softwarefactory.core.contracts.AgentDispatchResult
 import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
-import nl.vdzon.softwarefactory.core.AgentRole
-import java.nio.file.Files
-import java.nio.file.Path
+import nl.vdzon.softwarefactory.runtime.RuntimeApi
+import nl.vdzon.softwarefactory.runtime.models.AgentRunCompleteRequest
+import nl.vdzon.softwarefactory.runtime.types.CompletionOutcome
+import nl.vdzon.softwarefactory.runtime.v2.RuntimePublicationStatus
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeRepositoryResult
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeVerificationResult
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeVerificationStatus
 import java.time.OffsetDateTime
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
- * Scripted [AgentRuntime] voor de end-to-end-test: vervangt
- * [nl.vdzon.softwarefactory.runtime.docker.DockerAgentRuntime] zonder Docker of
- * LLM. `dispatch()` maakt een echt temp-workspace, schrijft daar meteen
- * `agent-result.json` op basis van [AgentScript], en retourneert dat pad.
- *
- * `isContainerRunning()` is altijd `false`, zodat de echte
- * [nl.vdzon.softwarefactory.runtime.services.AgentResultFileCompletionPoller]
- * het resultaat direct oppakt en het productie-completion-pad ongewijzigd
- * doorloopt. Geen mock van completion nodig.
+ * Scripted Runtime voor de end-to-end-tests. De dubbel levert dezelfde getypeerde completion en
+ * repositorybewijzen als Agent Runtime v2, zonder resultbestand, gedeelde workspace of AI-provider.
+ * Completion gebeurt asynchroon via [completeNext], zodat de agent-run eerst duurzaam kan worden
+ * vastgelegd voordat het resultaat binnenkomt.
  */
 class TestAgentRuntime(
-    private val objectMapper: ObjectMapper = jacksonObjectMapper(),
+    private val remote: LocalGitRemote = E2eTestConfig.LOCAL_REMOTE,
 ) : AgentRuntime {
-
-    /** Poging-teller per `(serializationKey, role)`, 1-based. */
     private val attempts = ConcurrentHashMap<String, Int>()
+    private val completions = ConcurrentLinkedQueue<AgentRunCompleteRequest>()
 
-    private val workspaceRoot: Path =
-        Path.of(System.getProperty("java.io.tmpdir"), "softwarefactory-e2e").also { Files.createDirectories(it) }
-
-    /** Dispatches in volgorde, zodat de test de pipeline-volgorde kan asserten. */
     val dispatched: MutableList<Pair<String, AgentRole>> = java.util.Collections.synchronizedList(mutableListOf())
 
-    /** Het script dat de outcomes bepaalt — per test instelbaar. */
     @Volatile
     var script: AgentScript = AgentScript()
 
-    /** Reset de gedeelde static-state tussen tests (poging-teller, dispatch-log, script). */
     fun reset() {
         attempts.clear()
+        completions.clear()
         dispatched.clear()
         script = AgentScript()
     }
@@ -56,87 +43,78 @@ class TestAgentRuntime(
     override fun dispatch(request: AgentDispatchRequest): AgentDispatchResult {
         val attempt = attempts.merge(attemptKey(request.serializationKey, request.role), 1, Int::plus)!!
         dispatched += request.serializationKey to request.role
-
-        val containerName = containerName(request, attempt)
-        val storyWorkspace = request.workspacePath?.let(Path::of)
-            ?: Files.createTempDirectory(workspaceRoot, "test-agent-${request.role.markerKeyPart}-")
-        Files.createDirectories(storyWorkspace)
-        // Productiecontainers hebben elk hun eigen /work/agent-result.json. De E2E-runtime kreeg
-        // voor sibling-subtaken echter hetzelfde storyworkspace-pad, waardoor twee snelle
-        // dispatches elkaars resultaat konden overschrijven voordat de completionpoller het las.
-        // Houd het repo-/storyworkspace gedeeld, maar geef iedere gesimuleerde container een eigen
-        // resultworkspace onder de toegestane work-root.
-        val resultWorkspace = Files.createTempDirectory(workspaceRoot, "$containerName-result-")
-        val storyRepo = storyWorkspace.resolve("repo")
-        if (Files.exists(storyRepo)) {
-            Files.createSymbolicLink(resultWorkspace.resolve("repo"), storyRepo.toAbsolutePath().normalize())
-        }
-        var result = script.resultFor(request, attempt).copy(
-            containerName = containerName,
-        )
-        if (request.role == AgentRole.TESTER && result.phase == "tested") {
-            result = result.copy(verificationEvidence = testerEvidence(storyRepo, attempt))
-        }
-        Files.writeString(
-            resultWorkspace.resolve("agent-result.json"),
-            objectMapper.writeValueAsString(resultJson(result)),
-        )
+        val jobId = UUID.randomUUID().toString()
+        val scripted = script.resultFor(request, attempt).copy(containerName = jobId)
+        completions += withRuntimeProof(request, attempt, scripted)
         return AgentDispatchResult(
-            containerName = containerName,
+            containerName = jobId,
             startedAt = OffsetDateTime.now(),
-            workspacePath = resultWorkspace.toAbsolutePath().normalize().toString(),
+            idempotencyKey = jobId,
+            executionVendorId = "mock",
+            executionModel = "mock",
+            executionMode = "MOCK",
         )
     }
 
-    /**
-     * Schrijft het result in het **echte wire-formaat**: het gedeelde contract-DTO
-     * [AgentResultFile] uit factory-common — hetzelfde type dat de agentworker-CLI
-     * serialiseert en de echte
-     * [nl.vdzon.softwarefactory.runtime.services.AgentResultFileCompletionPoller] leest.
-     * Zo test de e2e-flow het productie-leespad zonder ObjectNode-trucs.
-     */
-    private fun resultJson(result: nl.vdzon.softwarefactory.runtime.models.AgentRunCompleteRequest): AgentResultFile =
-        AgentResultFile(
-            storyKey = result.storyKey,
-            role = result.role,
-            containerName = result.containerName,
-            phase = result.phase,
-            outcome = result.outcome,
-            summaryText = result.summaryText,
-            exitCode = result.exitCode,
-            inputTokens = result.inputTokens,
-            outputTokens = result.outputTokens,
-            cacheReadInputTokens = result.cacheReadInputTokens,
-            cacheCreationInputTokens = result.cacheCreationInputTokens,
-            numTurns = result.numTurns,
-            durationMs = result.durationMs,
-            costUsdEst = result.costUsdEst,
-            events = result.events.map { AgentResultEvent(it.kind, it.payload) },
-            knowledgeUpdates = result.knowledgeUpdates.map { AgentResultKnowledgeUpdate(it.category, it.key, it.content) },
-            subtasks = result.subtasks.map { AgentResultSubtask(it.type, it.title, it.description, it.model, it.effort) },
-            verificationEvidence = result.verificationEvidence,
-        )
+    /** Probeert de oudste completion; bij een dispatch-race blijft die staan voor de volgende poll. */
+    fun completeNext(runtimeApi: RuntimeApi): Boolean {
+        val request = completions.peek() ?: return false
+        val outcome = runtimeApi.complete(request)
+        if (outcome is CompletionOutcome.NoActiveRun) return false
+        completions.poll()
+        return true
+    }
 
-    private fun testerEvidence(repoRoot: Path, attempt: Int): AgentResultVerificationEvidence? {
-        val mode = script.testerEvidenceMode(attempt)
-        if (mode == "missing") return null
-        val identity = requireNotNull(CheckoutIdentityResolver().resolve(repoRoot)) {
-            "scripted testercheckout heeft geen Git-identiteit: $repoRoot"
+    private fun withRuntimeProof(
+        request: AgentDispatchRequest,
+        attempt: Int,
+        result: AgentRunCompleteRequest,
+    ): AgentRunCompleteRequest = when (request.role) {
+        AgentRole.DEVELOPER, AgentRole.DOCUMENTER -> mutatingProof(request, attempt, result)
+        AgentRole.REVIEWER, AgentRole.TESTER, AgentRole.AUDITOR -> readOnlyProof(request, result)
+        else -> result
+    }
+
+    private fun mutatingProof(
+        request: AgentDispatchRequest,
+        attempt: Int,
+        result: AgentRunCompleteRequest,
+    ): AgentRunCompleteRequest {
+        val branch = requireNotNull(request.branchName)
+        val finalPhase = result.phase in setOf("developed", "documented")
+        val verificationFailed =
+            request.role == AgentRole.DEVELOPER && script.developerVerificationFails(attempt) && finalPhase
+        val (checkoutSha, commitSha) = if (finalPhase && !verificationFailed) {
+            remote.commitAgentOutput(branch, "${request.storyKey}-${request.role.markerKeyPart}-$attempt")
+        } else {
+            remote.latestCommitSha(branch).let { it to null }
         }
-        val command = AgentResultVerificationCommand(
-            commandId = "e2e-verification",
-            startedAt = "2026-07-11T13:00:00Z",
-            endedAt = "2026-07-11T13:00:01Z",
-            durationMs = 1000,
-            exitCode = if (mode == "failed") 1 else 0,
-            status = if (mode == "failed") "failed" else "passed",
-            summary = if (mode == "failed") "scripted failure" else "scripted green verification",
+        return result.copy(
+            runtimeRepositoryResult = RuntimeRepositoryResult(
+                alias = RUNTIME_ALIAS,
+                branch = branch,
+                checkoutCommitSha = checkoutSha,
+                publicationStatus = if (commitSha == null) RuntimePublicationStatus.NO_CHANGES else RuntimePublicationStatus.PUSHED,
+                commitSha = commitSha,
+                diffStat = if (commitSha == null) null else "1 file changed, 1 insertion(+)",
+            ),
+            runtimeVerificationResult = RuntimeVerificationResult(
+                status = if (verificationFailed) RuntimeVerificationStatus.FAILED else RuntimeVerificationStatus.PASSED,
+                configVersion = 1,
+                agentRounds = if (verificationFailed) 3 else 0,
+            ),
         )
-        return AgentResultVerificationEvidence(
-            configVersion = 1,
-            testedHeadSha = if (mode == "mismatch") "f".repeat(40) else identity.headSha,
-            testedTreeSha = identity.treeSha,
-            commands = listOf(command),
+    }
+
+    private fun readOnlyProof(request: AgentDispatchRequest, result: AgentRunCompleteRequest): AgentRunCompleteRequest {
+        val branch = if (request.role == AgentRole.AUDITOR) request.baseBranch ?: "main" else requireNotNull(request.branchName)
+        return result.copy(
+            runtimeRepositoryResult = RuntimeRepositoryResult(
+                alias = RUNTIME_ALIAS,
+                branch = branch,
+                checkoutCommitSha = remote.latestCommitSha(branch),
+                publicationStatus = RuntimePublicationStatus.NONE,
+            ),
         )
     }
 
@@ -151,12 +129,7 @@ class TestAgentRuntime(
     private fun attemptKey(serializationKey: String, role: AgentRole): String =
         "$serializationKey/${role.markerKeyPart}"
 
-    private fun containerName(request: AgentDispatchRequest, attempt: Int): String =
-        "test-${request.storyKey.lowercase()}-${request.role.markerKeyPart}-$attempt"
-            .replace(Regex("[^a-z0-9_.-]"), "-")
-
     companion object {
-        fun workspaceResult(workspacePath: String): Path =
-            Path.of(workspacePath).resolve("agent-result.json")
+        const val RUNTIME_ALIAS = "e2e-repository"
     }
 }

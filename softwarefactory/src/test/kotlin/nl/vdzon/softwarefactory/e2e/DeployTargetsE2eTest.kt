@@ -41,9 +41,6 @@ class DeployTargetsE2eTest : E2eTestBase() {
         runtime.script.apply {
             refinerAsksQuestion = false
             developerAsksQuestion = false
-            // Zoals de echte agentworker: het github-pr-event vult storyRun.prNumber via het normale
-            // completion-pad, zodat merge én deploy een PR-nummer hebben om mee te werken.
-            developerReportsPullRequest = true
         }
         val ui = loginUi()
         // De volledige keten is veel sequentiële, gepollde stappen; in een koude test-JVM

@@ -14,7 +14,7 @@ import kotlin.test.assertTrue
  * `hotfix → merge → deploy` met één DEVELOPER-run.
  *
  * De keten is dezelfde echte Spring-app als in [FullRefineToDevelopE2eTest] (alleen de buitenranden
- * vervangen): de scripted developer rapporteert het `github-pr`-event, waarna de merge-subtaak echt
+ * vervangen): de factory maakt na de Runtime-push zelf de PR, waarna de merge-subtaak echt
  * squash-merget op de [LocalGitRemote] en de deploy-subtaak de `Skip`-route volgt.
  *
  * De regressie "een niet-hotfix-story doorloopt exact de bestaande keten" (AC 10) staat in
@@ -26,7 +26,6 @@ class HotfixChainE2eTest : E2eTestBase() {
     fun `hotfix-story loopt van start tot en met deploy zonder review-, test-, summary-, documentation- of manual-approve-subtaak`() {
         runtime.script.apply {
             developerAsksQuestion = false
-            developerReportsPullRequest = true
         }
         val await = awaiter(Duration.ofSeconds(180))
         val story = "${state.projectKey}-500"
@@ -68,7 +67,6 @@ class HotfixChainE2eTest : E2eTestBase() {
     fun `hotfix-story met vragen aan stelt een vraag en loopt na beantwoording door`() {
         runtime.script.apply {
             developerAsksQuestion = true
-            developerReportsPullRequest = true
         }
         val ui = loginUi()
         val await = awaiter(Duration.ofSeconds(120))

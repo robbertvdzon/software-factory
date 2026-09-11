@@ -13,8 +13,8 @@ import java.time.Duration
  *
  * De tracker-teststate en de scripted runtime zijn gedeelde statics over de test-JVM (één
  * Spring-context), dus elke test reset ze in [resetSharedState]. Gebruik per test een **unieke
- * story-key** (vandaar de helpers met expliciete keys), zodat workspaces op schijf en story-runs in
- * de DB niet tussen tests vermengen.
+ * story-key** (vandaar de helpers met expliciete keys), zodat branches en story-runs niet tussen
+ * tests vermengen.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(E2eTestConfig::class)

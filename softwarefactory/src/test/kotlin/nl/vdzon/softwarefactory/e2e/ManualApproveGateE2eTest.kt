@@ -101,18 +101,10 @@ class ManualApproveGateE2eTest : E2eTestBase() {
         // Goedkeuren via de poort → de keten zet door naar de merge-subtaak (SF-192 approve-pad).
         ui.setSubtaskPhase(gate.key, "manually-approved")
 
-        // SF-244: zodra de merge-subtaak aan de beurt is, probeert de factory automatisch te mergen.
-        // In de e2e-harness (lokale git-remote, geen GitHub-PR) faalt die merge → Error op de
-        // merge-subtaak. Dat bewijst (a) de poort-approve heeft de keten doorgezet naar merge en
-        // (b) SF-244 foutpad: een merge-fout zet de merge-subtaak op Error en stopt de keten.
-        await.awaitErrorContains(merge.key, "automatische merge")
-
-        // De keten stopt op de merge-fout: de deploy-subtaak wordt nooit gestart.
-        assertEquals(
-            null,
-            state.issue(deploy.key)?.fields?.subtaskPhase,
-            "deploy mag niet starten als de merge faalt en de keten stopt",
-        )
+        // De factory heeft de PR al na de eerste Runtime-push gekoppeld. Goedkeuren laat de
+        // merge-subtaak daarom echt mergen en daarna de deploy-subtaak afronden.
+        await.awaitSubtaskPhase(merge.key, "merge-approved")
+        await.awaitSubtaskPhase(deploy.key, "deploy-approved")
         // De keten is niet gereset: de developer draaide precies één keer (vóór de poort).
         assertEquals(1, dispatchCount(story, AgentRole.DEVELOPER), "developer draait 1x; approve reset de keten niet")
     }

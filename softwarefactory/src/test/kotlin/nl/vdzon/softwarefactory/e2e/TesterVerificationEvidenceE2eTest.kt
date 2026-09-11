@@ -4,16 +4,16 @@ import nl.vdzon.softwarefactory.core.AgentRole
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
-/** Productie-loopback via wire-file, completionvalidatie, tracker en orchestrator. */
+/** Productie-loopback via getypeerde Runtime-completion, verificatiebewijs, tracker en orchestrator. */
 class TesterVerificationEvidenceE2eTest : E2eTestBase() {
 
     @Test
-    fun `red and revision-mismatched evidence reset the full chain before exact green evidence passes`() {
+    fun `red developer verification retries before green evidence lets the chain continue`() {
         runtime.script.apply {
             refinerAsksQuestion = false
             developerAsksQuestion = false
             plannedSubtasks = AgentScript.subtasks("development", "review", "test")
-            testerEvidenceModes = listOf("failed", "mismatch", "green")
+            developerVerificationFailures = listOf(true, true, false)
         }
         val ui = loginUi()
         val await = awaiter()
@@ -22,12 +22,12 @@ class TesterVerificationEvidenceE2eTest : E2eTestBase() {
 
         await.awaitStoryPhase(story, "planning-approved")
         ui.startDeveloping(story)
-        awaitDispatchCount(story, AgentRole.TESTER, 3)
+        awaitDispatchCount(story, AgentRole.DEVELOPER, 3)
         val test = state.childrenOf(story).single { it.fields.subtaskType == "test" }
         await.awaitSubtaskPhase(test.key, "test-approved")
 
-        assertEquals(3, dispatchCount(story, AgentRole.DEVELOPER), "iedere evidence-reject reset naar development")
-        assertEquals(6, dispatchCount(story, AgentRole.REVIEWER), "development-review en reviewsubtaak draaien beide per cyclus")
-        assertEquals(3, dispatchCount(story, AgentRole.TESTER), "rood + mismatch + exact groen")
+        assertEquals(3, dispatchCount(story, AgentRole.DEVELOPER), "twee rode jobs lopen terug naar development")
+        assertEquals(2, dispatchCount(story, AgentRole.REVIEWER), "review start pas na de groene developerjob")
+        assertEquals(1, dispatchCount(story, AgentRole.TESTER), "tester draait eenmaal op de gepubliceerde branchstand")
     }
 }

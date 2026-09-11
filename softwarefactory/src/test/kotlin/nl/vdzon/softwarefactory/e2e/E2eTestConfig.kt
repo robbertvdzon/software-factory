@@ -8,11 +8,13 @@ import nl.vdzon.softwarefactory.config.services.FactoryEnvironmentProvider
 import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
 import nl.vdzon.softwarefactory.core.contracts.DeploymentStatusProbe
 import nl.vdzon.softwarefactory.github.GitHubApi
+import nl.vdzon.softwarefactory.runtime.RuntimeApi
 import nl.vdzon.softwarefactory.telegram.clients.TelegramClient
 import nl.vdzon.softwarefactory.telegram.models.TelegramUpdate
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
+import org.springframework.scheduling.annotation.Scheduled
 import org.testcontainers.containers.PostgreSQLContainer
 import java.nio.file.Path
 import java.util.concurrent.LinkedBlockingQueue
@@ -43,6 +45,10 @@ class E2eTestConfig {
     @Bean
     @Primary
     fun testAgentRuntime(): AgentRuntime = TEST_AGENT_RUNTIME
+
+    @Bean
+    fun testAgentCompletionPoller(runtimeApi: RuntimeApi): TestAgentCompletionPoller =
+        TestAgentCompletionPoller(TEST_AGENT_RUNTIME, runtimeApi)
 
     /**
      * Vervangt de `gh`-CLI ([nl.vdzon.softwarefactory.github.clients.GitHubCliClient]): deelt
@@ -85,6 +91,10 @@ class E2eTestConfig {
         mapOf(
             "sample" to LOCAL_REMOTE.path.toString(),
             DEPLOY_PROJECT to LOCAL_REMOTE.path.toString(),
+        ),
+        runtimeAliases = mapOf(
+            "sample" to TestAgentRuntime.RUNTIME_ALIAS,
+            DEPLOY_PROJECT to TestAgentRuntime.RUNTIME_ALIAS,
         ),
         requiredChecks = mapOf(
             "sample" to setOf("E2E verification"),
@@ -192,11 +202,11 @@ class E2eTestConfig {
             ),
         )
 
-        /** Eén scripted agent-runtime, gedeeld zodat de test de dispatch-volgorde kan asserten. */
-        val TEST_AGENT_RUNTIME = TestAgentRuntime()
-
         /** Lokale file-based git-remote i.p.v. GitHub: de factory kloont/pusht hier echt tegenaan (§8). */
         val LOCAL_REMOTE = LocalGitRemote()
+
+        /** Eén scripted agent-runtime, gedeeld zodat de test de dispatch-volgorde kan asserten. */
+        val TEST_AGENT_RUNTIME = TestAgentRuntime(LOCAL_REMOTE)
 
         /** Fake GitHub-API: PR-nummers + echte lokale squash-merge op [LOCAL_REMOTE]. */
         val FAKE_GITHUB = FakeGitHubApi(LOCAL_REMOTE)
@@ -233,6 +243,19 @@ class E2eTestConfig {
             // productie-gedrag te maskeren.
             "SF_ACTIVE_PHASE_RECOVERY_DELAY_MS" to "600000",
         )
+    }
+}
+
+/** Levert scripted Runtime-resultaten pas nadat de dispatcher zijn lokale correlatierij heeft geschreven. */
+class TestAgentCompletionPoller(
+    private val runtime: TestAgentRuntime,
+    private val runtimeApi: RuntimeApi,
+) {
+    @Scheduled(fixedDelay = 20)
+    fun poll() {
+        while (runtime.completeNext(runtimeApi)) {
+            // Drain alle resultaten waarvoor de bijbehorende agent-run inmiddels bestaat.
+        }
     }
 }
 
