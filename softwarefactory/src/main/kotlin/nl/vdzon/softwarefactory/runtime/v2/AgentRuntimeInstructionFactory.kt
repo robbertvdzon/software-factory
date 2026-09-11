@@ -21,10 +21,17 @@ class AgentRuntimeInstructionFactory(
         request.baseBranch?.let { appendLine("Base branch: `$it`") }
         request.branchName?.let { appendLine("Storybranch: `$it`") }
         request.previewUrl?.let { appendLine("Preview: `$it`") }
+        request.previewNamespace?.let { appendLine("Preview namespace: `$it`") }
+        request.aiEffort?.takeIf(String::isNotBlank)?.let { appendLine("Gevraagde effort: `$it`") }
         appendLine()
         appendLine(commonRules(request))
         appendLine()
-        appendLine(roleRules(request.role, request.questionsAllowed))
+        appendLine(AgentRuntimeRoleInstructions.forRole(request.role, request.questionsAllowed))
+        request.developerLoopbackReason?.takeIf(String::isNotBlank)?.let {
+            appendLine()
+            appendLine("## Developer-loopback")
+            appendLine(it)
+        }
         request.trackerContext?.takeIf(String::isNotBlank)?.let {
             appendLine()
             appendLine(it)
@@ -59,7 +66,7 @@ class AgentRuntimeInstructionFactory(
 
     fun resultSchema(role: AgentRole): JsonNode {
         val properties = objectMapper.createObjectNode().apply {
-            set<JsonNode>("phase", stringSchema())
+            set<JsonNode>("phase", phaseSchema(role))
             set<JsonNode>("outcome", stringSchema())
             set<JsonNode>("summaryText", stringSchema(maxLength = 200_000))
             set<JsonNode>("questions", arraySchema(stringSchema(maxLength = 4_000), 50))
@@ -83,12 +90,27 @@ class AgentRuntimeInstructionFactory(
             set<JsonNode>("required", objectMapper.valueToTree(listOf("phase", "outcome", "summaryText")))
             set<JsonNode>("properties", properties)
             put("additionalProperties", false)
+            if (role == AgentRole.PLANNER) {
+                set<JsonNode>("allOf", objectMapper.createArrayNode().add(requiredWhen("phase", "planned", "subtasks")))
+            }
+            if (role == AgentRole.SUMMARIZER) {
+                set<JsonNode>(
+                    "allOf",
+                    objectMapper.createArrayNode().add(
+                        requiredWhen("phase", "summarized", "descriptionSummary", "shortDescriptionSummary"),
+                    ),
+                )
+            }
         }
     }
 
     private fun commonRules(request: AgentDispatchRequest): String = buildString {
         appendLine("## Algemene regels")
         appendLine("- Werk zelfstandig en gebruik geen secrets in output.")
+        appendLine("- Deze job is één run. Wacht iedere gestarte achtergrondtaak af voordat je antwoordt.")
+        appendLine("- Antwoorden uit relevante issue-comments zijn leidend wanneer ze botsen met oudere context.")
+        appendLine("- Zet herbruikbare nieuwe kennis in `knowledgeUpdates`; gebruik een lege lijst als er niets is.")
+        appendLine("- Vul altijd `phase`, `outcome` en een concrete `summaryText` in volgens het resultaatschema.")
         if (request.role in REPOSITORY_ROLES) {
             appendLine("- Werk uitsluitend in de door Agent Runtime voorbereide checkout.")
             appendLine("- Laat relevante tests groen achter.")
@@ -100,62 +122,25 @@ class AgentRuntimeInstructionFactory(
         }
     }
 
-    private fun roleRules(role: AgentRole, questionsAllowed: Boolean): String = when (role) {
-        AgentRole.REFINER -> """
-            ## Refiner
-            Schrijf geen code. Maak de story zelfstandig implementeerbaar. Zet het definitieve voorstel in
-            `summaryText` tussen `<!-- proposed-description:start -->` en `<!-- proposed-description:end -->`.
-            Gebruik fase `refined`, of ${questionPhase("refined-with-questions", questionsAllowed)}.
-        """.trimIndent()
-        AgentRole.PLANNER -> """
-            ## Planner
-            Schrijf geen code. Maak normaal één development-, één test- en één summary-subtaak.
-            Tests schrijven hoort bij development. Gebruik fase `planned`, of
-            ${questionPhase("planned-with-questions", questionsAllowed)} en vul `subtasks`.
-        """.trimIndent()
-        AgentRole.DEVELOPER -> """
-            ## Developer
-            Implementeer de volledige opdracht inclusief tests. Gebruik fase `developed`, of
-            ${questionPhase("developed-with-questions", questionsAllowed)}. Laat alle bestandswijzigingen
-            in de worktree; de Runtime-worker verifieert, commit en pusht pas na jouw run.
-        """.trimIndent()
-        AgentRole.REVIEWER -> """
-            ## Reviewer
-            Wijzig geen implementatie. Review de volledige storydiff en rapporteer alle blockers in één pass.
-            Gebruik `reviewed`, `review-rejected`, of ${questionPhase("reviewed-with-questions", questionsAllowed)}.
-        """.trimIndent()
-        AgentRole.TESTER -> """
-            ## Tester
-            Verifieer gedrag; schrijf geen code of tests. Gebruik `tested`, `test-rejected`, of
-            ${questionPhase("tested-with-questions", questionsAllowed)}. Maak bij browser- of
-            previewtests screenshots. Bundel uitsluitend PNG-, JPEG- of WebP-screenshots als ZIP
-            op exact `/job/output/artifacts/screenshots`; laat dit optionele artifact weg wanneer
-            er geen screenshots zijn.
-        """.trimIndent()
-        AgentRole.SUMMARIZER -> """
-            ## Summarizer
-            Vat uitsluitend het werkelijk opgeleverde resultaat samen. Gebruik fase `summarized` en vul
-            `descriptionSummary` en `shortDescriptionSummary`, of
-            ${questionPhase("summary-with-questions", questionsAllowed)}.
-        """.trimIndent()
-        AgentRole.DOCUMENTER -> """
-            ## Documenter
-            Werk alleen werkelijk geraakte documentatie bij. Geen impact is toegestaan. Gebruik `documented`,
-            of ${questionPhase("documentation-with-questions", questionsAllowed)}.
-        """.trimIndent()
-        AgentRole.AUDITOR -> """
-            ## Auditor
-            Voer een read-only audit uit en stel hoogstens één vervolgstory voor. Gebruik `audited`, of
-            ${questionPhase("audit-questions", questionsAllowed)}.
-        """.trimIndent()
-        else -> error("Role ${role.markerKeyPart} is not an Agent Runtime role")
-    }
-
-    private fun questionPhase(phase: String, allowed: Boolean): String =
-        if (allowed) "`$phase` met concrete vragen" else "geen vragenfase"
-
     private fun stringSchema(maxLength: Int = 4_000): JsonNode =
         objectMapper.createObjectNode().put("type", "string").put("maxLength", maxLength)
+
+    private fun phaseSchema(role: AgentRole): JsonNode = objectMapper.createObjectNode().apply {
+        put("type", "string")
+        set<JsonNode>("enum", objectMapper.valueToTree(PHASES.getValue(role)))
+    }
+
+    private fun requiredWhen(property: String, value: String, vararg required: String): JsonNode =
+        objectMapper.createObjectNode().apply {
+            set<JsonNode>("if", objectMapper.createObjectNode().apply {
+                set<JsonNode>("properties", objectMapper.createObjectNode().apply {
+                    set<JsonNode>(property, objectMapper.createObjectNode().put("const", value))
+                })
+            })
+            set<JsonNode>("then", objectMapper.createObjectNode().apply {
+                set<JsonNode>("required", objectMapper.valueToTree(required.toList()))
+            })
+        }
 
     private fun numberSchema(): JsonNode = objectMapper.createObjectNode().put("type", "number")
 
@@ -188,6 +173,16 @@ class AgentRuntimeInstructionFactory(
     }
 
     companion object {
+        private val PHASES = mapOf(
+            AgentRole.REFINER to listOf("refined", "refined-with-questions"),
+            AgentRole.PLANNER to listOf("planned", "planned-with-questions"),
+            AgentRole.DEVELOPER to listOf("developed", "developed-with-questions"),
+            AgentRole.REVIEWER to listOf("reviewed", "review-rejected", "reviewed-with-questions"),
+            AgentRole.TESTER to listOf("tested", "test-rejected", "tested-with-questions"),
+            AgentRole.SUMMARIZER to listOf("summarized", "summary-with-questions"),
+            AgentRole.DOCUMENTER to listOf("documented", "documentation-with-questions"),
+            AgentRole.AUDITOR to listOf("audited", "audit-questions"),
+        )
         private val REPOSITORY_ROLES = setOf(
             AgentRole.DEVELOPER,
             AgentRole.REVIEWER,

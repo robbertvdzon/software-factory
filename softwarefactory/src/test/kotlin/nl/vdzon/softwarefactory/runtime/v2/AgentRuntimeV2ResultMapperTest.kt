@@ -85,6 +85,45 @@ class AgentRuntimeV2ResultMapperTest {
         assertEquals(listOf(artifact), completion.runtimeArtifacts)
     }
 
+    @Test
+    fun `structured rollen behouden vragen subtaken en samenvattingen`() {
+        val jobId = UUID.fromString("33333333-3333-3333-3333-333333333333")
+        val runtimeJob = job(jobId, RuntimeJobStatus.SUCCEEDED)
+        val refiner = mapper.completed(
+            "SF-42",
+            AgentRole.REFINER,
+            jobId.toString(),
+            runtimeJob,
+            result(jobId, """{"phase":"refined-with-questions","outcome":"waiting","summaryText":"Nog niet helder.","questions":["Wat is leidend?"]}"""),
+        )
+        val planner = mapper.completed(
+            "SF-42",
+            AgentRole.PLANNER,
+            jobId.toString(),
+            runtimeJob,
+            result(jobId, """{"phase":"planned","outcome":"planned","summaryText":"Plan klaar.","subtasks":[{"type":"development","title":"Bouw het"}]}"""),
+        )
+        val summarizer = mapper.completed(
+            "SF-42",
+            AgentRole.SUMMARIZER,
+            jobId.toString(),
+            runtimeJob,
+            result(jobId, """{"phase":"summarized","outcome":"summarized","summaryText":"Klaar.","descriptionSummary":"Uitgebreid.","shortDescriptionSummary":"Kort."}"""),
+        )
+
+        assertTrue(refiner.summaryText.orEmpty().contains("Wat is leidend?"))
+        assertEquals("development", planner.subtasks.single().type)
+        assertEquals("Uitgebreid.", summarizer.descriptionSummary)
+        assertEquals("Kort.", summarizer.shortDescriptionSummary)
+    }
+
+    private fun result(jobId: UUID, payload: String) = RuntimeJobResultView(
+        jobId = jobId,
+        result = json.readTree(payload),
+        usageSummary = RuntimeUsageSummary(1, "MEASURED"),
+        completedAt = OffsetDateTime.parse("2026-09-11T07:00:00Z"),
+    )
+
     private fun job(id: UUID, status: RuntimeJobStatus) = RuntimeJobView(
         id = id,
         tenantId = "software-factory",

@@ -21,7 +21,7 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 |---:|---|---|---|
 | 0 | bezig | Productie-health is groen; execution options en repositoryaliases zijn op 2026-09-11 uitgelezen; een echte `STRUCTURED_GENERATION`-probe eindigde `SUCCEEDED` met job `3a2c4970-b6b3-426c-830a-488aa47ef8af`. | Mock- en repositoryprobes afronden. De allowlist bevat `test-repository`, maar er is nog geen online worker die die alias aanbiedt. |
 | 1 | afgerond | [`ontwerp-runtimevervanging.md`](ontwerp-runtimevervanging.md) legt vervanging, correlatie, prompts, Git-eigenaarschap, modelconfiguratie, quota en workspace-aannames vast. | Runtime-consumer bouwen. |
-| 2 | bezig | De v2-adapter maakt idempotente jobs, bouwt rolprompts/schema's, projecteert events/resultaten en gebruikt databasegestuurde modelkeuze. Refiner, planner en summarizer volgen hiermee het v2-pad. Het Settings-scherm beheert defaults en projectoverschrijvingen. Prompt en attachments gebruiken waar nodig hervatbare inputuploads. Runtime-outputartifacts worden vóór domeinpublicatie op declaratie, MIME, grootte, status, bytes en SHA-256 gevalideerd. Runtime-status, fase en fouten staan in de bestaande agentsweergave en alle terminale statussen ronden deterministisch af. | Mockacceptatie en prompt-/vraagpariteit bewijzen. |
+| 2 | afgerond | De v2-adapter maakt idempotente jobs, bouwt volledige rolprompts en begrensde schema's, projecteert events/resultaten/artifacts/usage/status/fouten en gebruikt databasegestuurde modelkeuze. Refiner, planner en summarizer volgen het v2-pad, inclusief vragen en hervatting. De lokale acceptatieroundtrip gebruikt uitsluitend `mock/mock/MOCK`. | Repositoryketen in stap 3 afronden. |
 | 3 | bezig | Storybranch, dispatch, repositorybewijs, verificatiebewijs en PR worden zonder lokale checkout verwerkt; projectmodelkeuze gebruikt de canonieke repositoryprojectnaam. Ook audits gebruiken een read-only Runtime-checkout en getypeerd resultaat. | Promptpariteit, stale-weergave en de resterende repositoryscenario's automatiseren. |
 | 4 | niet gestart | — | Stap 3 groen. |
 | 5 | niet gestart | — | Oude runner verwijderd en volledige reactor lokaal groen. |
@@ -43,7 +43,7 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 | Resultaat bij terminale verificatiefout | beschikbaar | Resultaatendpoint documenteert gevalideerd resultaat plus bewijs bij terminale verificatiefout. |
 | Events, artifacts, usage en cancel | beschikbaar | Gepubliceerde endpoints en contracttypen aanwezig; consumerimplementatie volgt in stap 2. |
 | Repositoryaliascatalogus | bewezen | Productie meldde `software-factory` en de targetprojectaliases beschikbaar op één online worker. |
-| Mockuitvoering | beschikbaar, live probe open | Contract en Runtime-tests ondersteunen mocks; productie verbiedt mocks terecht. Lokale/acceptatieprobe volgt zonder productieconsumer te muteren. |
+| Mockuitvoering | lokaal bewezen | De Software Factory-consumer doorloopt create en getypeerd resultaat met uitsluitend `mock/mock/MOCK`; productie verbiedt mocks terecht. |
 | Tijdelijke repositoryketen | geblokkeerd voor live probe | `test-repository` is toegestaan maar niet beschikbaar op een online worker. Er wordt niet uitgeweken naar een productierepository. |
 
 ## Besluiten en blokkades
@@ -200,3 +200,17 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 - De badgekleuren onderscheiden geslaagd, actief, wachtend en terminale fout/cancel/timeout.
 - Vier pollertests, vier Agents-widgettests en de PostgreSQL-repositorytest zijn groen, inclusief
   transient-resultretry, verificatiefout met resultaat, databaseprojectie en foutweergave.
+
+### 2026-09-11 — promptpariteit en mockacceptatie
+
+- Alle acht Runtime-rollen hebben weer de kritieke gedragscontracten uit de oude agentworker:
+  refiner-markers, minimale planneropdeling, developer-handover en verificatie, volledige reviewpass,
+  read-only gedragstests, verplichte gebruikerssamenvattingen, docs-scope en hervatbare auditvragen.
+- Algemene instructies leggen single-run-gedrag, leidende PO-comments, knowledge-updates, verplichte
+  resultaatvelden en het verbod op muterende Gitacties vast. Developer-loopback, effort en
+  niet-geheime previewcontext worden expliciet meegegeven; de previewdatabase-URL niet.
+- Resultaatschema's staan alleen geldige fases per rol toe. Een afgeronde planner moet subtaken
+  leveren en een afgeronde summarizer beide gebruikerssamenvattingen.
+- Een lokale consumeracceptatietest doorloopt jobaanmaak en getypeerd resultaat uitsluitend met
+  `mock/mock/MOCK`, zonder repositorycheckout. Aanvullende tests bewijzen vragen, subtaken,
+  samenvattingen en alle rol-specifieke promptankers.

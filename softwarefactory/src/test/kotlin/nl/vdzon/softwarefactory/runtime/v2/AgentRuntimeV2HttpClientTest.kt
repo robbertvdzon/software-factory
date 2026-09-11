@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.runtime.v2
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import nl.vdzon.softwarefactory.core.AgentRole
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
@@ -48,6 +49,68 @@ class AgentRuntimeV2HttpClientTest {
 
         assertEquals(jobId, created.id)
         assertEquals(RuntimeJobStatus.QUEUED, created.status)
+        server.verify()
+    }
+
+    @Test
+    fun `mockacceptatie doorloopt create en getypeerd resultaat zonder repositorymutatie`() {
+        val builder = RestClient.builder()
+        val server = MockRestServiceServer.bindTo(builder).build()
+        val client = AgentRuntimeV2HttpClient(builder.build())
+        val jobId = UUID.fromString("66666666-6666-6666-6666-666666666666")
+        val request = RuntimeCreateJobRequest(
+            idempotencyKey = "sf-42-refiner-1",
+            jobKind = RuntimeJobKind.APPLICATION_WORK,
+            taskType = RuntimeTaskType.STRUCTURED_GENERATION,
+            execution = RuntimeExecution("mock", "mock", RuntimeExecutionMode.MOCK),
+            input = RuntimeJobInput("Verfijn de story en geef JSON terug."),
+            output = RuntimeOutputContract(
+                resultSchema = mapper.readTree(
+                    """{"type":"object","required":["phase","outcome","summaryText"]}""",
+                ),
+            ),
+            executionTimeoutSeconds = 600,
+        )
+        server.expect(requestTo("/v2/jobs"))
+            .andExpect(method(HttpMethod.POST))
+            .andExpect { exchange ->
+                val json = mapper.readTree((exchange as MockClientHttpRequest).bodyAsBytes)
+                assertEquals("mock", json.at("/execution/vendorId").asText())
+                assertEquals("mock", json.at("/execution/model").asText())
+                assertEquals("MOCK", json.at("/execution/mode").asText())
+                assertTrue(json.path("repositoryCheckout").isNull)
+            }
+            .andRespond(withSuccess(mockJobJson(jobId, "SUCCEEDED"), MediaType.APPLICATION_JSON))
+        server.expect(requestTo("/v2/jobs/$jobId/result"))
+            .andExpect(method(HttpMethod.GET))
+            .andRespond(
+                withSuccess(
+                    """
+                    {
+                      "jobId":"$jobId",
+                      "result":{"phase":"refined","outcome":"refined","summaryText":"Story is helder."},
+                      "artifacts":[],
+                      "usageSummary":{"attemptCount":1,"usageQuality":"MEASURED","metrics":[],"costs":[]},
+                      "completedAt":"2026-09-11T07:00:01Z"
+                    }
+                    """.trimIndent(),
+                    MediaType.APPLICATION_JSON,
+                ),
+            )
+
+        val created = client.createJob(request)
+        val result = client.getResult(created.id)
+        val completion = AgentRuntimeV2ResultMapper().completed(
+            "SF-42",
+            AgentRole.REFINER,
+            created.id.toString(),
+            created,
+            result,
+        )
+
+        assertEquals(RuntimeJobStatus.SUCCEEDED, created.status)
+        assertEquals("refined", completion.phase)
+        assertEquals("Story is helder.", completion.summaryText)
         server.verify()
     }
 
@@ -206,6 +269,25 @@ class AgentRuntimeV2HttpClientTest {
           "maxAttempts":3,
           "createdAt":"2026-09-11T07:00:00Z",
           "updatedAt":"2026-09-11T07:00:00Z"
+        }
+        """.trimIndent()
+
+    private fun mockJobJson(jobId: UUID, status: String) =
+        """
+        {
+          "id":"$jobId",
+          "tenantId":"software-factory",
+          "idempotencyKey":"sf-42-refiner-1",
+          "jobKind":"APPLICATION_WORK",
+          "taskType":"STRUCTURED_GENERATION",
+          "execution":{"vendorId":"mock","model":"mock","mode":"MOCK"},
+          "status":"$status",
+          "phase":"COMPLETED",
+          "attemptCount":1,
+          "maxAttempts":1,
+          "createdAt":"2026-09-11T07:00:00Z",
+          "updatedAt":"2026-09-11T07:00:01Z",
+          "completedAt":"2026-09-11T07:00:01Z"
         }
         """.trimIndent()
 }
