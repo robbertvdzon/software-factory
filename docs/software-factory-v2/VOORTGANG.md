@@ -25,7 +25,7 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 | 2 | afgerond | De v2-adapter maakt idempotente jobs, bouwt volledige rolprompts en begrensde schema's, projecteert events/resultaten/artifacts/usage/status/fouten en gebruikt databasegestuurde modelkeuze. Refiner, planner en summarizer volgen het v2-pad, inclusief vragen en hervatting. De lokale acceptatieroundtrip gebruikt uitsluitend `mock/mock/MOCK`. | Repositoryketen in stap 3 afronden. |
 | 3 | lokaal afgerond | Storybranch, dispatch, repositorybewijs, verificatiebewijs en PR worden zonder lokale checkout verwerkt; projectmodelkeuze gebruikt de canonieke repositoryprojectnaam. Ook audits gebruiken een read-only Runtime-checkout en getypeerd resultaat. Alias, branch, publicatiemodus en actuele remote HEAD worden fail-closed getoetst; stale bewijs wordt zichtbaar geweigerd. De volledige lokale E2E-harness gebruikt hetzelfde branch-/completionprotocol. | Live story-, hotfix- en auditacceptatie in stap 5. |
 | 4 | afgerond | Agentworker, lokale Docker-runtime, storyworkspaces, resultbestandcontracten, lokale AI-routes, providercredentials en AI-level zijn verwijderd. Actuele documentatie beschrijft Runtime v2. | — |
-| 5 | bezig | Kwaliteitsratchet, volledige Maven-reactor en volledige Flutter-suite zijn lokaal groen. | Normale pipeline activeren, images/deployment volgen en live acceptatiescenario's uitvoeren. |
+| 5 | bezig | Kwaliteitsratchet, volledige Maven-reactor, volledige Flutter-suite en `verify.yml` zijn groen. De dashboardimages `sha-6b7d86d` draaien `Synced`/`Healthy` op OpenShift en de lokale orchestrator is verbonden op versie `8a695ef9`. | `SF_AGENT_RUNTIME_TOKEN` lokaal configureren; daarna story-, hotfix-, audit- en Telegramacceptatie uitvoeren. |
 
 ## Contractcontrole
 
@@ -52,6 +52,10 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 - De ontbrekende online `test-repository`-alias blokkeert alleen de destructieve live probe uit
   stap 0, niet de consumerimplementatie: dezelfde contracten zijn in Agent Runtime zelf getest en
   productie toont de echte repositorycapaciteit.
+- De live Software Factory-acceptatie uit stap 5 wacht op één handmatige secretconfiguratie:
+  `SF_AGENT_RUNTIME_TOKEN` ontbreekt in het draaiende lokale proces. Conform afspraak wijzigt de
+  implementatie-agent `secrets.env` niet. De waarde moet gelijk zijn aan het tenanttoken
+  `AR_SOFTWARE_FACTORY_TOKEN` van Agent Runtime; de tokenwaarde wordt nergens gelogd of gecommit.
 - Er komt geen lokale workaround, gedeelde checkout of netwerkvolume.
 - Commits tot en met stap 4 eindigen op `[skip ci]`; stap 5 activeert de normale pipeline.
 
@@ -343,3 +347,20 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 - De volgende commit bevat bewust geen `[skip ci]` en start daarmee de normale verificatie- en
   imageketen. Pipeline-, image-, deployment- en live-acceptatiebewijs worden daarna hier
   toegevoegd.
+
+### 2026-09-11 — pipeline, images en huidige deployment groen
+
+- Opleveringscommit `6b7d86d4` is rechtstreeks naar `main` gepusht zonder `[skip ci]`.
+- GitHub Actions-run `34607990679` (`Repository verification`) is volledig groen: releasebot,
+  Flutter, Maven en de fail-closed verzamelgate zijn geslaagd.
+- Image-runs `34608643508` en `34608643346` zijn groen. Backend en frontend zijn gepubliceerd als
+  `sha-6b7d86d`; de Android-APK is eveneens gebouwd en als release gepubliceerd.
+- De geautomatiseerde manifest-PR's `#483` en `#484` zijn na hun verplichte verificatie gemerged.
+  Argo CD staat op revisie `8a695ef9`, `Synced` en `Healthy`; beide deployments zijn `1/1` en
+  gebruiken image `sha-6b7d86d`. De publieke `/healthz` retourneert `ok`.
+- De lokale orchestrator is via zijn bestaande beheer-API zonder actieve agentrun herstart. De
+  Product Factory v2-status retourneert `connected=true`, `apiVersion=2` en factoryversie
+  `8a695ef9`.
+- De echte story-, hotfix-, audit- en Telegramacceptatie is nog niet uitgevoerd: het lokale proces
+  heeft geen `SF_AGENT_RUNTIME_TOKEN`. Dit secret moet door de eigenaar in het bestaande
+  gitignored `secrets.env` worden gezet; het secretmechanisme zelf verandert niet.
