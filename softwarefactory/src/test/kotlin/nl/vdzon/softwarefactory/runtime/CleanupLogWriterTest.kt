@@ -61,10 +61,10 @@ class CleanupLogWriterTest {
         val repository = InMemoryRepository()
 
         CleanupLogWriter(repository, clock)
-            .record(CleanupKinds.WORKSPACES, startedAt, itemsDeleted = 0, error = "schijf vol")
+            .record(CleanupKinds.COMPLETION_PAYLOADS, startedAt, itemsDeleted = 0, error = "schijf vol")
 
         val row = repository.added.single()
-        assertEquals(CleanupKinds.WORKSPACES, row.kind)
+        assertEquals(CleanupKinds.COMPLETION_PAYLOADS, row.kind)
         assertEquals("schijf vol", row.error)
         assertEquals(0, row.itemsDeleted)
     }
@@ -85,10 +85,10 @@ class CleanupLogWriterTest {
     fun `een handmatige ronde levert altijd een rij op, ook zonder verwijderingen`() {
         val repository = InMemoryRepository()
 
-        CleanupLogWriter(repository, clock).runLocked(CleanupKinds.WORKSPACES, CleanupTriggers.MANUAL) { 0 }
+        CleanupLogWriter(repository, clock).runLocked(CleanupKinds.COMPLETION_PAYLOADS, CleanupTriggers.MANUAL) { 0 }
 
         val row = repository.added.single()
-        assertEquals(CleanupKinds.WORKSPACES, row.kind)
+        assertEquals(CleanupKinds.COMPLETION_PAYLOADS, row.kind)
         assertEquals(0, row.itemsDeleted)
         assertEquals(CleanupTriggers.MANUAL, row.trigger)
         assertNull(row.error)

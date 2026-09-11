@@ -80,11 +80,11 @@ class CleanupRunNowServiceTest {
     @Test
     fun `twee keer snel klikken start maar één ronde`() {
         val queue = mutableListOf<Runnable>()
-        val runner = FakeRunner(CleanupKinds.WORKSPACES)
+        val runner = FakeRunner(CleanupKinds.COMPLETION_PAYLOADS)
         val service = service(listOf(runner), executor = Executor { queue += it })
 
-        val first = service.runNow(CleanupKinds.WORKSPACES)
-        val second = service.runNow(CleanupKinds.WORKSPACES)
+        val first = service.runNow(CleanupKinds.COMPLETION_PAYLOADS)
+        val second = service.runNow(CleanupKinds.COMPLETION_PAYLOADS)
 
         assertEquals(CleanupRunStatus.STARTED, first.status)
         assertEquals(CleanupRunStatus.ALREADY_RUNNING, second.status)
@@ -92,7 +92,7 @@ class CleanupRunNowServiceTest {
         // Zodra de eerste ronde klaar is, is de bewaking weer vrij.
         queue.single().run()
         assertEquals(emptyList<String>(), guard.runningKinds())
-        assertEquals(CleanupRunStatus.STARTED, service.runNow(CleanupKinds.WORKSPACES).status)
+        assertEquals(CleanupRunStatus.STARTED, service.runNow(CleanupKinds.COMPLETION_PAYLOADS).status)
     }
 
     @Test
@@ -152,7 +152,6 @@ class CleanupRunNowServiceTest {
             CleanupKinds.AGENT_EVENTS,
             CleanupKinds.AGENT_RUNS,
             CleanupKinds.COMPLETION_PAYLOADS,
-            CleanupKinds.WORKSPACES,
         ).map { FakeRunner(it) }
 
     private class FakeRunner(

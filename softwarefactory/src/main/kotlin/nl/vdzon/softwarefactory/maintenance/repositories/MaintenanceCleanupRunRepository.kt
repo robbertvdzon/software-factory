@@ -9,7 +9,7 @@ import java.sql.ResultSet
 import java.time.OffsetDateTime
 
 /**
- * De vijf opruimmechanismen die in deze log terechtkomen. Vrije tekst in de database (zie V31), hier
+ * De vier opruimmechanismen die in deze log terechtkomen. Vrije tekst in de database (zie V31), hier
  * als afspraak vastgelegd zodat schrijvers en het scherm dezelfde waarden gebruiken.
  */
 object CleanupKinds {
@@ -17,10 +17,9 @@ object CleanupKinds {
     const val AGENT_EVENTS = "agent-events"
     const val AGENT_RUNS = "agent-runs"
     const val COMPLETION_PAYLOADS = "completion-payloads"
-    const val WORKSPACES = "workspaces"
 
     /** Volgorde van het soort-filter in het scherm, en de volgorde van "alles draaien". */
-    val ALL = listOf(GITHUB_RELEASES, AGENT_EVENTS, AGENT_RUNS, COMPLETION_PAYLOADS, WORKSPACES)
+    val ALL = listOf(GITHUB_RELEASES, AGENT_EVENTS, AGENT_RUNS, COMPLETION_PAYLOADS)
 
     /** De `kind`-waarde van "Alles draaien" — geen opruimsoort, maar de verzamelopdracht (SF-1929). */
     const val ALL_KINDS = "all"
@@ -40,7 +39,7 @@ object CleanupTriggers {
 
 /**
  * JSON-vorm van de `details`-kolom: puur presentatiemateriaal voor het detailscherm, nooit een
- * queryable dimensie. Alleen [CleanupKinds.GITHUB_RELEASES] vult 'm; de vier andere mechanismen
+ * queryable dimensie. Alleen [CleanupKinds.GITHUB_RELEASES] vult 'm; de drie andere mechanismen
  * hebben niets uit te splitsen en laten alles op de defaults staan.
  */
 data class CleanupDetails(

@@ -219,7 +219,7 @@ class MaintenanceCleanupRunRepositoryTest {
             listOf(CleanupKinds.AGENT_RUNS),
             repository.recent(kind = CleanupKinds.AGENT_RUNS).map { it.kind },
         )
-        assertEquals(emptyList<String>(), repository.recent(kind = CleanupKinds.WORKSPACES).map { it.kind })
+        assertEquals(emptyList<String>(), repository.recent(kind = "workspaces").map { it.kind })
         // Project én soort samen: beide filters moeten gelden, niet één van beide.
         assertEquals(1, repository.recent(project = "sf", kind = CleanupKinds.GITHUB_RELEASES).size)
         assertEquals(0, repository.recent(project = "sf", kind = CleanupKinds.AGENT_RUNS).size)
@@ -261,12 +261,15 @@ class MaintenanceCleanupRunRepositoryTest {
     fun `latestPerKindAndProject kijkt voorbij de lijstlimiet van recent`() {
         val now = now()
         // Eén rustige soort met een oude ronde, daarna ruim meer dan DEFAULT_LIMIT (200) drukke rondes.
-        val rustige = add(null, now.minusDays(30), kind = CleanupKinds.WORKSPACES)
+        val rustige = add(null, now.minusDays(30), kind = CleanupKinds.COMPLETION_PAYLOADS)
         repeat(220) { add(null, now.minusMinutes(it.toLong()), kind = CleanupKinds.AGENT_EVENTS) }
 
         // De afgekapte lijst kent de rustige soort niet meer; de samenvatting wél.
-        assertTrue(repository.recent().none { it.kind == CleanupKinds.WORKSPACES })
-        assertEquals(rustige.id, repository.latestPerKindAndProject().single { it.kind == CleanupKinds.WORKSPACES }.id)
+        assertTrue(repository.recent().none { it.kind == CleanupKinds.COMPLETION_PAYLOADS })
+        assertEquals(
+            rustige.id,
+            repository.latestPerKindAndProject().single { it.kind == CleanupKinds.COMPLETION_PAYLOADS }.id,
+        )
     }
 
     @Test

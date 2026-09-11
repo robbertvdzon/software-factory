@@ -51,7 +51,7 @@ class CleanupRunNowService @Autowired constructor(
         this.executor = executor
     }
 
-    /** De GitHub-cleanup als [CleanupRunner], zodat de vijf soorten hier één pad delen. */
+    /** De GitHub-cleanup als [CleanupRunner], zodat de vier soorten hier één pad delen. */
     private val gitHubRunner = object : CleanupRunner {
         override val cleanupKind: String = CleanupKinds.GITHUB_RELEASES
         override fun cleanupEnabled(): Boolean = true

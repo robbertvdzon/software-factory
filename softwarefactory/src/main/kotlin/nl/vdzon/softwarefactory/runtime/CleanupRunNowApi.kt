@@ -3,13 +3,13 @@ package nl.vdzon.softwarefactory.runtime
 import nl.vdzon.softwarefactory.runtime.models.CleanupRunNowOutcome
 
 /**
- * Publieke poort waarmee het dashboard een opruimronde nú kan laten draaien (SF-1929) — de vier
+ * Publieke poort waarmee het dashboard een opruimronde nú kan laten draaien (SF-1929) — de drie
  * factory-brede opruimers én, via [nl.vdzon.softwarefactory.maintenance.MaintenanceCleanupApi], de
  * GitHub-cleanup.
  *
  * Root-package-poort volgens het precedent [AgentLogApi] /
  * [nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi]: de dashboard-module mag de pollers in
- * `runtime :: services`/`runtime :: workspaces` zelf niet kennen.
+ * `runtime :: services` zelf niet kennen.
  */
 interface CleanupRunNowApi {
     /**

@@ -10,10 +10,8 @@ import nl.vdzon.softwarefactory.runtime.types.CompletionStep
 /**
  * Public API of the runtime module.
  *
- * The runtime module owns execution state around agent containers: workspaces,
- * logs, run events and completion handling. Web adapters call this API when an
- * agent run has finished; the runtime also uses it after reading agent result
- * files from completed container workspaces.
+ * The runtime module owns durable correlation, run events and completion handling around Agent
+ * Runtime jobs. Web adapters and the Runtime reconciler call this API with validated completions.
  */
 interface RuntimeApi {
     fun complete(request: AgentRunCompleteRequest): CompletionOutcome

@@ -275,5 +275,16 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
   geen legacy agentworker-verificatiebewijs meer; verificatie komt uitsluitend uit het afzonderlijke
   Runtime-v2-resultaat.
 - Retryclassificatie herkent Runtime-worker- en verbindingsfouten in plaats van ontbrekende
-  `/work/agent-result.json`-bestanden. Testcompilatie en 35 gerichte tests voor completion, audit,
-  retries en bridgecontract zijn groen: 36 tests.
+  `/work/agent-result.json`-bestanden. Testcompilatie en 36 gerichte tests voor completion, audit,
+  retries en bridgecontract zijn groen.
+
+### 2026-09-11 — workspace-opruimactie verwijderd
+
+- De niet meer bestaande lokale workspace-opruimer is uit de backendcatalogus, de handmatige
+  `Alles draaien`-route en het onderhoudsscherm verwijderd. Bestaande historische database-rijen
+  met kind `workspaces` blijven gewone leesbare historie; er wordt alleen geen nieuwe ronde meer
+  aangeboden of gestart.
+- De Runtime-API-documentatie in de code noemt nu duurzame jobcorrelatie en getypeerde completions
+  in plaats van containerworkspaces en resultbestanden.
+- Drie gerichte backendtestsuites inclusief PostgreSQL/Flyway en alle 21 widgettests van het
+  onderhoudsscherm zijn groen.

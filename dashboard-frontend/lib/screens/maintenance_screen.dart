@@ -7,7 +7,7 @@ import '../app_state.dart';
 import '../widgets/common.dart';
 import 'data_screen.dart';
 
-/// De vijf opruimmechanismen die de factory logt, in de volgorde waarin ze op het scherm staan.
+/// De vier opruimmechanismen die de factory logt, in de volgorde waarin ze op het scherm staan.
 /// Bewust dezelfde letterlijke waarden als `CleanupKinds` in de backend: het zijn geen vertaalde
 /// labels maar de soort-sleutel zelf, zodat een blok in het scherm één-op-één te herleiden is tot de
 /// opruimer. De lijst is vast en komt niet uit de data, zodat een soort die nog nooit iets logde
@@ -17,7 +17,6 @@ const cleanupKinds = <String>[
   'agent-events',
   'agent-runs',
   'completion-payloads',
-  'workspaces',
 ];
 
 /// De `kind`-waarde van de "Alles draaien"-knop — geen opruimsoort maar de verzamelopdracht.

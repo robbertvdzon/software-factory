@@ -160,8 +160,8 @@ void main() {
       (tester) async {
     await pumpScreen(tester, buildClient(summary: [run()]));
 
-    // Vier soorten zonder samenvattingsregel; github-releases heeft er wel een.
-    expect(find.text('laatste ronde: geen wijzigingen gelogd'), findsNWidgets(4));
+    // Alle soorten behalve github-releases hebben geen samenvattingsregel.
+    expect(find.text('laatste ronde: geen wijzigingen gelogd'), findsNWidgets(cleanupKinds.length - 1));
     expect(find.text('fout'), findsNothing);
   });
 
@@ -301,11 +301,11 @@ void main() {
     );
 
     await pumpScreen(tester, client, () async {
-      await tapKey(tester, 'run-now-workspaces');
+      await tapKey(tester, 'run-now-completion-payloads');
       await tester.pumpAndSettle();
     });
 
-    expect(find.text('De opruimronde voor workspaces draait al.'), findsOneWidget);
+    expect(find.text('De opruimronde voor completion-payloads draait al.'), findsOneWidget);
   });
 
   testWidgets('een uitgezette opruimer meldt dat de knop niets gestart heeft', (tester) async {
@@ -328,7 +328,7 @@ void main() {
     await pumpScreen(tester, client, () async {
       expect(tester.widget<TextButton>(find.byKey(const Key('run-now-agent-events'))).onPressed, isNull);
       // De andere soorten blijven gewoon te starten, net als "Alles draaien".
-      expect(tester.widget<TextButton>(find.byKey(const Key('run-now-workspaces'))).onPressed, isNotNull);
+      expect(tester.widget<TextButton>(find.byKey(const Key('run-now-completion-payloads'))).onPressed, isNotNull);
       expect(tester.widget<TextButton>(find.byKey(const Key('run-now-all'))).onPressed, isNotNull);
       // "Runs bekijken" is puur navigatie en blijft altijd beschikbaar.
       expect(tester.widget<TextButton>(find.byKey(const Key('view-runs-agent-events'))).onPressed, isNotNull);
@@ -381,7 +381,7 @@ void main() {
     });
 
     await pumpScreen(tester, client, () async {
-      await tapKey(tester, 'run-now-workspaces');
+      await tapKey(tester, 'run-now-completion-payloads');
       await tester.pumpAndSettle();
     });
 
@@ -422,7 +422,7 @@ void main() {
 
   testWidgets('een soort zonder rondes toont de lege staat op het runs-scherm', (tester) async {
     await pumpScreen(tester, buildClient(summary: [run()]), () async {
-      await tapKey(tester, 'view-runs-workspaces');
+      await tapKey(tester, 'view-runs-completion-payloads');
       await tester.pumpAndSettle();
     });
 
