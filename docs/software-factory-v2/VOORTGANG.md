@@ -25,7 +25,7 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 | 2 | afgerond | De v2-adapter maakt idempotente jobs, bouwt volledige rolprompts en begrensde schema's, projecteert events/resultaten/artifacts/usage/status/fouten en gebruikt databasegestuurde modelkeuze. Refiner, planner en summarizer volgen het v2-pad, inclusief vragen en hervatting. De lokale acceptatieroundtrip gebruikt uitsluitend `mock/mock/MOCK`. | Repositoryketen in stap 3 afronden. |
 | 3 | lokaal afgerond | Storybranch, dispatch, repositorybewijs, verificatiebewijs en PR worden zonder lokale checkout verwerkt; projectmodelkeuze gebruikt de canonieke repositoryprojectnaam. Ook audits gebruiken een read-only Runtime-checkout en getypeerd resultaat. Alias, branch, publicatiemodus en actuele remote HEAD worden fail-closed getoetst; stale bewijs wordt zichtbaar geweigerd. De volledige lokale E2E-harness gebruikt hetzelfde branch-/completionprotocol. | Live story-, hotfix- en auditacceptatie in stap 5. |
 | 4 | afgerond | Agentworker, lokale Docker-runtime, storyworkspaces, resultbestandcontracten, lokale AI-routes, providercredentials en AI-level zijn verwijderd. Actuele documentatie beschrijft Runtime v2. | — |
-| 5 | bezig | Kwaliteitsratchet, volledige Maven-reactor, volledige Flutter-suite en `verify.yml` zijn groen. De dashboardimages `sha-6b7d86d` draaien `Synced`/`Healthy` op OpenShift en de lokale orchestrator is verbonden op versie `8a695ef9`. | `SF_AGENT_RUNTIME_TOKEN` lokaal configureren; daarna story-, hotfix-, audit- en Telegramacceptatie uitvoeren. |
+| 5 | bezig | Kwaliteitsratchet, volledige Maven-reactor, volledige Flutter-suite en `verify.yml` zijn groen. De dashboardimages `sha-6b7d86d` draaien `Synced`/`Healthy` op OpenShift. De Runtime-token is lokaal actief en de Product Factory v2-contractproef voor status/create/idempotent create/get/list/attachment/cancel is groen. | Een online, niet-productieve repositoryalias beschikbaar maken; daarna story-, hotfix-, audit- en Telegramacceptatie uitvoeren. |
 
 ## Contractcontrole
 
@@ -52,10 +52,9 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 - De ontbrekende online `test-repository`-alias blokkeert alleen de destructieve live probe uit
   stap 0, niet de consumerimplementatie: dezelfde contracten zijn in Agent Runtime zelf getest en
   productie toont de echte repositorycapaciteit.
-- De live Software Factory-acceptatie uit stap 5 wacht op één handmatige secretconfiguratie:
-  `SF_AGENT_RUNTIME_TOKEN` ontbreekt in het draaiende lokale proces. Conform afspraak wijzigt de
-  implementatie-agent `secrets.env` niet. De waarde moet gelijk zijn aan het tenanttoken
-  `AR_SOFTWARE_FACTORY_TOKEN` van Agent Runtime; de tokenwaarde wordt nergens gelogd of gecommit.
+- `SF_AGENT_RUNTIME_TOKEN` is op 2026-09-11 door de eigenaar in het bestaande gitignored
+  `secrets.env` gezet. Na herstart accepteerden zowel Runtime als de Software Factory-integratie de
+  credential; de tokenwaarde is nergens gelogd of gecommit.
 - Er komt geen lokale workaround, gedeelde checkout of netwerkvolume.
 - Commits tot en met stap 4 eindigen op `[skip ci]`; stap 5 activeert de normale pipeline.
 
@@ -361,6 +360,31 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 - De lokale orchestrator is via zijn bestaande beheer-API zonder actieve agentrun herstart. De
   Product Factory v2-status retourneert `connected=true`, `apiVersion=2` en factoryversie
   `8a695ef9`.
-- De echte story-, hotfix-, audit- en Telegramacceptatie is nog niet uitgevoerd: het lokale proces
-  heeft geen `SF_AGENT_RUNTIME_TOKEN`. Dit secret moet door de eigenaar in het bestaande
-  gitignored `secrets.env` worden gezet; het secretmechanisme zelf verandert niet.
+- De toen nog ontbrekende `SF_AGENT_RUNTIME_TOKEN` hield de echte story-, hotfix-, audit- en
+  Telegramacceptatie tegen; de volgende bewijssectie legt de latere configuratie en hervatting vast.
+
+### 2026-09-11 — Runtime-token actief en Product Factory v2 live hersteld
+
+- De eigenaar heeft `SF_AGENT_RUNTIME_TOKEN` in het bestaande gitignored `secrets.env` gezet. Na
+  herstart meldde Runtime `/healthz` `UP`; de geauthenticeerde repositorycatalogus was leesbaar en
+  de Product Factory-status meldde `connected=true`, `apiVersion=2` en factoryversie `4bfd54ae`.
+- De eerste live create-proef bracht een regressie aan het licht: nieuwe stories bewaren bewust
+  geen legacy `ai_supplier`, terwijl `findAllStories` en `findAiIssues` die rijen nog wegfilterden.
+  Daardoor maakten twee requests met dezelfde idempotentiesleutel twee stories. De twee uitsluitend
+  voor deze proef gemaakte stories `SF-2392` en `SF-2393` zijn na controle inclusief hun lege
+  subtasksets verwijderd; er is geen repositorywerk gestart.
+- De trackerqueries accepteren nu Runtime-v2-stories en -subtaken zonder legacy supplier en het
+  echte storyoverzicht levert alle stories onafhankelijk van dat veld. De regressiedekking gebruikt
+  expliciet supplierloze stories. Gerichte database-, bridge- en dashboardtests zijn groen: 161
+  tests, geen failures.
+- De herhaalde live contractproef maakte `SF-2394` één keer aan met een kleine attachment. Dezelfde
+  request en idempotentiesleutel retourneerden daarna `created=false` met dezelfde storykey; get en
+  list vonden exact die story en cancel eindigde zichtbaar in `CANCELLED`. Er is geen muterende
+  Gitstap bereikt.
+- `./quality/run.sh` is opnieuw groen met 709 geregistreerde bevindingen en nul nieuwe findings of
+  suppressies. `mvn -B --no-transfer-progress clean verify` is opnieuw groen voor de volledige
+  reactor: 851 Software Factory-unittests, alle E2E-suites en 90 dashboard-backendtests.
+- De live catalogus meldt alle echte projectaliases beschikbaar, maar `test-repository` nog steeds
+  `available=false`. Daarom worden story-, hotfix- en auditacceptatie niet op een productierepository
+  uitgevoerd. Telegramdelivery en menselijke reply-/commandinteractie blijven onderdeel van
+  dezelfde resterende acceptatieronde.

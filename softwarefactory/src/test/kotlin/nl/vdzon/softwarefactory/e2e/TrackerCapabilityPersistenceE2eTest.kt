@@ -402,8 +402,13 @@ class TrackerCapabilityPersistenceE2eTest {
         // pint vast dat findAllStories daar niet gevoelig voor is: veel meer subtaken dan stories,
         // alles komt terug, geen enkele subtaak ertussen.
         val stories = (1..12).map { index ->
-            client.createStory(projectKey = "SF", title = "Overzicht-story $index", aiSupplier = "claude")
+            client.createStory(projectKey = "SF", title = "Overzicht-story $index")
         }
+        val normalizedLegacyNone = client.createStory(
+            projectKey = "SF",
+            title = "Overzicht-story met legacy supplier none",
+            aiSupplier = "none",
+        )
         stories.forEach { story ->
             repeat(6) { sub ->
                 client.createSubtask(
@@ -417,8 +422,8 @@ class TrackerCapabilityPersistenceE2eTest {
         val found = client.findAllStories()
 
         assertTrue(
-            found.map { it.key }.containsAll(stories.map { it.key }),
-            "alle ${stories.size} stories horen terug te komen, ook al staan er ${stories.size * 6} subtaken tegenover",
+            found.map { it.key }.containsAll(stories.map { it.key } + normalizedLegacyNone.key),
+            "alle ${stories.size + 1} stories horen terug te komen, ook al staan er ${stories.size * 6} subtaken tegenover",
         )
         val subtasksInResult = found.filter { client.parentStoryKey(it.key) != null }
         assertTrue(subtasksInResult.isEmpty(), "findAllStories mag geen subtaken teruggeven: ${subtasksInResult.map { it.key }}")
@@ -506,13 +511,13 @@ class TrackerCapabilityPersistenceE2eTest {
     }
 
     @Test
-    fun `findAiIssues filters on non-blank ai-supplier and sorts by updated_at desc`() {
-        client.createStory(projectKey = "SF", title = "Zonder supplier")
+    fun `findAiIssues no longer gates new Runtime work on the legacy supplier field`() {
+        val withoutSupplier = client.createStory(projectKey = "SF", title = "Zonder legacy supplier")
         val withSupplier = client.createStory(projectKey = "SF", title = "Met supplier", aiSupplier = "claude")
-        client.createStory(projectKey = "SF", title = "Supplier none", aiSupplier = "none")
+        val normalizedLegacyNone = client.createStory(projectKey = "SF", title = "Legacy supplier none", aiSupplier = "none")
 
         val work = client.findAiIssues(maxResults = 50)
-        assertEquals(listOf(withSupplier.key), work.map { it.key })
+        assertEquals(listOf(normalizedLegacyNone.key, withSupplier.key, withoutSupplier.key), work.map { it.key })
     }
 
     @Test

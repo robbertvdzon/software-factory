@@ -84,8 +84,10 @@ class PostgresTrackerClient(
         } else {
             "AND project_key IN (${configuredProjects.joinToString(",") { "?" }})"
         }
+        // Nieuwe Runtime-v2-stories en -subtaken hebben bewust geen legacy ai_supplier meer.
+        // Alleen oude rijen met een expliciet opgeslagen lege/none-waarde blijven uitgezet.
         val baseWhere = """
-            WHERE ai_supplier IS NOT NULL AND lower(ai_supplier) NOT IN ('', 'none')
+            WHERE (ai_supplier IS NULL OR lower(ai_supplier) NOT IN ('', 'none'))
             $projectFilter
         """.trimIndent()
         // SF-862: naast de top-N by updated_at ook alle (sub)taken die op een mens wachten
@@ -149,8 +151,7 @@ class PostgresTrackerClient(
         // comments, en dat scheelt een query per story).
         val sql = """
             ${issueSelect()}
-            WHERE ai_supplier IS NOT NULL AND lower(ai_supplier) NOT IN ('', 'none')
-              AND parent_key IS NULL
+            WHERE parent_key IS NULL
             $projectFilter
             ORDER BY updated_at DESC
         """.trimIndent()
