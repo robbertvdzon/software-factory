@@ -240,6 +240,21 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
   waren groen; alleen de al bekende Modulith-ratchet met de 24 eerder vastgelegde architectuurpunten
   blijft rood en wordt als expliciete stap-5-gate hersteld/herijkt.
 
+### 2026-09-11 — Telegram-assistent via Agent Runtime
+
+- De conversationele Telegram-assistent maakt per beurt een `APPLICATION_WORK` /
+  `STRUCTURED_GENERATION`-job op Agent Runtime v2. Een meegestuurde afbeelding gaat via het
+  hervatbare inputobjectprotocol; er is geen lokale container, checkout, toolmount of projectsecret.
+- De rol `assistant` is toegevoegd aan de databasegestuurde modelconfiguratie en heeft een
+  migratiedefault. Antwoordtekst en herbruikbare tips komen uit een begrensd JSON-schema; usage en
+  kosten komen uit het Runtime-resultaat. `/stop` annuleert de lopende Runtime-job.
+- `ClaudeAssistantClient`, `AssistantWorkspaceService`, `Dockerfile.assistant`, de lokale
+  image-buildroute en de providercredentialvelden zijn verwijderd. `SF_AGENT_RUNTIME_TOKEN` is de
+  enige AI-runtimecredential van de Software Factory.
+- De gerichte assistent-, Telegramflow-, poller-, bridge- en secrets-loadertests zijn groen. De
+  nieuwe `RuntimeAssistantClientTest` bewijst taaktype, modelkeuze, ontbrekende environmentkeys en
+  mapping van tekst, tips en kosten.
+
 ### 2026-09-11 — AI-levelroutering verwijderd
 
 - Commit `8313d7a0` verwijdert `aiLevel`, de `LEVEL=`-commenttrigger en `AiRouting` uit productie,

@@ -146,6 +146,7 @@ class JdbcAgentRoleExecutionConfigRepository(
             AgentRole.TESTER,
             AgentRole.SUMMARIZER,
             AgentRole.DOCUMENTER,
+            AgentRole.ASSISTANT,
             AgentRole.AUDITOR,
         )
     }
@@ -193,4 +194,3 @@ class AgentRoleExecutionConfigService(
         )
     }
 }
-

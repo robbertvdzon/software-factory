@@ -20,8 +20,6 @@ class DatabaseConfigurationTest {
                 factoryDatabaseUrl = "postgresql://software_factory:software_factory@localhost:5432/software_factory",
                 factoryDatabaseSchema = "software_factory",
                 kubeconfig = null,
-                aiCredentialsDir = null,
-                aiOauthToken = null,
                 loadedFrom = "test",
             ),
         ) as HikariDataSource

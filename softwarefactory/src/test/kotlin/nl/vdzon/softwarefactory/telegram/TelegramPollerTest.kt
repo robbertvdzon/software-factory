@@ -14,8 +14,6 @@ import nl.vdzon.softwarefactory.core.contracts.AuditQuestionAnswering
 import nl.vdzon.softwarefactory.core.contracts.FactoryOperations
 import nl.vdzon.softwarefactory.core.contracts.MergeReadyInfo
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
-import nl.vdzon.softwarefactory.git.GitApi
-import nl.vdzon.softwarefactory.git.GitProcessResult
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeEntry
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
@@ -24,7 +22,6 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.context.ApplicationEventPublisher
-import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -265,11 +262,10 @@ class TelegramPollerTest {
         client: TelegramClient,
         expectedCalls: Int,
     ) : TelegramAssistantService(
-        ClaudeAssistantClient(secrets),
+        NoopAssistant,
         NoopThreadStore,
         client,
         resolver,
-        AssistantWorkspaceService(NoopGitApi, secrets, resolver),
         NoopKnowledge,
     ) {
         data class Call(val chatId: String, val text: String, val photoFileId: String?, val messageId: Long?, val replyToMessageId: Long?)
@@ -295,16 +291,19 @@ class TelegramPollerTest {
         override fun delete(targetRepo: String, role: String, category: String, key: String): Boolean = false
     }
 
-    private object NoopGitApi : GitApi {
-        override fun clone(repoUrl: String, targetDir: Path, githubToken: String?) {}
-        override fun checkoutBase(repoRoot: Path, baseBranch: String, githubToken: String?) {}
-        override fun checkoutStoryBranch(repoRoot: Path, branchName: String, baseBranch: String, createIfMissing: Boolean, githubToken: String?) {}
-        override fun commitAll(repoRoot: Path, message: String, githubToken: String?): Boolean = false
-        override fun push(repoRoot: Path, branchName: String, githubToken: String?) {}
-        override fun remoteBranchExists(repoRoot: Path, branchName: String, githubToken: String?): Boolean = false
-        override fun runCommand(command: List<String>, cwd: Path?, env: Map<String, String>, timeoutSeconds: Long): GitProcessResult =
-            GitProcessResult(0, "", "")
-        override fun repositorySlug(repoUrl: String): String? = null
+    private object NoopAssistant : InteractiveAssistantClient {
+        override val enabled = false
+        override fun ask(
+            chatId: String,
+            projectKey: String?,
+            sessionId: String,
+            isResume: Boolean,
+            systemPrompt: String,
+            userMessage: String,
+            inputFile: AssistantInputFile?,
+            timeoutSecondsOverride: Long?,
+        ) = AssistantReply("uit", true, sessionId, 0.0)
+        override fun stop(sessionId: String) = false
     }
 
     private fun secrets() = FactorySecrets(
@@ -313,8 +312,6 @@ class TelegramPollerTest {
         factoryDatabaseUrl = "jdbc:postgresql://localhost/test",
         factoryDatabaseSchema = "public",
         kubeconfig = null,
-        aiCredentialsDir = null,
-        aiOauthToken = null,
         loadedFrom = "test",
         telegramBotToken = "bot-token",
         telegramChatId = "chat-1",

@@ -1369,8 +1369,6 @@ class DashboardQueryServiceTest {
             factoryDatabaseUrl = "jdbc:fake",
             factoryDatabaseSchema = "fake",
             kubeconfig = "fake",
-            aiCredentialsDir = "fake",
-            aiOauthToken = null,
             loadedFrom = "fake",
         )
 

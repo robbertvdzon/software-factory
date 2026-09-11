@@ -82,8 +82,6 @@ class KubectlDeploymentStatusProbeTest {
         factoryDatabaseUrl = "postgresql://example/db",
         factoryDatabaseSchema = "software_factory",
         kubeconfig = kubeconfig,
-        aiCredentialsDir = "~/.claude",
-        aiOauthToken = null,
         loadedFrom = "test",
     )
 

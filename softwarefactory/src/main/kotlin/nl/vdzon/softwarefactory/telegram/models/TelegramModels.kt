@@ -1,5 +1,11 @@
 package nl.vdzon.softwarefactory.telegram.models
 
+data class AssistantInputFile(
+    val filename: String,
+    val mimeType: String,
+    val bytes: ByteArray,
+)
+
 data class AssistantTip(val category: String, val key: String, val content: String)
 
 data class AssistantReply(

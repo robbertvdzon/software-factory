@@ -8,8 +8,6 @@ import nl.vdzon.softwarefactory.telegram.models.*
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
-import nl.vdzon.softwarefactory.git.GitApi
-import nl.vdzon.softwarefactory.git.GitProcessResult
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeEntry
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
@@ -20,11 +18,10 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import java.nio.file.Path
 import java.time.OffsetDateTime
 
 /**
- * Unit-tests voor TelegramAssistantService (systemPrompt/tips) en ClaudeAssistantClient (dockerCommand).
+ * Unit-tests voor TelegramAssistantService (systemPrompt, tips en threadselectie).
  */
 class TelegramAssistantServiceTest {
 
@@ -36,9 +33,7 @@ class TelegramAssistantServiceTest {
         factoryDatabaseUrl = "jdbc:postgresql://db/sf",
         factoryDatabaseSchema = "sf",
         kubeconfig = null,
-        aiCredentialsDir = null,
         loadedFrom = "test",
-        aiOauthToken = "oauth-tok",
     )
 
     // --- KnowledgeApi stubs ---
@@ -94,16 +89,19 @@ class TelegramAssistantServiceTest {
         }
     }
 
-    private val noopGitApi = object : GitApi {
-        override fun clone(repoUrl: String, targetDir: Path, githubToken: String?) {}
-        override fun checkoutBase(repoRoot: Path, baseBranch: String, githubToken: String?) {}
-        override fun checkoutStoryBranch(repoRoot: Path, branchName: String, baseBranch: String, createIfMissing: Boolean, githubToken: String?) {}
-        override fun commitAll(repoRoot: Path, message: String, githubToken: String?): Boolean = false
-        override fun push(repoRoot: Path, branchName: String, githubToken: String?) {}
-        override fun remoteBranchExists(repoRoot: Path, branchName: String, githubToken: String?): Boolean = false
-        override fun runCommand(command: List<String>, cwd: Path?, env: Map<String, String>, timeoutSeconds: Long): GitProcessResult =
-            GitProcessResult(0, "", "")
-        override fun repositorySlug(repoUrl: String): String? = null
+    private val noopAssistant = object : InteractiveAssistantClient {
+        override val enabled: Boolean = true
+        override fun ask(
+            chatId: String,
+            projectKey: String?,
+            sessionId: String,
+            isResume: Boolean,
+            systemPrompt: String,
+            userMessage: String,
+            inputFile: AssistantInputFile?,
+            timeoutSecondsOverride: Long?,
+        ) = AssistantReply("antwoord", false, sessionId, 0.0)
+        override fun stop(sessionId: String): Boolean = true
     }
 
     private fun makeService(
@@ -117,17 +115,13 @@ class TelegramAssistantServiceTest {
             telegramChatIds = if (projectName != null) mapOf(projectName to "my-chat") else emptyMap(),
         )
         val telegramClient = TelegramClient(secrets)
-        val claude = ClaudeAssistantClient(secrets)
-        val workspaceService = AssistantWorkspaceService(noopGitApi, secrets, resolver)
-        return TelegramAssistantService(claude, threadStore, telegramClient, resolver, workspaceService, knowledgeApi)
+        return TelegramAssistantService(noopAssistant, threadStore, telegramClient, resolver, knowledgeApi)
     }
 
     private fun callSystemPrompt(service: TelegramAssistantService, chatId: String): String {
-        val method = TelegramAssistantService::class.java.getDeclaredMethod(
-            "systemPrompt", String::class.java, AssistantWorkspaceService.Layout::class.java,
-        )
+        val method = TelegramAssistantService::class.java.getDeclaredMethod("systemPrompt", String::class.java)
         method.isAccessible = true
-        return method.invoke(service, chatId, AssistantWorkspaceService.Layout(mounts = emptyList(), layers = emptyList())) as String
+        return method.invoke(service, chatId) as String
     }
 
     // --- Tests: systemPrompt met/zonder tips ---
@@ -158,36 +152,10 @@ class TelegramAssistantServiceTest {
     }
 
     @Test
-    fun `systemPrompt legt uit hoe tips opgeslagen worden via agent_tips_update`() {
+    fun `systemPrompt legt uit dat tips apart in het resultaat staan`() {
         val service = makeService()
         val prompt = callSystemPrompt(service, "my-chat")
-        assertTrue(prompt.contains("agent_tips_update"), "agent_tips_update-instructie ontbreekt")
-    }
-
-    // --- Tests: tip-parsing uit het assistent-antwoord (ClaudeAssistantClient) ---
-
-    @Test
-    fun `extractTips haalt de tips uit het agent_tips_update-JSON`() {
-        val text = "Hier is je antwoord.\n\n" +
-            "{\"agent_tips_update\":[{\"category\":\"login\",\"key\":\"news-feed\",\"content\":\"account staat in private\"}]}"
-        val tips = extractTips(text)
-        assertEquals(1, tips.size)
-        assertEquals("login", tips[0].category)
-        assertEquals("news-feed", tips[0].key)
-        assertEquals("account staat in private", tips[0].content)
-    }
-
-    @Test
-    fun `stripTipsJson verwijdert het tips-JSON maar houdt de gewone tekst`() {
-        val text = "Antwoord voor de gebruiker.\n\n{\"agent_tips_update\":[{\"category\":\"a\",\"key\":\"b\",\"content\":\"c\"}]}"
-        val clean = stripTipsJson(text)
-        assertFalse(clean.contains("agent_tips_update"), "tips-JSON mag niet meer in de tekst staan")
-        assertTrue(clean.contains("Antwoord voor de gebruiker."), "gewone tekst moet blijven")
-    }
-
-    @Test
-    fun `extractTips geeft lege lijst bij een lege agent_tips_update-array`() {
-        assertTrue(extractTips("Niets nieuws geleerd.\n{\"agent_tips_update\":[]}").isEmpty())
+        assertTrue(prompt.contains("`tips`-veld"), "instructie voor gestructureerde tips ontbreekt")
     }
 
     // --- Tests: detectPrefix ---
@@ -323,18 +291,5 @@ class TelegramAssistantServiceTest {
         val (sessionId, isResume) = callDetermineSession(s, "chat1", null, false)
         assertNotNull(sessionId)
         assertEquals(false, isResume)
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private fun extractTips(text: String): List<AssistantTip> {
-        val m = ClaudeAssistantClient::class.java.getDeclaredMethod("extractTips", String::class.java)
-        m.isAccessible = true
-        return m.invoke(ClaudeAssistantClient(minimalSecrets), text) as List<AssistantTip>
-    }
-
-    private fun stripTipsJson(text: String): String {
-        val m = ClaudeAssistantClient::class.java.getDeclaredMethod("stripTipsJson", String::class.java)
-        m.isAccessible = true
-        return m.invoke(ClaudeAssistantClient(minimalSecrets), text) as String
     }
 }

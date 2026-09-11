@@ -3,6 +3,8 @@ package nl.vdzon.softwarefactory.telegram.services
 import nl.vdzon.softwarefactory.telegram.clients.*
 import nl.vdzon.softwarefactory.telegram.repositories.*
 import nl.vdzon.softwarefactory.telegram.models.*
+import nl.vdzon.softwarefactory.telegram.InteractiveAssistantClient
+import nl.vdzon.softwarefactory.telegram.models.AssistantInputFile
 import nl.vdzon.softwarefactory.core.contracts.AssistantStatus
 import nl.vdzon.softwarefactory.core.contracts.TelegramAssistantApi
 
@@ -18,34 +20,33 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * De conversationele assistent achter een Telegram-(project)kanaal. Elke reply-keten is een **thread**
- * met z'n eigen claude-sessie (Fase 5): een niet-reply-bericht start een nieuw gesprek, het antwoord
+ * De conversationele assistent achter een Telegram-(project)kanaal. Elke reply-keten is een **thread**:
+ * een niet-reply-bericht start een nieuw gesprek, het antwoord
  * komt als reply, en een reply daarop zet die thread voort. Zo kun je meerdere gesprekken tegelijk en
  * los van elkaar voeren in één groep.
  *
- * De assistent draait geïsoleerd in Docker met code + secrets van het project (zie
- * [AssistantWorkspaceService]) en tools (sf-story, sf-browser).
+ * Iedere assistentbeurt draait als Agent Runtime-job. De factory geeft alleen gesprekstekst en een
+ * eventuele foto door; er is geen lokale checkout, container, toolmount of projectsecret.
  */
 @Service
 class TelegramAssistantService(
-    private val claude: ClaudeAssistantClient,
+    private val assistant: InteractiveAssistantClient,
     private val threadStore: TelegramThreadStore,
     private val telegramClient: TelegramClient,
     private val projectRepoResolver: ProjectAssistantSettings,
-    private val workspaceService: AssistantWorkspaceService,
     private val knowledgeApi: KnowledgeApi,
 ) : TelegramAssistantApi {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    // Eén lock per sessie: parallel over threads, maar serieel binnen een thread (geen dubbele --resume).
+    // Eén lock per sessie: parallel over threads, maar serieel binnen een thread.
     private val sessionLocks = ConcurrentHashMap<String, Any>()
 
-    // Voor het Agents-scherm (§5 `assistant.status`): welke sessies nu een claude.ask() draaien +
-    // wanneer de assistent voor het laatst een bericht kreeg (ook commando's zonder claude-call).
+    // Voor het Agents-scherm (§5 `assistant.status`): welke sessies nu een Runtime-job draaien +
+    // wanneer de assistent voor het laatst een bericht kreeg (ook commando's zonder Runtime-job).
     private val activeSessions = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var lastActivityAt: OffsetDateTime? = null
 
-    override val enabled: Boolean get() = claude.enabled
+    override val enabled: Boolean get() = assistant.enabled
 
     override fun status(): AssistantStatus = AssistantStatus(
         enabled = enabled,
@@ -85,9 +86,9 @@ class TelegramAssistantService(
             }
         }
 
-        if (!claude.enabled) {
+        if (!assistant.enabled) {
             telegramClient.sendMessage(
-                "⚠️ De assistent staat uit: er is geen Claude-token (SF_AI_OAUTH_TOKEN) geconfigureerd.",
+                "⚠️ De assistent staat uit: Agent Runtime is niet geconfigureerd.",
                 chatId = chatId,
             )
             return
@@ -128,48 +129,47 @@ class TelegramAssistantService(
         messageId: Long?,
     ) {
         telegramClient.sendChatAction(chatId, "typing")
-        // Lagen (factory + project) klaarzetten; alleen bij een nieuwe thread bijwerken naar remote.
-        val layout = runCatching { workspaceService.prepare(chatId, refresh = !isResume) }
-            .getOrElse {
-                logger.warn("Workspace voorbereiden faalde (zonder lagen verder).", it)
-                AssistantWorkspaceService.Layout(emptyList(), emptyList())
+        val inputFile = photoFileId?.let { downloadInputImage(chatId, it) }
+        val reply = assistant.ask(
+            chatId = chatId,
+            projectKey = projectName(chatId),
+            sessionId = sessionId,
+            isResume = isResume,
+            systemPrompt = systemPrompt(chatId),
+            userMessage = effectiveTextAfterPrefix,
+            inputFile = inputFile,
+        )
+        if (reply.stopped) {
+            logger.info("Assistent-thread {} door gebruiker gestopt; geen antwoord gestuurd.", sessionId.take(8))
+            return
+        }
+        persistTips(chatId, reply.tips)
+        val actualSid = reply.sessionId ?: sessionId
+        val answerMessageId = telegramClient.sendMessage(reply.text, replyToMessageId = messageId, chatId = chatId)
+        if (!reply.isError) {
+            messageId?.let { threadStore.map(chatId, it, actualSid) }
+            answerMessageId?.let { threadStore.map(chatId, it, actualSid) }
+            threadStore.setActiveRootSession(chatId, actualSid)
+        }
+        logger.info(
+            "Assistent beantwoordde een bericht in chat {} (thread {}, kosten ~${'$'}{}).",
+            chatId,
+            actualSid.take(8),
+            reply.costUsd,
+        )
+    }
+
+    private fun downloadInputImage(chatId: String, fileId: String): AssistantInputFile? {
+        val temp = Files.createTempFile("sf-telegram-input-", ".jpg")
+        return try {
+            if (!telegramClient.downloadFile(fileId, temp)) {
+                logger.warn("Kon de Telegram-foto niet downloaden voor chat {}.", chatId)
+                null
+            } else {
+                AssistantInputFile(temp.fileName.toString(), "image/jpeg", Files.readAllBytes(temp))
             }
-        workspaceService.whileActive(layout, claude.workspacePath(chatId, sessionId)) {
-            // Binnenkomende foto -> /work/in, als pad meegeven (claude leest 'm met Read = vision).
-            val effectiveText = buildString {
-                append(effectiveTextAfterPrefix)
-                if (photoFileId != null) {
-                    val dest = claude.inputDir(chatId, sessionId).resolve("input-${UUID.randomUUID().toString().take(8)}.jpg")
-                    if (telegramClient.downloadFile(photoFileId, dest)) {
-                        if (isNotEmpty()) append("\n\n")
-                        append("[De gebruiker stuurde een afbeelding: /work/in/${dest.fileName} — bekijk die met je Read-tool.]")
-                    } else {
-                        logger.warn("Kon de Telegram-foto niet downloaden voor chat {}.", chatId)
-                    }
-                }
-            }
-            val reply = claude.ask(chatId, sessionId, isResume, systemPrompt(chatId, layout), effectiveText, layout.mounts)
-            if (reply.stopped) {
-                logger.info("Assistent-thread {} door gebruiker gestopt; geen antwoord gestuurd.", sessionId.take(8))
-                return@whileActive
-            }
-            persistTips(chatId, reply.tips)
-            val actualSid = reply.sessionId ?: sessionId
-            val answerMessageId = telegramClient.sendMessage(reply.text, replyToMessageId = messageId, chatId = chatId)
-            if (!reply.isError) {
-                messageId?.let { threadStore.map(chatId, it, actualSid) }
-                answerMessageId?.let { threadStore.map(chatId, it, actualSid) }
-                threadStore.setActiveRootSession(chatId, actualSid)
-            }
-            claude.outputImages(chatId, actualSid).forEach { img ->
-                if (telegramClient.sendPhoto(chatId, img)) runCatching { Files.deleteIfExists(img) }
-            }
-            logger.info(
-                "Assistent beantwoordde een bericht in chat {} (thread {}, kosten ~${'$'}{}).",
-                chatId,
-                actualSid.take(8),
-                reply.costUsd,
-            )
+        } finally {
+            runCatching { Files.deleteIfExists(temp) }
         }
     }
 
@@ -183,7 +183,7 @@ class TelegramAssistantService(
             )
             return
         }
-        val stopped = claude.stop(sessionId)
+        val stopped = assistant.stop(sessionId)
         telegramClient.sendMessage(
             if (stopped) "🛑 Gesprek afgebroken." else "ℹ️ In dit gesprek loopt op dit moment niets.",
             chatId = chatId,
@@ -225,36 +225,17 @@ class TelegramAssistantService(
         return "\n\n## Geleerde inzichten\n$lines"
     }
 
-    private fun systemPrompt(chatId: String, layout: AssistantWorkspaceService.Layout): String {
+    private fun systemPrompt(chatId: String): String {
         val project = projectName(chatId)
-        val repo = project?.let { projectRepoResolver.repoFor(it) }
         val projectLine = if (project != null) {
-            "Dit kanaal hoort bij project '$project'${repo?.let { " (repo: $it)" } ?: ""}."
+            "Dit kanaal hoort bij project '$project'."
         } else {
             "Dit is het algemene factory-kanaal (geen specifiek project)."
-        }
-        val layersBlock = if (layout.layers.isEmpty()) {
-            ""
-        } else {
-            val lines = layout.layers.joinToString("\n") { l ->
-                val parts = listOfNotNull(
-                    l.repoPath?.let { "code in $it" },
-                    l.privatePath?.let { "secrets/config in $it" },
-                )
-                "            - ${l.name}${if (l.isBase) " (factory-basislaag)" else ""}: ${parts.joinToString(", ")}"
-            }
-            """
-
-            In de container staan de relevante mappen klaar (read-only):
-$lines
-            Lees `runbook.md` in een repo voor hoe dat project draait/getest wordt. De `private`-map bevat
-            secrets/config — laad die alleen in (bv. `source <bestand>`) wanneer je ze echt nodig hebt.
-            """.trimIndent()
         }
         val tipsBlock = loadedTips(chatId)
         return """
             Je bent de assistent van de Software Factory, bereikbaar via Telegram. $projectLine
-            $layersBlock$tipsBlock
+            $tipsBlock
 
             De Software Factory stuurt AI-agents aan om software-stories te bouwen via een vaste keten:
             refine → plan → develop → review → test → summary → merge. Stories en hun fases staan in de
@@ -262,60 +243,12 @@ $lines
             `Repo`-veld het project. Een lege fase of leeg `Repo`-veld betekent dat een story NIET wordt
             opgepakt.
 
-            Je hebt een shell-tool `sf-story` (praat via de factory's eigen `/api/tracker`-endpoint direct
-            met die tracker-database):
-            - `sf-story status <STORYKEY>` — fase/repo/fout van een story of subtaak + waarom 'ie
-              (nog) niet wordt opgepakt.
-            - `sf-story projects` — lijst van geconfigureerde projecten (key + naam).
-            - `sf-story create [--project <KEY>] --title <...> [--description <...>] [--repo <naam>] [--ai-supplier <claude|..>] [--ai-model <..>] [--start]`
-              — maakt een story aan. Zonder --project komt 'ie in het Software Factory-project. Zet
-              `--ai-supplier`/`--ai-model` als de gebruiker die noemt.
-            - `sf-story update <STORYKEY> [--summary ...] [--description ...] [--phase ...] [--comment ...] [--ai-supplier ..] [--ai-model ..]`
-              — past een story/subtaak aan.
-            - `sf-story delete <STORYKEY>` — verwijdert een story volledig (incl. subtaken). Onomkeerbaar.
-
-            Tips opslaan voor de volgende keer: heb je tijdens deze taak iets moeten UITZOEKEN dat later tijd
-            bespaart — hoe je inlogt (login-URL, waar de testaccounts staan), dat een Flutter-pagina pas ná
-            een wait te screenshotten is, een werkend script/commando, of hoe een cluster-onderdeel in elkaar
-            zit — voeg dan AAN HET EIND van je antwoord één los JSON-object toe met die lessen:
-            {"agent_tips_update":[{"category":"...","key":"...","content":"..."}]}
-            Gebruik {"agent_tips_update":[]} als je niets nieuws hebt geleerd. Sla concrete, herbruikbare
-            kennis op — geen losse feiten die alleen voor deze ene vraag gelden. De factory haalt dit
-            JSON-blok automatisch uit je antwoord en bewaart het; de gebruiker ziet het niet. Reeds geleerde
-            tips staan hierboven onder "Geleerde inzichten".
-
             REGELS:
-            - Opzoeken (`status`, `projects`) doe je vrij.
-            - Story aanmaken voor dit kanaal: geef `--repo <de projectnaam van dit kanaal>` mee zodat de
-              factory tegen de juiste repo werkt (zonder repo wordt de story niet opgepakt). De story komt
-              in het Software Factory-project (`--project SF`) tenzij de gebruiker een ander project
-              noemt. `ai-supplier=claude` is al de default van `create` — die hoef je niet expliciet mee
-              te geven.
-            - START NIET automatisch: maak de story aan ZONDER `--start`. Vraag daarna of de gebruiker 'm
-              wil starten; zegt die ja, dan `sf-story update <KEY> --phase start` (zo gaat 'ie lopen).
-            - Aanmaken/aanpassen: verzamel eerst de nodige info en vat kort voor wat je gaat doen.
-            - VERWIJDEREN is onomkeerbaar: doe `delete` alleen na een expliciete bevestiging ("ja, verwijder").
-            - Verzin geen story-keys; controleer met `status` als de gebruiker er een noemt.
-
-            Afbeeldingen in/uit: een foto die de gebruiker stuurt staat in `/work/in/` (lees 'm met je
-            Read-tool). Wil je de gebruiker zelf een afbeelding/screenshot tonen, schrijf 'm dan naar
-            `/work/out/`; de factory stuurt alles uit die map daarna door.
-
-            Browser/web (Playwright is geïnstalleerd):
-            - Snel screenshot van een URL:
-              `playwright-chromium --headless --no-sandbox --screenshot=/work/out/shot.png <url>`
-            - Inloggen/klikken/testen: schrijf een Playwright-Node-script en draai het met `sf-browser <script.js>`.
-              Gebruik `chromium.launchPersistentContext("/work/.browser", { headless: true, args: ["--no-sandbox"] })`
-              — het profiel in `/work/.browser` blijft tussen beurten bewaard, dus een login overleeft. Sla
-              screenshots op in `/work/out/`. Hoe je inlogt (URL, waar de testaccounts staan) lees je in de
-              `runbook.md` van het project.
-
-            Cluster (OpenShift): `oc` en `kubectl` zijn ingelogd op het cluster — de kubeconfig staat
-            klaar en `KUBECONFIG` is gezet, dus je kunt direct zelf checks doen i.p.v. de gebruiker om
-            output te vragen. Bijvoorbeeld `oc get pods -n <namespace>`, `oc describe pod <pod> -n <ns>`
-            of `oc logs <pod> --previous -n <ns>`. Noem een namespace (`-n`) als die bekend is. Doe vrij
-            read-only opzoekwerk, maar voer GEEN wijzigende cluster-commando's uit (delete/apply/scale/…)
-            zonder expliciete bevestiging van de gebruiker.
+            - Je hebt geen directe toegang tot de tracker, repositories, projectsecrets, browser of het cluster.
+            - Verzin daarom geen actuele status en claim nooit dat je een actie hebt uitgevoerd.
+            - Als de gebruiker een story wil aanmaken of wijzigen, geef dan een concreet voorstel en benoem
+              expliciet welke bevestiging of Software Factory-actie nog nodig is.
+            - Geef herbruikbare nieuwe inzichten afzonderlijk terug in het `tips`-veld van je resultaat.
 
             Stijl: antwoord in het Nederlands, kort en concreet (dit is een chat). Stel gerichte
             verduidelijkende vragen als informatie ontbreekt.
@@ -329,9 +262,13 @@ $lines
             🤖 Software Factory-assistent voor $scope.
 
             Stel gewoon je vraag. Ik kan o.a.:
-            • story-status opzoeken ("hoe staat NF-101 ervoor?", "waarom wordt die niet opgepakt?")
-            • meedenken en een story aanmaken/aanpassen (ik vat eerst voor en vraag bevestiging)
-            • een afbeelding bekijken die je stuurt, of zelf een screenshot van een pagina sturen
+            • meedenken over een story, ontwerpkeuze of probleem
+            • een concreet voorstel voor een Software Factory-actie maken
+            • een afbeelding bekijken die je meestuurt
+
+            Ik heb geen directe toegang tot actuele stories, repositories of het cluster en voer
+            zelf geen acties uit. Een voorgestelde wijziging moet dus nog via de Software Factory
+            worden bevestigd en uitgevoerd.
 
             Gesprekken:
             • Nieuw bericht (geen reply) → vervolg in de *laatste actieve thread*.

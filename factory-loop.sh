@@ -96,21 +96,9 @@ while true; do
   fi
   AFTER=$(git rev-parse HEAD 2>/dev/null || echo "")
 
-  # Agent-/assistant-images herbouwen als de pull image-relevante paden raakte: de agentworker zit
-  # ín agent:local, en assistant:local is FROM agent:local. De orchestrator (softwarefactory-module)
-  # zelf gaat via mvn spring-boot:run en heeft geen image-rebuild nodig. Anders niet — bouwen kost tijd.
-  if [ -n "$BEFORE" ] && [ "$BEFORE" != "$AFTER" ] &&
-     git diff --name-only "$BEFORE" "$AFTER" | grep -qE '^(agentworker/|factory-common/|factory-contracts/|pom\.xml|Dockerfile\.(agent|assistant))'; then
-    echo "[loop] image-relevante wijzigingen gedetecteerd — agent:local + assistant:local herbouwen…"
-    if ! ./factory build-images; then
-      echo "[loop] image-build mislukt — draai met de bestaande images verder."
-    fi
-  fi
-
   echo "[loop] factory start (mvn spring-boot:run)…"
   # factory-contracts + factory-common eerst lokaal installeren: `mvn -pl softwarefactory` bouwt
-  # alleen die module en zou anders verouderde (of ontbrekende) artefacten uit ~/.m2 pakken —
-  # softwarefactory hangt rechtstreeks aan factory-contracts (het agent-result-wirecontract).
+  # alleen die module en zou anders verouderde (of ontbrekende) artefacten uit ~/.m2 pakken.
   mvn -q -DskipTests -pl factory-contracts,factory-common install
   mvn -pl softwarefactory spring-boot:run
 

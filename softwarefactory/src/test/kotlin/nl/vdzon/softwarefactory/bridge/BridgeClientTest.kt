@@ -119,8 +119,6 @@ class BridgeClientTest {
             factoryDatabaseUrl = "jdbc:fake",
             factoryDatabaseSchema = "fake",
             kubeconfig = null,
-            aiCredentialsDir = null,
-            aiOauthToken = null,
             loadedFrom = "fake",
             bridgeUrls = listOf("ws://localhost:$port/bridge"),
             bridgeToken = "shared-secret",

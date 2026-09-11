@@ -137,9 +137,6 @@ class E2eTestConfig {
             factoryDatabaseUrl = "postgresql://${pg.username}:${pg.password}@${pg.host}:${pg.firstMappedPort}/${pg.databaseName}",
             factoryDatabaseSchema = "public",
             kubeconfig = null,
-            aiCredentialsDir = null,
-            aiOauthToken = null,
-            codexCredentialsDir = null,
             loadedFrom = "E2eTestConfig",
         )
     }
@@ -329,8 +326,6 @@ class RecordingTelegramClient : TelegramClient(TEST_SECRETS) {
             factoryDatabaseUrl = "jdbc:postgresql://localhost/e2e-telegram-test",
             factoryDatabaseSchema = "public",
             kubeconfig = null,
-            aiCredentialsDir = null,
-            aiOauthToken = null,
             loadedFrom = "E2eTestConfig.RecordingTelegramClient",
         )
     }

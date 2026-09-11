@@ -68,8 +68,6 @@ class MaintenanceCleanupRunMigrationTest {
                 factoryDatabaseUrl = postgres.jdbcUrl,
                 factoryDatabaseSchema = schema,
                 kubeconfig = null,
-                aiCredentialsDir = null,
-                aiOauthToken = null,
                 loadedFrom = "test",
             ),
         )

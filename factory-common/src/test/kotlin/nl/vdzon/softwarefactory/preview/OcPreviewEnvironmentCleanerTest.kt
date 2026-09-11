@@ -23,8 +23,6 @@ class OcPreviewEnvironmentCleanerTest {
                 factoryDatabaseUrl = "postgresql://example/db",
                 factoryDatabaseSchema = "software_factory",
                 kubeconfig = "~/.kube/config",
-                aiCredentialsDir = null,
-                aiOauthToken = null,
                 loadedFrom = "test",
             ),
         )

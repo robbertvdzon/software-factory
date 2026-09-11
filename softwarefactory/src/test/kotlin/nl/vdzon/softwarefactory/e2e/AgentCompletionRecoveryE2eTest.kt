@@ -493,8 +493,6 @@ class AgentCompletionRecoveryE2eTest {
         factoryDatabaseUrl = postgres.jdbcUrl,
         factoryDatabaseSchema = schema,
         kubeconfig = null,
-        aiCredentialsDir = null,
-        aiOauthToken = null,
         loadedFrom = "test",
     )
 

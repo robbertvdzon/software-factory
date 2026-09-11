@@ -394,8 +394,6 @@ class MaintenanceCleanupSchedulerTest {
             factoryDatabaseUrl = "jdbc:fake",
             factoryDatabaseSchema = "fake",
             kubeconfig = null,
-            aiCredentialsDir = null,
-            aiOauthToken = null,
             loadedFrom = "test",
         )
     }

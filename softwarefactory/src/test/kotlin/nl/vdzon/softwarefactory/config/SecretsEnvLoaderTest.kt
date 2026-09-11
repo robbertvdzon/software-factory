@@ -28,8 +28,6 @@ class SecretsEnvLoaderTest {
             SF_DATABASE_URL=postgresql://user:pass@example/db
             SF_DATABASE_SCHEMA=software_factory
             SF_KUBECONFIG=/tmp/kubeconfig
-            SF_AI_CREDENTIALS_DIR=/tmp/ai
-            SF_CODEX_CREDENTIALS_DIR=/tmp/codex
             """.trimIndent(),
         )
 
@@ -40,8 +38,6 @@ class SecretsEnvLoaderTest {
         assertEquals("postgresql://user:pass@example/db", secrets.factoryDatabaseUrl)
         assertEquals("software_factory", secrets.factoryDatabaseSchema)
         assertEquals("/tmp/kubeconfig", secrets.kubeconfig)
-        assertEquals("/tmp/ai", secrets.aiCredentialsDir)
-        assertEquals("/tmp/codex", secrets.codexCredentialsDir)
     }
 
     @Test
@@ -286,8 +282,6 @@ class SecretsEnvLoaderTest {
             factoryDatabaseUrl = "postgresql://host/db?user=owner&password=secret&sslmode=require",
             factoryDatabaseSchema = "software_factory",
             kubeconfig = null,
-            aiCredentialsDir = null,
-            aiOauthToken = null,
             loadedFrom = "test",
         )
 

@@ -11,18 +11,12 @@ fi
 case "$command" in
   start)
     # factory-contracts + factory-common eerst lokaal installeren: `mvn -f softwarefactory/pom.xml`
-    # bouwt alleen die module en zou anders verouderde (of ontbrekende) artefacten uit ~/.m2 pakken —
-    # softwarefactory hangt rechtstreeks aan factory-contracts (het agent-result-wirecontract).
+    # bouwt alleen die module en zou anders verouderde (of ontbrekende) artefacten uit ~/.m2 pakken.
     mvn -q -DskipTests -pl factory-contracts,factory-common install
     exec mvn -f softwarefactory/pom.xml spring-boot:run "$@"
     ;;
   test)
     exec mvn test "$@"
-    ;;
-  build-images)
-    # Volgorde is belangrijk: assistant:local is FROM agent:local, dus agent eerst.
-    docker build -f Dockerfile.agent -t agent:local .
-    docker build -f Dockerfile.assistant -t assistant:local .
     ;;
   local-db)
     exec docker compose --env-file secrets.env -f docker/docker-compose.yml up -d postgres
@@ -37,7 +31,7 @@ case "$command" in
     exec docker compose --env-file secrets.env -f docker/docker-compose.yml down
     ;;
   *)
-    echo "Usage: ./factory [start|test|build-images|local-db|local-db-stop|local-services|local-services-stop] [args...]" >&2
+    echo "Usage: ./factory [start|test|local-db|local-db-stop|local-services|local-services-stop] [args...]" >&2
     exit 2
     ;;
 esac

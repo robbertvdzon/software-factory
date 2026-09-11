@@ -14,8 +14,6 @@ import nl.vdzon.softwarefactory.core.contracts.TrackerComment
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssueFields
-import nl.vdzon.softwarefactory.git.GitApi
-import nl.vdzon.softwarefactory.git.GitProcessResult
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeEntry
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
@@ -26,8 +24,9 @@ import nl.vdzon.softwarefactory.runtime.CleanupRunNowApi
 import nl.vdzon.softwarefactory.runtime.models.CleanupRunNowOutcome
 import nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
-import nl.vdzon.softwarefactory.telegram.services.AssistantWorkspaceService
-import nl.vdzon.softwarefactory.telegram.clients.ClaudeAssistantClient
+import nl.vdzon.softwarefactory.telegram.InteractiveAssistantClient
+import nl.vdzon.softwarefactory.telegram.models.AssistantInputFile
+import nl.vdzon.softwarefactory.telegram.models.AssistantReply
 import nl.vdzon.softwarefactory.telegram.services.TelegramAssistantService
 import nl.vdzon.softwarefactory.telegram.clients.TelegramClient
 import nl.vdzon.softwarefactory.telegram.repositories.TelegramThreadStore
@@ -214,8 +213,6 @@ internal object BridgeTestFixtures {
             factoryDatabaseUrl = "jdbc:fake",
             factoryDatabaseSchema = "fake",
             kubeconfig = "fake",
-            aiCredentialsDir = "fake",
-            aiOauthToken = null,
             loadedFrom = "fake",
         )
 
@@ -229,34 +226,26 @@ internal object BridgeTestFixtures {
             override fun activeRootSession(chatId: String): String? = null
             override fun setActiveRootSession(chatId: String, sessionId: String) = Unit
         }
-        val gitApi = object : GitApi {
-            override fun clone(repoUrl: String, targetDir: java.nio.file.Path, githubToken: String?) = Unit
-            override fun checkoutBase(repoRoot: java.nio.file.Path, baseBranch: String, githubToken: String?) = Unit
-            override fun checkoutStoryBranch(
-                repoRoot: java.nio.file.Path,
-                branchName: String,
-                baseBranch: String,
-                createIfMissing: Boolean,
-                githubToken: String?,
-            ) = Unit
-            override fun commitAll(repoRoot: java.nio.file.Path, message: String, githubToken: String?): Boolean = false
-            override fun push(repoRoot: java.nio.file.Path, branchName: String, githubToken: String?) = Unit
-            override fun remoteBranchExists(repoRoot: java.nio.file.Path, branchName: String, githubToken: String?): Boolean = false
-            override fun runCommand(
-                command: List<String>,
-                cwd: java.nio.file.Path?,
-                env: Map<String, String>,
-                timeoutSeconds: Long,
-            ) = GitProcessResult(0, "", "")
-            override fun repositorySlug(repoUrl: String): String? = null
+        val assistant = object : InteractiveAssistantClient {
+            override val enabled = false
+            override fun ask(
+                chatId: String,
+                projectKey: String?,
+                sessionId: String,
+                isResume: Boolean,
+                systemPrompt: String,
+                userMessage: String,
+                inputFile: AssistantInputFile?,
+                timeoutSecondsOverride: Long?,
+            ) = AssistantReply("uit", true, sessionId, 0.0)
+            override fun stop(sessionId: String) = false
         }
         val knowledgeApi = NoopKnowledgeApi
         return TelegramAssistantService(
-            ClaudeAssistantClient(secrets),
+            assistant,
             threadStore,
             TelegramClient(secrets),
             resolver,
-            AssistantWorkspaceService(gitApi, secrets, resolver),
             knowledgeApi,
         )
     }

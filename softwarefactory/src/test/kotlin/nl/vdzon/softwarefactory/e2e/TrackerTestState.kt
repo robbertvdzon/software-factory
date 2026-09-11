@@ -43,8 +43,6 @@ class TrackerTestState(
         factoryDatabaseUrl = postgres.jdbcUrl,
         factoryDatabaseSchema = schema,
         kubeconfig = null,
-        aiCredentialsDir = null,
-        aiOauthToken = null,
         loadedFrom = "e2e-test",
         trackerAttachmentsDir = Files.createTempDirectory("e2e-tracker-attachments").toString(),
     )

@@ -291,7 +291,7 @@ class BridgeRequestHandlerTest {
         val response = handler.handle(BridgeRequest(id = "r-assistant", operation = "assistant.status"))
 
         assertEquals(true, response.ok)
-        // Fake secrets hebben geen aiOauthToken -> enabled=false; geen actieve sessies -> busy=false.
+        // De fake Runtime-assistent staat uit; er zijn geen actieve sessies.
         assertEquals(false, response.body?.path("enabled")?.asBoolean())
         assertEquals(false, response.body?.path("busy")?.asBoolean())
         assertEquals(0, response.body?.path("activeChatCount")?.asInt())

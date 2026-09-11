@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.telegram
 
 import nl.vdzon.softwarefactory.telegram.models.AssistantReply
+import nl.vdzon.softwarefactory.telegram.models.AssistantInputFile
 
 internal const val MERGE_READY_PHASE = "merge-ready"
 
@@ -14,9 +15,21 @@ interface TelegramMessageGateway {
     fun sendMessage(text: String, replyToMessageId: Long? = null, chatId: String? = null): Long?
 }
 
-interface AssistantClient {
+/** Conversationele assistentpoort; de implementatie draait iedere beurt als Agent Runtime-job. */
+interface InteractiveAssistantClient {
     val enabled: Boolean
-    fun askForSummary(systemPrompt: String, userMessage: String, extraEnv: Map<String, String>, timeoutSeconds: Long): AssistantReply
+    fun ask(
+        chatId: String,
+        projectKey: String?,
+        sessionId: String,
+        isResume: Boolean,
+        systemPrompt: String,
+        userMessage: String,
+        inputFile: AssistantInputFile? = null,
+        timeoutSecondsOverride: Long? = null,
+    ): AssistantReply
+
+    fun stop(sessionId: String): Boolean
 }
 
 /**

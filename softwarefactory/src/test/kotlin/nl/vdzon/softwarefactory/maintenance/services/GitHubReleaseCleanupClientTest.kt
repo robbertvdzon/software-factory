@@ -102,8 +102,6 @@ class GitHubReleaseCleanupClientTest {
         factoryDatabaseUrl = "jdbc:fake",
         factoryDatabaseSchema = "fake",
         kubeconfig = null,
-        aiCredentialsDir = null,
-        aiOauthToken = null,
         loadedFrom = "test",
     )
 }

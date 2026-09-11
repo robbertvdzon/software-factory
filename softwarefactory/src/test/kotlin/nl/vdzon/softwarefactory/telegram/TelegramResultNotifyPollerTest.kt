@@ -428,8 +428,6 @@ class TelegramResultNotifyPollerTest {
         factoryDatabaseUrl = "jdbc:postgresql://localhost/test",
         factoryDatabaseSchema = "public",
         kubeconfig = null,
-        aiCredentialsDir = null,
-        aiOauthToken = null,
         loadedFrom = "test",
     )
 

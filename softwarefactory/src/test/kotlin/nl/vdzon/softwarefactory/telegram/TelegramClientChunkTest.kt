@@ -25,9 +25,7 @@ class TelegramClientChunkTest {
             factoryDatabaseUrl = "jdbc:postgresql://db/sf",
             factoryDatabaseSchema = "sf",
             kubeconfig = null,
-            aiCredentialsDir = null,
             loadedFrom = "test",
-            aiOauthToken = "oauth-tok",
         ),
     )
 

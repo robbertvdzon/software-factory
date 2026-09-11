@@ -130,8 +130,6 @@ class GitHubPackageCleanupClientTest {
         factoryDatabaseSchema = "fake",
         kubeconfig = null,
         githubPackagesToken = packagesToken,
-        aiCredentialsDir = null,
-        aiOauthToken = null,
         loadedFrom = "test",
     )
 }

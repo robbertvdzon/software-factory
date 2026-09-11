@@ -57,8 +57,6 @@ class FactoryDashboardRepositoryLatestStoryRunTest {
             factoryDatabaseUrl = postgres.jdbcUrl,
             factoryDatabaseSchema = schema,
             kubeconfig = null,
-            aiCredentialsDir = null,
-            aiOauthToken = null,
             loadedFrom = "test",
         )
         repository = FactoryDashboardRepository(jdbcTemplate, secrets)
