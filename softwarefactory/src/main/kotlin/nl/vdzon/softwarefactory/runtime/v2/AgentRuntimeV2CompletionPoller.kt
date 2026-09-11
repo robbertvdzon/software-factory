@@ -1,5 +1,6 @@
 package nl.vdzon.softwarefactory.runtime.v2
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRecord
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
@@ -19,6 +20,7 @@ class AgentRuntimeV2CompletionPoller(
     private val client: AgentRuntimeV2HttpClient,
     private val runtimeApi: RuntimeApi,
     private val events: AgentEventRepository,
+    private val objectMapper: ObjectMapper,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val mapper = AgentRuntimeV2ResultMapper()
@@ -44,9 +46,21 @@ class AgentRuntimeV2CompletionPoller(
         )
         if (!job.terminal) return
         val story = storyRuns.get(run.storyRunId) ?: return
-        val completion = runCatching { client.getResult(jobId) }
-            .map { result -> mapper.completed(story.storyKey, run.role, jobId.toString(), job, result) }
-            .getOrElse { mapper.failed(story.storyKey, run.role, job) }
+        val result = runCatching { client.getResult(jobId) }
+            .getOrElse {
+                // Ook na een terminale status kan de result-response kortstondig ontbreken of de
+                // verbinding wegvallen. Niet als domeinfout publiceren: de volgende poll herstelt.
+                logger.warn("Terminal Runtime-resultaat voor {} is nog niet leesbaar; retry volgt", jobId, it)
+                return
+            }
+        agentRuns.storeRuntimeJobResult(
+            runtimeJobId = jobId.toString(),
+            checkoutCommitSha = result.repositoryResult?.checkoutCommitSha,
+            publishedCommitSha = result.repositoryResult?.commitSha,
+            repositoryResultJson = result.repositoryResult?.let(objectMapper::writeValueAsString),
+            verificationResultJson = result.verificationResult?.let(objectMapper::writeValueAsString),
+        )
+        val completion = mapper.completed(story.storyKey, run.role, jobId.toString(), job, result)
         runtimeApi.complete(completion)
     }
 

@@ -105,3 +105,13 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 - De dubbele Flyway-versie die door gelijktijdige main-wijzigingen ontstond is opgelost: Runtime v2
   staat in `V37`, ná de bestaande story-samenvattingsmigratie `V36`. Een schone PostgreSQL-migratie
   tot en met v37 en de repository-integratietest zijn groen.
+- Runtime-completion verwerkt AI-resultaat, `repositoryResult` en `verificationResult` afzonderlijk.
+  Een muterende job moet groen bewijs hebben; `PUSHED` zonder commit, een verkeerde branch of
+  publicatie ondanks rood bewijs wordt fail-closed geweigerd. Na de eerste geldige push wordt de ene
+  remote PR idempotent gekoppeld, zonder workspace-sync.
+- Read-only reviewer/tester/auditor-resultaten moeten publicatiemodus `NONE` hebben en worden tegen
+  de actuele remote branch-head gecontroleerd; een latere push maakt het bewijs zichtbaar stale.
+- Repository- en verificatiebewijs plus checkout-/commit-SHA worden duurzaam in
+  `agent_runtime_jobs` opgeslagen. Een tijdelijk onleesbare terminale result-response wordt opnieuw
+  gepolld en niet als domeinfout gepubliceerd.
+- Test: `AgentRunCompletionServiceTest` en `AgentRuntimeV2ResultMapperTest` — 25 tests groen.

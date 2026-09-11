@@ -69,8 +69,63 @@ import java.time.ZoneOffset
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeBytes
+import nl.vdzon.softwarefactory.runtime.v2.RuntimePublicationStatus
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeRepositoryResult
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeVerificationResult
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeVerificationStatus
 
 class AgentRunCompletionServiceTest {
+    @Test
+    fun `runtime developer push creates one remote PR without workspace sync`() {
+        val runs = FakeAgentRunRepository(workspacePath = null)
+        val storyRuns = FakeStoryRunRepository()
+        val pullRequests = FakeGitHubApi()
+        val issueTracker = FakeTrackerApi()
+        val workspace = FakeStoryWorkspaceApi()
+        val service = AgentRunCompletionService(
+            agentRunRepository = runs,
+            storyRunRepository = storyRuns,
+            agentEventRepository = FakeAgentEventRepository(),
+            issueTrackerClient = issueTracker,
+            processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
+            pullRequestClient = pullRequests,
+            knowledgeApi = FakeKnowledgeApi(),
+            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
+            storyWorkspaceService = workspace,
+            costMonitor = FakeCostMonitor(),
+            creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+            factoryEnvironmentProvider = testConfig(),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
+            clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
+            objectMapper = jacksonObjectMapper(),
+        )
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "developer",
+                containerName = "11111111-1111-1111-1111-111111111111",
+                outcome = "developed",
+                phase = "developed",
+                runtimeRepositoryResult = RuntimeRepositoryResult(
+                    alias = "sample-build-project",
+                    branch = "ai/KAN-69",
+                    checkoutCommitSha = "a".repeat(40),
+                    publicationStatus = RuntimePublicationStatus.PUSHED,
+                    commitSha = "b".repeat(40),
+                ),
+                runtimeVerificationResult = RuntimeVerificationResult(
+                    status = RuntimeVerificationStatus.PASSED,
+                    agentRounds = 1,
+                ),
+            ),
+        )
+
+        assertEquals(emptyList<AgentRole>(), workspace.syncedRoles)
+        assertEquals(listOf(Triple("ai/KAN-69", "main", "KAN-69: Software Factory changes")), pullRequests.remotePrRequests)
+        assertEquals(42, storyRuns.pullRequests.single().prNumber)
+    }
+
     @Test
     fun `developer comment exposes harness verification evidence to reviewer`() {
         val issueTracker = FakeTrackerApi()
@@ -1139,6 +1194,9 @@ class AgentRunCompletionServiceTest {
                 id = storyRunId,
                 storyKey = "KAN-69",
                 targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
+                branchName = "ai/KAN-69",
+                baseBranch = "main",
+                branchPrefix = "ai/",
                 prNumber = 42,
                 totalInputTokens = 1000,
                 totalOutputTokens = 500,
@@ -1186,7 +1244,7 @@ class AgentRunCompletionServiceTest {
     )
 
     private class FakeAgentRunRepository(
-        private val workspacePath: String = "/tmp/software-factory-test-workspace",
+        private val workspacePath: String? = "/tmp/software-factory-test-workspace",
     ) : AgentRunRepository {
         val completed = mutableListOf<AgentRunCompletionRecord>()
         val usageAdded = mutableListOf<AgentRunCompletionRecord>()
@@ -1313,6 +1371,20 @@ class AgentRunCompletionServiceTest {
     ) : GitHubApi {
         val doneComments = mutableListOf<Long>()
         val failedComments = mutableListOf<Long>()
+        val remotePrRequests = mutableListOf<Triple<String, String, String>>()
+
+        override fun latestCommitSha(targetRepo: String, branch: String): String? = "a".repeat(40)
+
+        override fun ensurePullRequest(
+            targetRepo: String,
+            branchName: String,
+            baseBranch: String,
+            title: String,
+            body: String,
+        ): PullRequestInfo {
+            remotePrRequests += Triple(branchName, baseBranch, title)
+            return PullRequestInfo(42, "https://github.example/pr/42")
+        }
 
         override fun ensurePullRequest(
             repoRoot: java.nio.file.Path,

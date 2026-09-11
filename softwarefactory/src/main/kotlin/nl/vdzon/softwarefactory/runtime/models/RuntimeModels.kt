@@ -8,6 +8,8 @@ import nl.vdzon.softwarefactory.contract.AgentResultRateLimit
 import nl.vdzon.softwarefactory.core.contracts.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRateLimit
 import nl.vdzon.softwarefactory.support.SupportApi
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeRepositoryResult
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeVerificationResult
 
 data class AgentRunCompleteRequest(
     val storyKey: String, val role: String, val containerName: String, val phase: String? = null,
@@ -22,6 +24,10 @@ data class AgentRunCompleteRequest(
     /** Alleen voor SUMMARIZER: de twee PO-facing samenvattingen, gebaseerd op wat echt is opgeleverd. */
     val descriptionSummary: String? = null,
     val shortDescriptionSummary: String? = null,
+    /** Getypeerd Git-resultaat van Agent Runtime; los van het AI-resultaat. */
+    val runtimeRepositoryResult: RuntimeRepositoryResult? = null,
+    /** Getypeerd verificatiebewijs van Agent Runtime; agentproza is hiervoor nooit bewijs. */
+    val runtimeVerificationResult: RuntimeVerificationResult? = null,
 ) {
     val totalTokens: Int = inputTokens + outputTokens + cacheReadInputTokens + cacheCreationInputTokens
     @JsonIgnore

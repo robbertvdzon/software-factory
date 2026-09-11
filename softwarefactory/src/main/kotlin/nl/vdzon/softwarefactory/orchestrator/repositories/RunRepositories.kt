@@ -618,6 +618,31 @@ class JdbcAgentRunRepository(
         )
     }
 
+    override fun storeRuntimeJobResult(
+        runtimeJobId: String,
+        checkoutCommitSha: String?,
+        publishedCommitSha: String?,
+        repositoryResultJson: String?,
+        verificationResultJson: String?,
+    ) {
+        jdbcTemplate.update(
+            """
+            UPDATE ${factorySecrets.factoryDatabaseSchema}.agent_runtime_jobs
+            SET checkout_commit_sha = ?,
+                published_commit_sha = ?,
+                repository_result_json = ?::jsonb,
+                verification_result_json = ?::jsonb,
+                updated_at = now()
+            WHERE runtime_job_id = ?::uuid
+            """.trimIndent(),
+            checkoutCommitSha,
+            publishedCommitSha,
+            repositoryResultJson,
+            verificationResultJson,
+            runtimeJobId,
+        )
+    }
+
 }
 
 private fun ResultSet.toAgentRunRecord(): AgentRunRecord =

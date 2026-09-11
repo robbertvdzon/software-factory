@@ -32,6 +32,8 @@ import nl.vdzon.softwarefactory.core.contracts.FactoryStateChangedEvent
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
 import nl.vdzon.softwarefactory.core.contracts.StoryRunPullRequestUpdate
 import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence
+import nl.vdzon.softwarefactory.runtime.v2.RuntimePublicationStatus
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeVerificationStatus
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.beans.factory.annotation.Autowired
@@ -351,9 +353,6 @@ class AgentRunCompletionService(
     }
 
     private fun syncRepositoryAfterAgent(request: AgentRunCompleteRequest, completed: CompletedAgentRun): Boolean {
-        if (!request.isSuccessful()) {
-            return true
-        }
         val role = AgentRole.entries.firstOrNull { it.markerKeyPart == request.role } ?: return true
         // Refinement-agents (refiner/planner) raken de repo niet — op story-niveau bestaat er nog
         // geen gecloonde workspace. Een sync zou hier falen ("repository is missing") en daardoor
@@ -362,8 +361,17 @@ class AgentRunCompletionService(
         // syncen — zonder deze skip faalt de sync altijd (poging tot push van een niet-bestaande
         // branch) en blijft de completion permanent vastzitten.
         if (role == AgentRole.REFINER || role == AgentRole.PLANNER || role == AgentRole.AUDITOR) {
-            return true
+            return if (role == AgentRole.AUDITOR && isRuntimeJob(request.containerName)) {
+                validateReadOnlyRuntimeRepository(request, completed, role)
+            } else {
+                true
+            }
         }
+        if (role == AgentRole.SUMMARIZER) return true
+        if (isRuntimeJob(request.containerName)) {
+            return syncRuntimeRepository(request, completed, role)
+        }
+        if (!request.isSuccessful()) return true
         val storyRun = storyRunRepository.get(completed.storyRunId) ?: return true
         val workspaceService = storyWorkspaceService ?: return true
         return runCatching {
@@ -397,6 +405,123 @@ class AgentRunCompletionService(
             false
         }
     }
+
+    private fun syncRuntimeRepository(
+        request: AgentRunCompleteRequest,
+        completed: CompletedAgentRun,
+        role: AgentRole,
+    ): Boolean {
+        val storyRun = storyRunRepository.get(completed.storyRunId)
+            ?: return repositoryFailure(request, role, "Story-run ${completed.storyRunId} ontbreekt")
+        val repository = request.runtimeRepositoryResult
+            ?: return repositoryFailure(request, role, "Agent Runtime leverde geen repositoryResult")
+        val expectedBranch = storyRun.branchName
+            ?: return repositoryFailure(request, role, "Story-run heeft geen remote branch")
+        if (repository.branch != expectedBranch) {
+            return repositoryFailure(
+                request,
+                role,
+                "Runtime rapporteerde branch '${repository.branch}', verwacht '$expectedBranch'",
+            )
+        }
+
+        if (role == AgentRole.REVIEWER || role == AgentRole.TESTER) {
+            return validateReadOnlyRuntimeRepository(request, completed, role)
+        }
+
+        if (!request.isSuccessful()) return true
+        val verification = request.runtimeVerificationResult
+        if (verification?.status != RuntimeVerificationStatus.PASSED) {
+            if (repository.publicationStatus == RuntimePublicationStatus.PUSHED) {
+                return repositoryFailure(request, role, "Runtime pushte ondanks rode of ontbrekende verificatie")
+            }
+            // Een rode verificatie is een geldige developer-loopback en mag de trackerfase naar
+            // development-rejected laten gaan, maar levert nadrukkelijk geen PR/publicatie op.
+            return true
+        }
+        if (repository.publicationStatus == RuntimePublicationStatus.NONE) {
+            return repositoryFailure(request, role, "Muterende Runtime-job rapporteerde publicatiestatus NONE")
+        }
+        if (repository.publicationStatus == RuntimePublicationStatus.NO_CHANGES) return true
+        if (repository.commitSha.isNullOrBlank()) {
+            return repositoryFailure(request, role, "Runtime rapporteerde PUSHED zonder commitSha")
+        }
+
+        val baseBranch = storyRun.baseBranch?.takeIf(String::isNotBlank) ?: "main"
+        val pr = pullRequestClient.ensurePullRequest(
+            targetRepo = storyRun.targetRepo,
+            branchName = expectedBranch,
+            baseBranch = baseBranch,
+            title = "${storyRun.storyKey}: Software Factory changes",
+            body = "Automatische Software Factory PR voor `${storyRun.storyKey}`.",
+        )
+        storyRunRepository.updatePullRequest(
+            StoryRunPullRequestUpdate(
+                storyRunId = storyRun.id,
+                branchName = expectedBranch,
+                prNumber = pr.number.takeIf { it > 0 } ?: storyRun.prNumber,
+                prUrl = pr.url ?: storyRun.prUrl,
+                baseBranch = baseBranch,
+                branchPrefix = storyRun.branchPrefix,
+                previewUrlTemplate = storyRun.previewUrlTemplate,
+                previewNamespaceTemplate = storyRun.previewNamespaceTemplate,
+                previewDbSecretRecipe = storyRun.previewDbSecretRecipe,
+            ),
+        )
+        logger.info(
+            "Runtime repository publication accepted: story={} role={} branch={} commit={} prNumber={}",
+            request.storyKey,
+            role.markerKeyPart,
+            expectedBranch,
+            repository.commitSha,
+            pr.number,
+        )
+        return true
+    }
+
+    private fun validateReadOnlyRuntimeRepository(
+        request: AgentRunCompleteRequest,
+        completed: CompletedAgentRun,
+        role: AgentRole,
+    ): Boolean {
+        if (!request.isSuccessful()) return true
+        val storyRun = storyRunRepository.get(completed.storyRunId)
+            ?: return repositoryFailure(request, role, "Story-run ${completed.storyRunId} ontbreekt")
+        val repository = request.runtimeRepositoryResult
+            ?: return repositoryFailure(request, role, "Agent Runtime leverde geen repositoryResult")
+        val expectedBranch = if (role == AgentRole.AUDITOR) {
+            storyRun.baseBranch?.takeIf(String::isNotBlank) ?: "main"
+        } else {
+            storyRun.branchName ?: return repositoryFailure(request, role, "Story-run heeft geen remote branch")
+        }
+        if (repository.branch != expectedBranch || repository.publicationStatus != RuntimePublicationStatus.NONE) {
+            return repositoryFailure(
+                request,
+                role,
+                "Read-only Runtime-resultaat past niet bij branch '$expectedBranch' en publicatiemodus NONE",
+            )
+        }
+        val currentHead = pullRequestClient.latestCommitSha(storyRun.targetRepo, expectedBranch)
+            ?: return repositoryFailure(request, role, "Actuele branch-head kon niet worden bepaald")
+        if (currentHead != repository.checkoutCommitSha) {
+            return repositoryFailure(
+                request,
+                role,
+                "Bewijs is verouderd: beoordeeld=${repository.checkoutCommitSha}, actueel=$currentHead",
+            )
+        }
+        return true
+    }
+
+    private fun repositoryFailure(request: AgentRunCompleteRequest, role: AgentRole, detail: String): Boolean {
+        val message = "[ORCHESTRATOR] Runtime repositoryresultaat voor ${role.markerKeyPart} geweigerd: $detail"
+        logger.warn("{} (story={})", message, request.storyKey)
+        issueTrackerClient.updateIssueFields(request.storyKey, TrackerFieldUpdate.of(TrackerField.ERROR to message))
+        return false
+    }
+
+    private fun isRuntimeJob(containerName: String): Boolean =
+        runCatching { java.util.UUID.fromString(containerName) }.isSuccess
 
     private fun updateTracker(request: AgentRunCompleteRequest, storyRunId: Long) {
         val role = AgentRole.entries.firstOrNull { it.markerKeyPart == request.role } ?: return

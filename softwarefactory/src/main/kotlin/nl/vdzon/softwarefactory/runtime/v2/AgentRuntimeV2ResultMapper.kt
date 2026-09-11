@@ -52,6 +52,8 @@ class AgentRuntimeV2ResultMapper {
             },
             descriptionSummary = payload.text("descriptionSummary"),
             shortDescriptionSummary = payload.text("shortDescriptionSummary"),
+            runtimeRepositoryResult = result.repositoryResult,
+            runtimeVerificationResult = result.verificationResult,
         )
     }
 

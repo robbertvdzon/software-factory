@@ -242,6 +242,14 @@ interface AgentRunRepository {
         errorMessage: String? = null,
     ) = Unit
 
+    fun storeRuntimeJobResult(
+        runtimeJobId: String,
+        checkoutCommitSha: String?,
+        publishedCommitSha: String?,
+        repositoryResultJson: String?,
+        verificationResultJson: String?,
+    ) = Unit
+
 }
 
 fun AgentRunRepository.recordStarted(start: AgentRunStart): Long = recordStarted(
