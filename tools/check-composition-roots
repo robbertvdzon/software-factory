@@ -10,7 +10,7 @@ trap 'rm -f "$actual" "$registered"' EXIT
 # Bewust grep i.p.v. rg: ripgrep staat niet in deze repo/runners geïnstalleerd, en een
 # ontbrekende rg (exit 127) is hier niet te onderscheiden van een echte bevinding.
 grep -rlE --include='*.kt' 'System\.getenv|ProcessBuilder|HttpClient\.new' \
-  softwarefactory/src/main agentworker/src/main dashboard-backend/src/main factory-common/src/main | sort > "$actual"
+  softwarefactory/src/main dashboard-backend/src/main factory-common/src/main | sort > "$actual"
 awk -F'|' '!/^#/ && NF {print $1}' "$REGISTER" | sort > "$registered"
 unregistered="$(comm -23 "$actual" "$registered")"
 stale="$(comm -13 "$actual" "$registered")"

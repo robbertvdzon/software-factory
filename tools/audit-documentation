@@ -13,7 +13,6 @@ done
 
 require pom.xml '<module>factory-common</module>'
 require pom.xml '<module>softwarefactory</module>'
-require pom.xml '<module>agentworker</module>'
 require pom.xml '<module>dashboard-backend</module>'
 require docs/technical/modules.md 'met 12 directe packages'
 require docs/technical/modules.md '`bridge`, `config`, `core`, `knowledge`, `merge`'

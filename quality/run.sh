@@ -6,7 +6,7 @@ cd "$ROOT"
 TS="$(date +%Y-%m-%dT%H-%M-%S)"
 OUT="qualityrun/$TS"
 BASELINE="quality/baselines/plan-07-ratchet.json"
-MODULES="factory-contracts,factory-common,softwarefactory,agentworker,dashboard-backend"
+MODULES="factory-contracts,factory-common,softwarefactory,dashboard-backend"
 mkdir -p "$OUT"
 
 [[ -f "$BASELINE" ]] || { echo "Quality ratchet baseline ontbreekt: $BASELINE" >&2; exit 1; }
@@ -47,7 +47,7 @@ cp "$OUT/quality-score.json" qualityrun/quality-score.json
 {
   echo "# Quality ratchet — $TS"
   echo
-  echo "Modules: factory-contracts, factory-common, softwarefactory, agentworker, dashboard-backend"
+  echo "Modules: factory-contracts, factory-common, softwarefactory, dashboard-backend"
   echo
   echo '```json'
   cat "$OUT/delta.json"

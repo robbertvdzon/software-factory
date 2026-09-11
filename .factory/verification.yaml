@@ -3,25 +3,21 @@ commands:
   - id: repository-maven-verify
     # Alle JVM-modules uit pom.xml <modules> + de root-buildfiles zelf. Een wijziging puur onder
     # dashboard-frontend/ of docs/ raakt geen van deze paden en slaat dit (trage) commando dus
-    # over — zie TesterVerificationRunner.isOutOfScope(). Bij twijfel/onbekende diff (geen
+    # over. Bij twijfel/onbekende diff (geen
     # baseBranch, git-fout) draait dit gewoon altijd; alleen een aantoonbaar niet-overlappende
     # diff mag skippen.
     pathPrefixes:
       - factory-contracts/
       - factory-common/
       - softwarefactory/
-      - agentworker/
       - dashboard-backend/
       - pom.xml
-      - Dockerfile.agent
       - .factory/verification.yaml
     argv:
       - mvn
       - -B
       - --no-transfer-progress
-      # `clean` is bewust: het story-workspace wordt door rollen gedeeld, en een eerder
-      # afgebroken build kan corrupte restanten achterlaten (bv. een half geschreven
-      # jacoco-exec die elke volgende verify laat falen op "Unknown block type").
+      # `clean` voorkomt dat oude build-output de verificatie beïnvloedt.
       - clean
       - verify
     workingDirectory: .
@@ -51,23 +47,7 @@ commands:
       - test
     workingDirectory: dashboard-frontend
     timeoutSeconds: 900
-  - id: agent-image-build-stage
-    # CI-only: de agent-container heeft geen docker-CLI (alleen de socket, voor Testcontainers),
-    # dus dit commando kan de developer/tester nooit zelf draaien — het faalde altijd met
-    # tool-missing, ongeacht de story. De echte GitHub Actions-job "Agent image build stage"
-    # verifieert dit los en onafhankelijk, vóór de merge-gate.
-    agentRunnable: false
-    argv:
-      - docker
-      - build
-      - --target
-      - build
-      - -f
-      - Dockerfile.agent
-      - .
-    workingDirectory: .
-    timeoutSeconds: 1800
-  - id: agent-mini-reactor-smoke
+  - id: backend-mini-reactor-smoke
     pathPrefixes:
       - docker/
       - pom.xml

@@ -15,8 +15,7 @@ for command in \
   'flutter pub get' \
   'flutter analyze' \
   'flutter test' \
-  'docker/test-prepare-mini-reactor.sh' \
-  'docker build --target build -f Dockerfile.agent .'; do
+  'docker/test-prepare-mini-reactor.sh'; do
   grep -qF "$command" "$gate"
 done
 

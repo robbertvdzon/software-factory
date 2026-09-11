@@ -34,6 +34,5 @@ run repository-module-dependency-drift tools/generate-module-dependencies --chec
 run dashboard-flutter-pub-get bash -c 'cd dashboard-frontend && flutter pub get'
 run dashboard-flutter-verify bash -c 'cd dashboard-frontend && flutter analyze'
 run dashboard-flutter-test bash -c 'cd dashboard-frontend && flutter test'
-run agent-mini-reactor-smoke bash docker/test-prepare-mini-reactor.sh
-run agent-image-build-stage docker build --target build -f Dockerfile.agent .
+run backend-mini-reactor-smoke bash docker/test-prepare-mini-reactor.sh
 run repository-documentation-audit tools/audit-documentation

@@ -5,7 +5,7 @@ set -euo pipefail
 pom="$1"
 target="$2"
 [[ -f "$pom" ]] || { echo "mini-reactor: root POM not found: $pom" >&2; exit 2; }
-[[ "$target" == agentworker || "$target" == dashboard-backend ]] || {
+[[ "$target" == dashboard-backend ]] || {
   echo "mini-reactor: unsupported target module: $target" >&2
   exit 2
 }
@@ -17,12 +17,12 @@ awk -v target="$target" '
     sub(/^.*<module>/, "", module)
     sub(/<\/module>.*$/, "", module)
     seen[module] = 1
-    keep = (module == target || module == "factory-contracts" || (target == "agentworker" && module == "factory-common"))
+    keep = (module == target || module == "factory-contracts")
     if (!keep) next
   }
   { print }
   END {
-    if (!seen["factory-contracts"] || !seen[target] || (target == "agentworker" && !seen["factory-common"])) exit 42
+    if (!seen["factory-contracts"] || !seen[target]) exit 42
   }
 ' "$pom" > "$tmp" || {
   status=$?

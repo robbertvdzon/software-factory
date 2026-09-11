@@ -49,7 +49,6 @@
         <module>factory-contracts</module>
         <module>factory-common</module>
         <module>softwarefactory</module>
-        <module>agentworker</module>
         <module>dashboard-backend</module>
     </modules>
 

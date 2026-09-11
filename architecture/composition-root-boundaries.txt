@@ -1,11 +1,7 @@
 # exact-path|runtime|capability|reason
-agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/CliProcessRunner.kt|agentworker|process|Supplier-neutral CLI process adapter
-agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/cli/AgentCli.kt|agentworker|environment|CLI composition root
-agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/flows/TesterPreviewFlow.kt|agentworker|http|Preview HTTP adapter
-agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/verification/TesterVerificationRunner.kt|agentworker|process-environment|Verification command adapter
 dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/config/DashboardConfig.kt|dashboard-backend|environment|Dashboard composition root
-factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt|factory-tooling|environment|GitHub CLI adapter credential boundary
 factory-common/src/main/kotlin/nl/vdzon/softwarefactory/git/services/ProcessRunner.kt|factory-tooling|process|Git command adapter
+factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt|factory-tooling|environment|GitHub CLI adapter credential boundary
 softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/audit/services/AuditJobsReader.kt|softwarefactory|environment|Legacy GitHub credential fallback owned by audit adapter
 softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/config/services/OrchestratorSettingsFactory.kt|softwarefactory|environment-doc|Documents resolved composition-root input
 softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/config/services/SecretsEnvLoader.kt|softwarefactory|environment|Factory configuration composition root

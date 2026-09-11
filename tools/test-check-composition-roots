@@ -56,7 +56,7 @@ sandbox="$(mktemp -d)"
 trap 'rm -rf "$sandbox"' EXIT
 setup_sandbox() {
   rm -rf "${sandbox:?}/repo"
-  mkdir -p "$sandbox/repo"/{softwarefactory,agentworker,dashboard-backend,factory-common}/src/main
+  mkdir -p "$sandbox/repo"/{softwarefactory,dashboard-backend,factory-common}/src/main
   mkdir -p "$sandbox/repo/architecture" "$sandbox/repo/tools"
   cp "$script" "$sandbox/repo/tools/check-composition-roots"
   printf 'val token = System.getenv("SF_TOKEN")\n' > "$sandbox/repo/softwarefactory/src/main/Boundary.kt"
