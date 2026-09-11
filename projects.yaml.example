@@ -112,6 +112,8 @@ base: softwarefactory
 projects:
   - name: personal-feed
     repo: git@github.com:robbertvdzon/personal-feed.git
+    # Alias uit de Agent Runtime-workerconfig; nooit een URL of credential.
+    runtimeAlias: personal-news-feed
     merge:
       requiredChecks:
         - validate
@@ -128,6 +130,7 @@ projects:
       argocdNamespace: openshift-gitops
   - name: softwarefactory
     repo: https://github.com/robbertvdzon/softwarefactory.git
+    runtimeAlias: software-factory
     merge:
       requiredChecks:
         - Repository verification
@@ -157,6 +160,7 @@ projects:
         packageName: nl.vdzon.softwarefactory.softwarefactory_dashboard
   - name: robberts-assistent
     repo: git@github.com:robbertvdzon/robberts-assistent.git
+    runtimeAlias: robberts-assistent
     merge:
       requiredChecks:
         - build

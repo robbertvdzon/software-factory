@@ -25,6 +25,7 @@ interface AgentRuntime {
 
 data class AgentDispatchRequest(
     val storyKey: String,
+    val projectKey: String? = null,
     val targetRepo: String,
     val storyRunId: Long,
     val workspacePath: String? = null,
@@ -65,6 +66,7 @@ data class AgentDispatchResult(
     val containerName: String,
     val startedAt: OffsetDateTime,
     val workspacePath: String? = null,
+    val idempotencyKey: String? = null,
 )
 
 class NotConfiguredAgentRuntime : AgentRuntime {

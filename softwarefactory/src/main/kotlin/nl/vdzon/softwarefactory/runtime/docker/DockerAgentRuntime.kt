@@ -14,7 +14,7 @@ import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.stereotype.Component
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -59,7 +59,7 @@ data class DockerRuntimeSettings(
     }
 }
 
-@Component
+@ConditionalOnProperty(name = ["softwarefactory.runtime"], havingValue = "docker")
 class DockerAgentRuntime(
     private val factorySecrets: FactorySecrets,
     private val factoryEnvironmentProvider: ConfigApi,

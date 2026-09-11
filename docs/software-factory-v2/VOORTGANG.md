@@ -21,7 +21,7 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 |---:|---|---|---|
 | 0 | bezig | Productie-health is groen; execution options en repositoryaliases zijn op 2026-09-11 uitgelezen; een echte `STRUCTURED_GENERATION`-probe eindigde `SUCCEEDED` met job `3a2c4970-b6b3-426c-830a-488aa47ef8af`. | Mock- en repositoryprobes afronden. De allowlist bevat `test-repository`, maar er is nog geen online worker die die alias aanbiedt. |
 | 1 | afgerond | [`ontwerp-runtimevervanging.md`](ontwerp-runtimevervanging.md) legt vervanging, correlatie, prompts, Git-eigenaarschap, modelconfiguratie, quota en workspace-aannames vast. | Runtime-consumer bouwen. |
-| 2 | bezig | Getypeerde `/v2`-contracten, HTTP-consumer, bearerconfiguratie, duurzame correlatietabel en modelconfiguratie per rol/project zijn toegevoegd. | Resultaatprojectie en refiner/planner/summarizer aansluiten; beheerscherm toevoegen. |
+| 2 | bezig | De v2-adapter maakt idempotente jobs, bouwt rolprompts/schema's, projecteert events/resultaten en gebruikt databasegestuurde modelkeuze. Refiner, planner en summarizer volgen hiermee het v2-pad. | Beheerscherm, uploadonderbreking en expliciete correlatieprojectie afronden. |
 | 3 | niet gestart | — | Stap 2 groen. |
 | 4 | niet gestart | — | Stap 3 groen. |
 | 5 | niet gestart | — | Oude runner verwijderd en volledige reactor lokaal groen. |
@@ -83,3 +83,12 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
   execution options van Runtime. De defaults zijn expliciet en er is geen model-fallback.
 - Compilebewijs na de migratie en repositorylaag: `mvn -B --no-transfer-progress -pl
   softwarefactory -am -DskipTests compile` — groen.
+- De Docker-runtime en resultbestandpoller zijn niet meer de standaard; alleen expliciete
+  `softwarefactory.runtime=docker` activeert ze tijdens de overgang. De v2-adapter is de default.
+- `projects.yaml` bevat per project de expliciete, niet-geheime Runtime-alias. URL's worden nooit in
+  een Runtime-job opgenomen.
+- Runtime-events worden met hun sequence idempotent naar de bestaande agentlogprojectie geschreven;
+  terminale resultaten gaan door dezelfde duurzame domeincompletion als voorheen.
+- Test: `ProjectConfigurationTest`, `AgentRuntimeV2HttpClientTest` en
+  `AgentRuntimeV2ResultMapperTest` — 28 tests groen. Volledige testcompilatie van de geraakte reactor
+  is eveneens groen.

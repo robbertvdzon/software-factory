@@ -225,6 +225,23 @@ interface AgentRunRepository {
      */
     fun deleteOlderThan(olderThan: OffsetDateTime, batchSize: Int): Int = 0
 
+    /** Duurzame koppeling voor een v2-job; default houdt bestaande testdoubles compatibel. */
+    fun recordRuntimeJob(
+        agentRunId: Long,
+        runtimeJobId: String,
+        idempotencyKey: String,
+        status: String,
+        phase: String,
+    ) = Unit
+
+    fun updateRuntimeJob(
+        runtimeJobId: String,
+        status: String,
+        phase: String,
+        errorCode: String? = null,
+        errorMessage: String? = null,
+    ) = Unit
+
 }
 
 fun AgentRunRepository.recordStarted(start: AgentRunStart): Long = recordStarted(

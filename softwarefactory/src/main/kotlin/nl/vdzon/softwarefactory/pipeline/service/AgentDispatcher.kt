@@ -190,6 +190,15 @@ class AgentDispatcher(
                 // Voor subtaken (storyRun keyt op de parent) → markeer de run met de subtask-key.
                 subtaskKey = issue.key.takeIf { storyRunKey != issue.key },
             ))
+            dispatch.idempotencyKey?.let { key ->
+                agentRunRepository.recordRuntimeJob(
+                    agentRunId = agentRunId,
+                    runtimeJobId = dispatch.containerName,
+                    idempotencyKey = key,
+                    status = "QUEUED",
+                    phase = "QUEUED",
+                )
+            }
             logger.info(
                 "Agent started: story={} role={} agentRunId={} storyRunId={} container={} " +
                     "workspace={} phase={} supplier={} level={} model={}",
@@ -259,6 +268,7 @@ class AgentDispatcher(
         val aiRoute = AiRouting.resolve(issue.fields.aiLevel, supplier, role)
         return AgentDispatchRequest(
             storyKey = issue.key,
+            projectKey = issue.projectKey,
             serializationKey = storyRun.storyKey,
             targetRepo = targetRepo,
             storyRunId = storyRun.id,

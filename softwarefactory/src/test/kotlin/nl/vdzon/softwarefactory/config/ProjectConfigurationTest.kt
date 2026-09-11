@@ -62,6 +62,7 @@ class ProjectConfigurationTest {
             projects:
               - name: personal-feed
                 repo: git@github.com:robbert/personal-feed.git
+                runtimeAlias: personal-news-feed
               - name: SoftwareFactory
                 repo: https://github.com/robbert/softwarefactory.git
             """.trimIndent(),
@@ -70,6 +71,7 @@ class ProjectConfigurationTest {
         val resolver = ProjectConfiguration.fromYaml(file)
 
         assertEquals("git@github.com:robbert/personal-feed.git", resolver.repoFor("personal-feed"))
+        assertEquals("personal-news-feed", resolver.runtimeAliasFor("git@github.com:robbert/personal-feed.git"))
         assertEquals("https://github.com/robbert/softwarefactory.git", resolver.repoFor("softwarefactory"))
         assertEquals(setOf("personal-feed", "softwarefactory"), resolver.configuredNames())
         // projectNames behoudt de originele schrijfwijze (voor keuzelijsten in de UI).

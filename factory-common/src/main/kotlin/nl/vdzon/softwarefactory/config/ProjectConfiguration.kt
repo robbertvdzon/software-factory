@@ -98,6 +98,9 @@ interface ProjectRepositoryCatalog {
      * project ook echt hetzelfde `Repo`-veld hebben, voor tabblad-groepering en policy-lookups.
      */
     fun projectNameFor(repoOrName: String?): String?
+
+    /** Geregistreerde Agent Runtime-alias; nooit een URL of credential. */
+    fun runtimeAliasFor(repoOrName: String?): String? = null
 }
 
 interface ProjectTelegramSettings {
@@ -206,6 +209,7 @@ interface ProjectReleaseCleanupSettings {
  */
 class ProjectConfiguration(
     repos: Map<String, String>,
+    runtimeAliases: Map<String, String> = emptyMap(),
     telegramChatIds: Map<String, String> = emptyMap(),
     privateFiles: Map<String, List<String>> = emptyMap(),
     private val baseProject: String? = null,
@@ -220,6 +224,7 @@ class ProjectConfiguration(
     private val byRepoIdentity = LinkedHashMap<String, String>()
     private val originalNameByKey = LinkedHashMap<String, String>()
     private val originalNames = mutableListOf<String>()
+    private val runtimeAliasByName = LinkedHashMap<String, String>()
     private val chatIdByName = LinkedHashMap<String, String>()
     private val nameByChatId = LinkedHashMap<String, String>()
     private val privateFilesByName = LinkedHashMap<String, List<String>>()
@@ -240,6 +245,13 @@ class ProjectConfiguration(
                 }
                 originalNameByKey[key] = name.trim()
                 byRepoIdentity[repoIdentity(value)] = key
+            }
+        }
+        runtimeAliases.forEach { (name, alias) ->
+            val key = name.trim().lowercase()
+            val value = alias.trim().lowercase()
+            if (key.isNotEmpty() && RUNTIME_ALIAS_PATTERN.matches(value)) {
+                runtimeAliasByName[key] = value
             }
         }
         telegramChatIds.forEach { (name, chatId) ->
@@ -398,6 +410,9 @@ class ProjectConfiguration(
 
     override fun projectNameFor(repoOrName: String?): String? = keyFor(repoOrName)?.let { originalNameByKey[it] }
 
+    override fun runtimeAliasFor(repoOrName: String?): String? =
+        keyFor(repoOrName)?.let(runtimeAliasByName::get)
+
     /** De release/package-cleanup-config voor [projectName], of null als niet geconfigureerd (= skip). */
     override fun releaseCleanupFor(projectName: String?): ReleaseCleanupConfig? {
         val key = keyFor(projectName) ?: return null
@@ -466,7 +481,7 @@ class ProjectConfiguration(
                     path, parsed.repos.size, parsed.repos.keys, parsed.telegramChatIds.size,
                 )
                 ProjectConfiguration(
-                    parsed.repos, parsed.telegramChatIds, parsed.privateFiles, parsed.base,
+                    parsed.repos, parsed.runtimeAliases, parsed.telegramChatIds, parsed.privateFiles, parsed.base,
                     parsed.deployConfigs, parsed.liveComponents, parsed.requiredChecks,
                     parsed.deployTargets, parsed.releaseCleanupConfigs, parsed.apkPackages,
                 )
@@ -478,6 +493,7 @@ class ProjectConfiguration(
 
         private data class ParsedProjects(
             val repos: Map<String, String>,
+            val runtimeAliases: Map<String, String>,
             val telegramChatIds: Map<String, String>,
             val privateFiles: Map<String, List<String>>,
             val base: String?,
@@ -594,6 +610,7 @@ class ProjectConfiguration(
             }
             val base = (rootMap["base"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
             val repos = LinkedHashMap<String, String>()
+            val runtimeAliases = LinkedHashMap<String, String>()
             val chatIds = LinkedHashMap<String, String>()
             val privateFiles = LinkedHashMap<String, List<String>>()
             val deployConfigs = LinkedHashMap<String, DeployConfig>()
@@ -615,6 +632,12 @@ class ProjectConfiguration(
                 // Bewaar de originele schrijfwijze als sleutel; de resolver dedupt case-insensitive.
                 if (repos.put(name, repo) != null) {
                     logger.warn("Project-config: dubbele projectnaam '{}'; laatste waarde wint.", name)
+                }
+                (map["runtimeAlias"] as? String)?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }?.let { alias ->
+                    require(RUNTIME_ALIAS_PATTERN.matches(alias)) {
+                        "Project-config: runtimeAlias '$alias' van '$name' is ongeldig"
+                    }
+                    runtimeAliases[name] = alias
                 }
                 // telegramChatId is optioneel; YAML kan het als getal of string leveren.
                 (map["telegramChatId"])?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { chatIds[name] = it }
@@ -693,9 +716,11 @@ class ProjectConfiguration(
                 (map["apkPackages"] as? List<*>)?.let { apkPackages[name] = parseApkPackages(it, name) }
             }
             return ParsedProjects(
-                repos, chatIds, privateFiles, base, deployConfigs, liveComponents, requiredChecks,
+                repos, runtimeAliases, chatIds, privateFiles, base, deployConfigs, liveComponents, requiredChecks,
                 deployTargets, releaseCleanupConfigs, apkPackages,
             )
         }
+
+        private val RUNTIME_ALIAS_PATTERN = Regex("^[a-z][a-z0-9-]{0,99}$")
     }
 }

@@ -570,6 +570,54 @@ class JdbcAgentRunRepository(
             batchSize,
         )
 
+    override fun recordRuntimeJob(
+        agentRunId: Long,
+        runtimeJobId: String,
+        idempotencyKey: String,
+        status: String,
+        phase: String,
+    ) {
+        jdbcTemplate.update(
+            """
+            INSERT INTO ${factorySecrets.factoryDatabaseSchema}.agent_runtime_jobs
+              (agent_run_id, runtime_job_id, idempotency_key, runtime_status, runtime_phase)
+            VALUES (?, ?::uuid, ?, ?, ?)
+            ON CONFLICT (agent_run_id) DO UPDATE SET
+              runtime_job_id = EXCLUDED.runtime_job_id,
+              idempotency_key = EXCLUDED.idempotency_key,
+              runtime_status = EXCLUDED.runtime_status,
+              runtime_phase = EXCLUDED.runtime_phase,
+              updated_at = now()
+            """.trimIndent(),
+            agentRunId,
+            runtimeJobId,
+            idempotencyKey,
+            status,
+            phase,
+        )
+    }
+
+    override fun updateRuntimeJob(
+        runtimeJobId: String,
+        status: String,
+        phase: String,
+        errorCode: String?,
+        errorMessage: String?,
+    ) {
+        jdbcTemplate.update(
+            """
+            UPDATE ${factorySecrets.factoryDatabaseSchema}.agent_runtime_jobs
+            SET runtime_status = ?, runtime_phase = ?, last_error_code = ?, last_error_message = ?, updated_at = now()
+            WHERE runtime_job_id = ?::uuid
+            """.trimIndent(),
+            status,
+            phase,
+            errorCode,
+            errorMessage,
+            runtimeJobId,
+        )
+    }
+
 }
 
 private fun ResultSet.toAgentRunRecord(): AgentRunRecord =

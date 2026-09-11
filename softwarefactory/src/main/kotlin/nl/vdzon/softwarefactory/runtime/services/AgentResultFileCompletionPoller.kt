@@ -19,11 +19,13 @@ import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import java.nio.file.Path
 import kotlin.io.path.exists
 import kotlin.io.path.readText
 
 @Component
+@ConditionalOnProperty(name = ["softwarefactory.runtime"], havingValue = "docker")
 class AgentResultFileCompletionPoller(
     private val agentRunRepository: AgentRunRepository,
     private val storyRunRepository: StoryRunRepository,
