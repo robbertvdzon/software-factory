@@ -6,7 +6,6 @@ import nl.vdzon.softwarefactory.core.contracts.ApkReleaseProbe
 import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
 import nl.vdzon.softwarefactory.core.contracts.ManualCommandProcessor
 import nl.vdzon.softwarefactory.core.contracts.OrchestratorSettings
-import nl.vdzon.softwarefactory.core.contracts.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.core.contracts.TrackerComment
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssueFields
@@ -42,7 +41,6 @@ abstract class OrchestratorTestHarness {
         pullRequests: FakeGitHubApi = FakeGitHubApi(),
         processedCommentStore: InMemoryProcessedCommentStore = InMemoryProcessedCommentStore(),
         previewCleaner: FakePreviewEnvironmentCleaner = FakePreviewEnvironmentCleaner(),
-        storyWorkspaceService: StoryWorkspaceApi = FakeStoryWorkspaceService(),
         costMonitor: FakeCostMonitor = FakeCostMonitor(),
         creditsPauseCoordinator: FakeCreditsPauseCoordinator = FakeCreditsPauseCoordinator(),
         manualCommandProcessor: ManualCommandProcessor = NoopManualCommandProcessor(),
@@ -125,7 +123,6 @@ abstract class OrchestratorTestHarness {
             storyRunRepository = storyRuns,
             pullRequestClient = pullRequests,
             previewApi = previewCleaner,
-            storyWorkspaceService = storyWorkspaceService,
             creditsPauseCoordinator = creditsPauseCoordinator,
             projectRepoResolver = projectRepoResolver,
             clock = clock,

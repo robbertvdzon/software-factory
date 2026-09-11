@@ -22,7 +22,6 @@ import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.preview.PreviewApi
-import nl.vdzon.softwarefactory.core.contracts.StoryWorkspaceApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Clock
@@ -43,7 +42,6 @@ class OrchestratorService(
     private val storyRunRepository: StoryRunRepository,
     private val pullRequestClient: GitHubApi,
     private val previewApi: PreviewApi,
-    private val storyWorkspaceService: StoryWorkspaceApi,
     private val creditsPauseCoordinator: CreditsPauseCoordinator,
     private val projectRepoResolver: ProjectRepositoryCatalog,
     private val clock: Clock,
@@ -59,7 +57,6 @@ class OrchestratorService(
         storyRunRepository = storyRunRepository,
         pullRequestClient = pullRequestClient,
         previewApi = previewApi,
-        storyWorkspaceService = storyWorkspaceService,
     ),
 ) : OrchestratorApi {
     private val logger = LoggerFactory.getLogger(javaClass)

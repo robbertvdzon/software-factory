@@ -21,7 +21,7 @@ import java.time.OffsetDateTime
 class StoryPurgeServiceTest {
 
     @Test
-    fun `purge with active run removes pr branch preview workspace run and tracker issues`() {
+    fun `purge with active run removes pr branch preview run and tracker issues`() {
         val issueTracker = FakeTrackerApi().apply {
             subtasks = listOf(subtask("KAN-2"), subtask("KAN-3"))
         }
@@ -29,14 +29,12 @@ class StoryPurgeServiceTest {
         val storyRuns = InMemoryStoryRunRepository().withPullRequest()
         val pullRequests = FakeGitHubApi()
         val preview = FakePreviewEnvironmentCleaner()
-        val workspace = FakeStoryWorkspaceService()
         val service = StoryPurgeService(
             issueTrackerClient = issueTracker,
             agentRuntime = runtime,
             storyRunRepository = storyRuns,
             pullRequestClient = pullRequests,
             previewApi = preview,
-            storyWorkspaceService = workspace,
         )
 
         service.purgeStory("KAN-1")
@@ -45,7 +43,6 @@ class StoryPurgeServiceTest {
         assertEquals(listOf(42), pullRequests.closedPrs)
         assertEquals(listOf("ai/KAN-1"), pullRequests.deletedBranches)
         assertEquals(listOf("app-pr-42"), preview.cleanedNamespaces)
-        assertEquals(listOf("KAN-1"), workspace.cleanedStoryKeys)
         assertEquals(listOf(1L), storyRuns.deleted)
         // Subtaken eerst, daarna de story zelf.
         assertEquals(listOf("KAN-2", "KAN-3", "KAN-1"), issueTracker.deletedIssues)
@@ -53,7 +50,7 @@ class StoryPurgeServiceTest {
     }
 
     @Test
-    fun `purge without run only cleans workspace and deletes tracker issues`() {
+    fun `purge without run deletes tracker issues`() {
         val issueTracker = FakeTrackerApi().apply {
             subtasks = listOf(subtask("KAN-2"))
         }
@@ -61,14 +58,12 @@ class StoryPurgeServiceTest {
         val storyRuns = InMemoryStoryRunRepository()
         val pullRequests = FakeGitHubApi()
         val preview = FakePreviewEnvironmentCleaner()
-        val workspace = FakeStoryWorkspaceService()
         val service = StoryPurgeService(
             issueTrackerClient = issueTracker,
             agentRuntime = runtime,
             storyRunRepository = storyRuns,
             pullRequestClient = pullRequests,
             previewApi = preview,
-            storyWorkspaceService = workspace,
         )
 
         service.purgeStory("KAN-1")
@@ -77,7 +72,6 @@ class StoryPurgeServiceTest {
         assertEquals(emptyList<Int>(), pullRequests.closedPrs)
         assertEquals(emptyList<String>(), pullRequests.deletedBranches)
         assertEquals(emptyList<String>(), preview.cleanedNamespaces)
-        assertEquals(listOf("KAN-1"), workspace.cleanedStoryKeys)
         assertEquals(emptyList<Long>(), storyRuns.deleted)
         assertEquals(listOf("KAN-2", "KAN-1"), issueTracker.deletedIssues)
     }
@@ -90,20 +84,17 @@ class StoryPurgeServiceTest {
         // Branch-verwijdering faalt; de rest moet alsnog doorgaan.
         val pullRequests = FakeGitHubApi(failDeleteBranch = true)
         val preview = FakePreviewEnvironmentCleaner()
-        val workspace = FakeStoryWorkspaceService()
         val service = StoryPurgeService(
             issueTrackerClient = issueTracker,
             agentRuntime = runtime,
             storyRunRepository = storyRuns,
             pullRequestClient = pullRequests,
             previewApi = preview,
-            storyWorkspaceService = workspace,
         )
 
         service.purgeStory("KAN-1")
 
         assertEquals(listOf("app-pr-42"), preview.cleanedNamespaces)
-        assertEquals(listOf("KAN-1"), workspace.cleanedStoryKeys)
         assertEquals(listOf(1L), storyRuns.deleted)
         assertEquals(listOf("KAN-2", "KAN-1"), issueTracker.deletedIssues)
     }
@@ -240,21 +231,6 @@ class StoryPurgeServiceTest {
         }
 
         override fun mergePullRequest(targetRepo: String, prNumber: Int, expectedHeadSha: String) = Unit
-    }
-
-    private class FakeStoryWorkspaceService : StoryWorkspaceApi {
-        val cleanedStoryKeys = mutableListOf<String>()
-
-        override fun prepare(storyRun: StoryRunRecord, role: AgentRole): PreparedStoryWorkspace =
-            throw UnsupportedOperationException()
-
-        override fun syncAfterAgent(storyRun: StoryRunRecord, role: AgentRole): RepositorySyncResult =
-            throw UnsupportedOperationException()
-
-        override fun cleanup(storyKey: String): Boolean {
-            cleanedStoryKeys += storyKey
-            return true
-        }
     }
 
     private class FakePreviewEnvironmentCleaner : PreviewApi {

@@ -20,7 +20,6 @@ import nl.vdzon.softwarefactory.testsupport.FakeAgentRuntime
 import nl.vdzon.softwarefactory.testsupport.FakeCostMonitor
 import nl.vdzon.softwarefactory.testsupport.FakeGitHubApi
 import nl.vdzon.softwarefactory.testsupport.FakePreviewEnvironmentCleaner
-import nl.vdzon.softwarefactory.testsupport.FakeStoryWorkspaceService
 import nl.vdzon.softwarefactory.testsupport.InMemoryAgentRunRepository
 import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
 import nl.vdzon.softwarefactory.testsupport.InMemoryStoryRunRepository

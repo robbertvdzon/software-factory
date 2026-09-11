@@ -16,8 +16,8 @@ import java.time.OffsetDateTime
  * Deze tabel had als enige geen enkele opruiming en groeide daardoor onbeperkt: op 2026-07-29 was
  * hij 436 MB (233.000 rijen vanaf mei), goed voor meer dan de helft van de hele database. De
  * payloads zijn alleen interessant om een recente run na te lezen; oudere regels kosten alleen
- * ruimte. Zelfde opzet als [nl.vdzon.softwarefactory.runtime.workspaces.WorkCleanupPoller] en de
- * payload-purge van `agent_run_completions` (`SF_COMPLETION_RETENTION_DAYS`).
+ * ruimte. Zelfde opzet als de payload-purge van `agent_run_completions`
+ * (`SF_COMPLETION_RETENTION_DAYS`).
  *
  * Verwijdert in batches: de eerste ronde op een lang ongemoeide tabel zou anders één transactie van
  * honderdduizenden rijen zijn terwijl de factory doorpolt. Loopt een ronde tegen [maxBatchesPerRun]

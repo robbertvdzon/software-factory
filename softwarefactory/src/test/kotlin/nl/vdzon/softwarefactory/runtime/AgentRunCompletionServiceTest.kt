@@ -6,11 +6,8 @@ import nl.vdzon.softwarefactory.runtime.types.*
 import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.config.ProjectRepositoryCatalog
 import nl.vdzon.softwarefactory.runtime.commands.*
-import nl.vdzon.softwarefactory.runtime.docker.*
-import nl.vdzon.softwarefactory.runtime.logging.*
 import nl.vdzon.softwarefactory.runtime.repositories.*
 import nl.vdzon.softwarefactory.runtime.services.*
-import nl.vdzon.softwarefactory.runtime.workspaces.*
 
 import nl.vdzon.softwarefactory.runtime.*
 import nl.vdzon.softwarefactory.runtime.*
@@ -19,7 +16,6 @@ import nl.vdzon.softwarefactory.runtime.*
 import nl.vdzon.softwarefactory.runtime.*
 
 import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
-import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceCleaner
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
 import nl.vdzon.softwarefactory.tracker.TrackerApi
@@ -36,7 +32,6 @@ import nl.vdzon.softwarefactory.tracker.repositories.ProcessedCommentStore
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
-import nl.vdzon.softwarefactory.core.DeploymentConfig
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeEntry
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
@@ -49,11 +44,8 @@ import nl.vdzon.softwarefactory.core.contracts.CostMonitor
 import nl.vdzon.softwarefactory.core.contracts.CostMonitorCheckResult
 import nl.vdzon.softwarefactory.core.contracts.CreditsPause
 import nl.vdzon.softwarefactory.core.contracts.CreditsPauseCoordinator
-import nl.vdzon.softwarefactory.core.contracts.PreparedStoryWorkspace
-import nl.vdzon.softwarefactory.core.contracts.RepositorySyncResult
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
-import nl.vdzon.softwarefactory.core.contracts.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.contract.AgentResultRateLimit
 import nl.vdzon.softwarefactory.contract.AgentResultVerificationCommand
 import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence
@@ -67,13 +59,9 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 import java.time.Clock
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
-import java.nio.file.Path
-import kotlin.io.path.createDirectories
-import kotlin.io.path.writeBytes
 import nl.vdzon.softwarefactory.runtime.v2.RuntimePublicationStatus
 import nl.vdzon.softwarefactory.runtime.v2.RuntimeRepositoryResult
 import nl.vdzon.softwarefactory.runtime.v2.RuntimeVerificationResult
@@ -86,7 +74,6 @@ class AgentRunCompletionServiceTest {
         val storyRuns = FakeStoryRunRepository()
         val pullRequests = FakeGitHubApi()
         val issueTracker = FakeTrackerApi()
-        val workspace = FakeStoryWorkspaceApi()
         val service = AgentRunCompletionService(
             agentRunRepository = runs,
             storyRunRepository = storyRuns,
@@ -95,8 +82,6 @@ class AgentRunCompletionServiceTest {
             processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
             pullRequestClient = pullRequests,
             knowledgeApi = FakeKnowledgeApi(),
-            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
-            storyWorkspaceService = workspace,
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
@@ -126,7 +111,6 @@ class AgentRunCompletionServiceTest {
             ),
         )
 
-        assertEquals(emptyList<AgentRole>(), workspace.syncedRoles)
         assertEquals(listOf(Triple("ai/KAN-69", "main", "KAN-69: Software Factory changes")), pullRequests.remotePrRequests)
         assertEquals(42, storyRuns.pullRequests.single().prNumber)
     }
@@ -226,6 +210,8 @@ class AgentRunCompletionServiceTest {
                         ),
                     ),
                 ),
+                runtimeRepositoryResult = pushedRepositoryResult(),
+                runtimeVerificationResult = passedRuntimeVerification(),
             ),
         )
 
@@ -244,7 +230,6 @@ class AgentRunCompletionServiceTest {
         val costMonitor = FakeCostMonitor()
         val creditsPause = FakeCreditsPauseCoordinator()
         val issueTracker = FakeTrackerApi()
-        val workspaceCleaner = FakeAgentWorkspaceCleaner()
         val service = AgentRunCompletionService(
             agentRunRepository = runs,
             storyRunRepository = storyRuns,
@@ -253,7 +238,6 @@ class AgentRunCompletionServiceTest {
             processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
             pullRequestClient = FakeGitHubApi(),
             knowledgeApi = FakeKnowledgeApi(),
-            agentWorkspaceCleaner = workspaceCleaner,
             costMonitor = costMonitor,
             creditsPauseCoordinator = creditsPause,
             factoryEnvironmentProvider = testConfig(),
@@ -295,7 +279,6 @@ class AgentRunCompletionServiceTest {
         assertEquals(PullRequestUpdate(7L, "ai/KAN-69", 42, "main", "ai/", "https://app-pr-{pr_num}.example.com", "app-pr-{pr_num}", "printf db-url"), storyRuns.pullRequests.single())
         assertTrue(events.payloads.first()["payload"].toString().contains("SF_GITHUB_TOKEN=<redacted>"))
         assertTrue(events.payloads.first()["payload"].toString().contains("postgresql://<redacted>"))
-        assertEquals(listOf("/tmp/software-factory-test-workspace" to false), workspaceCleaner.cleaned)
     }
 
     @Test
@@ -309,7 +292,6 @@ class AgentRunCompletionServiceTest {
             processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
             pullRequestClient = FakeGitHubApi(),
             knowledgeApi = FakeKnowledgeApi(),
-            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
@@ -363,7 +345,6 @@ class AgentRunCompletionServiceTest {
             processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
             pullRequestClient = FakeGitHubApi(),
             knowledgeApi = FakeKnowledgeApi(),
-            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
@@ -419,7 +400,6 @@ class AgentRunCompletionServiceTest {
             processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
             pullRequestClient = FakeGitHubApi(),
             knowledgeApi = FakeKnowledgeApi(),
-            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
@@ -487,7 +467,6 @@ class AgentRunCompletionServiceTest {
             processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
             pullRequestClient = FakeGitHubApi(),
             knowledgeApi = FakeKnowledgeApi(),
-            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
@@ -557,7 +536,6 @@ class AgentRunCompletionServiceTest {
             processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
             pullRequestClient = FakeGitHubApi(),
             knowledgeApi = FakeKnowledgeApi(),
-            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
@@ -615,7 +593,6 @@ class AgentRunCompletionServiceTest {
             processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
             pullRequestClient = FakeGitHubApi(),
             knowledgeApi = FakeKnowledgeApi(),
-            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
@@ -677,7 +654,6 @@ class AgentRunCompletionServiceTest {
             processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
             pullRequestClient = FakeGitHubApi(),
             knowledgeApi = FakeKnowledgeApi(),
-            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
@@ -717,9 +693,7 @@ class AgentRunCompletionServiceTest {
             processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
             pullRequestClient = FakeGitHubApi(),
             knowledgeApi = FakeKnowledgeApi(),
-            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             // Refinement-stadium: er bestaat nog geen gecloonde repo; een sync zou exploderen.
-            storyWorkspaceService = ThrowingStoryWorkspaceService(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
@@ -750,9 +724,7 @@ class AgentRunCompletionServiceTest {
         )
     }
 
-    // SF-2102 — de SUMMARIZER-schrijfactie (writeFinalStoryAfterSummarizer): beide samenvattingen
-    // landen op de tracker. De service wordt bewust met een niet-null storyWorkspaceService
-    // gebouwd; met null valt de hele tak stil weg en zou de assertie vals-negatief zijn.
+    // SF-2102 — de SUMMARIZER-schrijfactie: beide samenvattingen landen op de tracker.
     @Test
     fun `successful summarizer completion writes both summaries to the tracker`() {
         val issueTracker = FakeTrackerApi()
@@ -820,11 +792,6 @@ class AgentRunCompletionServiceTest {
         processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
         pullRequestClient = FakeGitHubApi(),
         knowledgeApi = FakeKnowledgeApi(),
-        agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
-        // Niet-null: de summary-schrijfactie zit achter een `storyWorkspaceService ?: return`.
-        // De writeFinalStory-aanroep ervoor zit in een runCatching, dus een gooiende fake blokkeert
-        // de schrijfacties niet.
-        storyWorkspaceService = ThrowingStoryWorkspaceService(),
         costMonitor = FakeCostMonitor(),
         creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
         factoryEnvironmentProvider = testConfig(),
@@ -832,16 +799,6 @@ class AgentRunCompletionServiceTest {
         clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
         objectMapper = jacksonObjectMapper(),
     )
-
-    private class ThrowingStoryWorkspaceService : StoryWorkspaceApi {
-        override fun prepare(storyRun: StoryRunRecord, role: AgentRole): PreparedStoryWorkspace =
-            throw IllegalStateException("prepare niet verwacht in deze test")
-
-        override fun syncAfterAgent(storyRun: StoryRunRecord, role: AgentRole): RepositorySyncResult =
-            throw IllegalArgumentException("Story workspace repository is missing")
-
-        override fun cleanup(storyKey: String): Boolean = false
-    }
 
     @Test
     fun `credits exhausted completion activates system pause coordinator`() {
@@ -858,7 +815,6 @@ class AgentRunCompletionServiceTest {
             processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
             pullRequestClient = FakeGitHubApi(),
             knowledgeApi = FakeKnowledgeApi(),
-            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = creditsPause,
             factoryEnvironmentProvider = testConfig(),
@@ -878,58 +834,6 @@ class AgentRunCompletionServiceTest {
         )
 
         assertEquals(listOf("KAN-69"), creditsPause.exhaustedStories)
-    }
-
-
-    @Test
-    fun `tester completion replaces previous tracker screenshots with current workspace screenshots`(@TempDir workspace: Path) {
-        workspace.resolve("screenshots").createDirectories()
-        workspace.resolve("screenshots/home.png").writeBytes(byteArrayOf(1, 2, 3))
-        val runs = FakeAgentRunRepository(workspacePath = workspace.toString())
-        val events = FakeAgentEventRepository()
-        val issueTracker = FakeTrackerApi(
-            attachments = mutableListOf(
-                TrackerAttachment(
-                    id = "old-1",
-                    name = "factory-tester-screenshot__KAN-69__run-0__01__old.png",
-                    url = "/api/files/old-1",
-                    mimeType = "image/png",
-                    size = 1,
-                    created = 1,
-                ),
-            ),
-        )
-        val service = AgentRunCompletionService(
-            agentRunRepository = runs,
-            storyRunRepository = FakeStoryRunRepository(),
-            agentEventRepository = events,
-            issueTrackerClient = issueTracker,
-            processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
-            pullRequestClient = FakeGitHubApi(),
-            knowledgeApi = FakeKnowledgeApi(),
-            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
-            costMonitor = FakeCostMonitor(),
-            creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
-            factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
-            clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
-            objectMapper = jacksonObjectMapper(),
-        )
-
-        service.complete(
-            AgentRunCompleteRequest(
-                storyKey = "KAN-69",
-                role = "tester",
-                containerName = "factory-kan-69-tester",
-                outcome = "ok",
-            ),
-        )
-
-        assertEquals(listOf("old-1"), issueTracker.deletedAttachments)
-        assertEquals(1, issueTracker.uploadedAttachments.size)
-        assertTrue(issueTracker.uploadedAttachments.single().name.startsWith("factory-tester-screenshot__KAN-69__run-1__01__home.png"))
-        assertEquals("image/png", issueTracker.uploadedAttachments.single().mimeType)
-        assertEquals("factory-tester-screenshot__KAN-69__run-1__01__home.png", events.payloads.single { it["name"] != null }["name"])
     }
 
     @Test
@@ -958,7 +862,6 @@ class AgentRunCompletionServiceTest {
             processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
             pullRequestClient = FakeGitHubApi(),
             knowledgeApi = FakeKnowledgeApi(),
-            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
@@ -1025,7 +928,6 @@ class AgentRunCompletionServiceTest {
             processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
             pullRequestClient = FakeGitHubApi(),
             knowledgeApi = FakeKnowledgeApi(),
-            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
@@ -1065,6 +967,19 @@ class AgentRunCompletionServiceTest {
         downloadUrl = "/unused",
     )
 
+    private fun pushedRepositoryResult() = RuntimeRepositoryResult(
+        alias = "sample-build-project",
+        branch = "ai/KAN-69",
+        checkoutCommitSha = "a".repeat(40),
+        publicationStatus = RuntimePublicationStatus.PUSHED,
+        commitSha = "b".repeat(40),
+    )
+
+    private fun passedRuntimeVerification() = RuntimeVerificationResult(
+        status = RuntimeVerificationStatus.PASSED,
+        agentRounds = 1,
+    )
+
     @Test
     fun `retryable failure clears error and leaves the active phase for recovery`() {
         val runs = FakeAgentRunRepository().apply {
@@ -1088,7 +1003,6 @@ class AgentRunCompletionServiceTest {
             processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
             pullRequestClient = FakeGitHubApi(),
             knowledgeApi = FakeKnowledgeApi(),
-            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
@@ -1265,7 +1179,6 @@ class AgentRunCompletionServiceTest {
         processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
         pullRequestClient = FakeGitHubApi(),
         knowledgeApi = FakeKnowledgeApi(),
-        agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
         costMonitor = FakeCostMonitor(),
         creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
         factoryEnvironmentProvider = testConfig(config),
@@ -1287,7 +1200,6 @@ class AgentRunCompletionServiceTest {
         processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
         pullRequestClient = pullRequests,
         knowledgeApi = FakeKnowledgeApi(),
-        agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
         costMonitor = FakeCostMonitor(),
         creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
         factoryEnvironmentProvider = testConfig(),
@@ -1330,7 +1242,6 @@ class AgentRunCompletionServiceTest {
             processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
             pullRequestClient = pullRequests,
             knowledgeApi = FakeKnowledgeApi(),
-            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
@@ -1345,6 +1256,8 @@ class AgentRunCompletionServiceTest {
                 role = "developer",
                 containerName = "factory-kan-69-developer",
                 outcome = "ok",
+                runtimeRepositoryResult = pushedRepositoryResult(),
+                runtimeVerificationResult = passedRuntimeVerification(),
             ),
         )
 
@@ -1372,7 +1285,6 @@ class AgentRunCompletionServiceTest {
             processedCommentService = processed,
             pullRequestClient = FakeGitHubApi(),
             knowledgeApi = FakeKnowledgeApi(),
-            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
@@ -1395,6 +1307,8 @@ class AgentRunCompletionServiceTest {
                 role = "developer",
                 containerName = "factory-kan-69-developer",
                 outcome = "ok",
+                runtimeRepositoryResult = pushedRepositoryResult(),
+                runtimeVerificationResult = passedRuntimeVerification(),
             ),
         )
 
@@ -1555,15 +1469,6 @@ class AgentRunCompletionServiceTest {
         }
     }
 
-    private class FakeAgentWorkspaceCleaner : AgentWorkspaceCleaner {
-        val cleaned = mutableListOf<Pair<String?, Boolean>>()
-
-        override fun cleanup(workspacePath: String?, failed: Boolean): Boolean {
-            cleaned += workspacePath to failed
-            return true
-        }
-    }
-
     private class FakeCostMonitor : CostMonitor {
         val checkedStories = mutableListOf<String>()
 
@@ -1651,31 +1556,6 @@ class AgentRunCompletionServiceTest {
         override fun projectNames(): List<String> = listOf("sample")
         override fun projectNameFor(repoOrName: String?): String? = "sample"
         override fun runtimeAliasFor(repoOrName: String?): String = runtimeAlias
-    }
-
-    private class FakeStoryWorkspaceApi : StoryWorkspaceApi {
-        val syncedRoles = mutableListOf<AgentRole>()
-
-        override fun prepare(storyRun: StoryRunRecord, role: AgentRole): PreparedStoryWorkspace =
-            throw UnsupportedOperationException()
-
-        override fun syncAfterAgent(storyRun: StoryRunRecord, role: AgentRole): RepositorySyncResult {
-            syncedRoles += role
-            return RepositorySyncResult(
-                workspacePath = Path.of("/tmp/story-workspace"),
-                repoRoot = Path.of("/tmp/story-workspace/repo"),
-                branchName = "ai/${storyRun.storyKey}",
-                baseBranch = "main",
-                branchPrefix = "ai/",
-                deploymentConfig = DeploymentConfig(),
-                committed = true,
-                pushed = true,
-                prNumber = 42,
-                prUrl = "https://github.example/pr/42",
-            )
-        }
-
-        override fun cleanup(storyKey: String): Boolean = true
     }
 
     private class FakeTrackerApi(

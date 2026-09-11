@@ -27,7 +27,6 @@ import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.tracker.ProcessedCommentsApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
-import nl.vdzon.softwarefactory.core.contracts.StoryWorkspaceApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Clock
@@ -42,7 +41,6 @@ class ManualCommandService(
     private val pullRequestClient: GitHubApi,
     private val pullRequestMergeService: PullRequestMergeService,
     private val previewApi: PreviewApi,
-    private val storyWorkspaceService: StoryWorkspaceApi? = null,
     private val settings: OrchestratorSettings,
     private val clock: Clock,
 ) : ManualCommandProcessor {
@@ -168,7 +166,6 @@ class ManualCommandService(
         closePullRequest(run)
         deleteBranch(run)
         cleanupPreview(run)
-        cleanupWorkspace(issue.key)
         val summary = if (issue.summary.startsWith(CANCELLED_PREFIX, ignoreCase = true)) {
             issue.summary
         } else {
@@ -232,8 +229,6 @@ class ManualCommandService(
                 logger.warn("Merge: preview-cleanup faalde voor {} (merge is al klaar, genegeerd): {}", issue.key, failure.message)
                 recordOrphanedPreviewNamespace(issue.key, run, failure)
             }
-        runCatching { cleanupWorkspace(issue.key) }
-            .onFailure { logger.warn("Merge: workspace-cleanup faalde voor {} (genegeerd): {}", issue.key, it.message) }
         storyRunRepository.close(run.id, "merged", OffsetDateTime.now(clock))
         issueTrackerClient.transitionIssue(issue.key, BoardState.DONE.laneName)
         logger.info("Merge completed successfully for {} with PR #{}", issue.key, prNumber)
@@ -258,7 +253,6 @@ class ManualCommandService(
         // (bv. RBAC-gat) moeten subtaken/workspace/fase alsnog gereset worden, net als bij merge().
         runCatching { cleanupPreview(run) }
             .onFailure { logger.warn("Re-implement: preview-cleanup faalde voor {} (genegeerd): {}", issue.key, it.message) }
-        resetWorkspaceForReImplementation(run)
         issueTrackerClient.deleteAgentComments(issue.key)
         deleteSubtasksForReImplementation(issue.key)
         run?.let { storyRunRepository.delete(it.id) }
@@ -476,18 +470,6 @@ class ManualCommandService(
         }
     }
 
-    private fun resetWorkspaceForReImplementation(run: StoryRunRecord?) {
-        if (run == null) {
-            return
-        }
-        val workspaceService = storyWorkspaceService ?: return
-        runCatching {
-            workspaceService.resetForReImplementation(run)
-        }.onFailure { exception ->
-            logger.warn("Failed to reset story workspace for re-implement: {}", run.storyKey, exception)
-        }
-    }
-
     /**
      * Wis de bestaande subtaken bij een story-re-implement: de refine/plan-flow start opnieuw en
      * de planner maakt verse subtaken aan. Onomkeerbaar; per subtask defensief zodat één mislukte
@@ -523,14 +505,6 @@ class ManualCommandService(
         runCatching {
             issueTrackerClient.updateIssueFields(storyKey, TrackerFieldUpdate.of(TrackerField.ERROR to note))
         }.onFailure { logger.warn("Kon cleanup-fout niet naar tracker schrijven voor {}: {}", storyKey, it.message) }
-    }
-
-    private fun cleanupWorkspace(storyKey: String) {
-        runCatching {
-            storyWorkspaceService?.cleanup(storyKey)
-        }.onFailure { exception ->
-            logger.warn("Failed to cleanup story workspace for {}", storyKey, exception)
-        }
     }
 
     private fun isGithubComRepo(targetRepo: String): Boolean =

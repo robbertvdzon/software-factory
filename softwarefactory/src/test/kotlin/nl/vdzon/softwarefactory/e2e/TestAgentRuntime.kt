@@ -12,7 +12,6 @@ import nl.vdzon.softwarefactory.verification.CheckoutIdentityResolver
 import nl.vdzon.softwarefactory.core.contracts.AgentDispatchRequest
 import nl.vdzon.softwarefactory.core.contracts.AgentDispatchResult
 import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
-import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceFactory
 import nl.vdzon.softwarefactory.core.AgentRole
 import java.nio.file.Files
 import java.nio.file.Path
@@ -37,14 +36,8 @@ class TestAgentRuntime(
     /** Poging-teller per `(serializationKey, role)`, 1-based. */
     private val attempts = ConcurrentHashMap<String, Int>()
 
-    /**
-     * De agent-workspaces komen onder `<project>/work` (de root die de echte
-     * [nl.vdzon.softwarefactory.runtime.workspaces.FileSystemAgentWorkspaceCleaner] accepteert),
-     * niet in de systeem-temp. Anders weigert de cleaner ze ("outside workspace root") en spamt
-     * de log met stacktraces — en blijven ze liggen.
-     */
     private val workspaceRoot: Path =
-        AgentWorkspaceFactory.projectRoot().resolve("work").also { Files.createDirectories(it) }
+        Path.of(System.getProperty("java.io.tmpdir"), "softwarefactory-e2e").also { Files.createDirectories(it) }
 
     /** Dispatches in volgorde, zodat de test de pipeline-volgorde kan asserten. */
     val dispatched: MutableList<Pair<String, AgentRole>> = java.util.Collections.synchronizedList(mutableListOf())

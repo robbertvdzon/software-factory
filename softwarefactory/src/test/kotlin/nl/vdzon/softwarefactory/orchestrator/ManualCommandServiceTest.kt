@@ -416,7 +416,7 @@ class ManualCommandServiceTest {
     }
 
     @Test
-    fun `re implement resets local workspace and skips github cleanup for non github repositories`() {
+    fun `re implement skips github cleanup for non github repositories`() {
         val issueTracker = FakeTrackerApi()
         val targetRepo = "ssh://git.example.internal/team/project.git"
         val storyRuns = InMemoryStoryRunRepository().withRun(
@@ -425,12 +425,10 @@ class ManualCommandServiceTest {
             prNumber = null,
         )
         val pullRequests = FakeGitHubApi()
-        val workspaceService = FakeStoryWorkspaceService()
         val service = service(
             issueTracker = issueTracker,
             storyRuns = storyRuns,
             pullRequests = pullRequests,
-            storyWorkspaceService = workspaceService,
         )
         val issue = issue(
             targetRepo = targetRepo,
@@ -443,8 +441,6 @@ class ManualCommandServiceTest {
         assertEquals(IssueProcessResult.Skipped("KAN-1", "re-implement"), applied.stopResult)
         assertEquals(emptyList<Int>(), pullRequests.closedPrs)
         assertEquals(emptyList<String>(), pullRequests.deletedBranches)
-        assertEquals(listOf("KAN-1"), workspaceService.resetStoryKeys)
-        assertEquals(emptyList<String>(), workspaceService.cleanedStoryKeys)
         assertEquals(emptyList<Pair<Long, String>>(), storyRuns.closed)
         assertEquals(listOf(1L), storyRuns.deleted)
         assertTrue(storyRuns.activeRuns().isEmpty())
@@ -653,7 +649,6 @@ class ManualCommandServiceTest {
         storyRuns: InMemoryStoryRunRepository = InMemoryStoryRunRepository(),
         pullRequests: FakeGitHubApi = FakeGitHubApi(),
         previewCleaner: FakePreviewEnvironmentCleaner = FakePreviewEnvironmentCleaner(),
-        storyWorkspaceService: StoryWorkspaceApi? = null,
     ): ManualCommandService =
         ManualCommandService(
             issueTrackerClient = issueTracker,
@@ -669,7 +664,6 @@ class ManualCommandServiceTest {
                 ),
             ),
             previewApi = previewCleaner,
-            storyWorkspaceService = storyWorkspaceService,
             settings = OrchestratorSettings(
                 pollInterval = java.time.Duration.ofSeconds(15),
                 maxParallelRefiner = 1,
@@ -946,41 +940,6 @@ class ManualCommandServiceTest {
         val prNumber: Int?,
         val prUrl: String?,
     )
-
-    private class FakeStoryWorkspaceService : StoryWorkspaceApi {
-        val syncedRoles = mutableListOf<AgentRole>()
-        val resetStoryKeys = mutableListOf<String>()
-        val cleanedStoryKeys = mutableListOf<String>()
-
-        override fun prepare(storyRun: StoryRunRecord, role: AgentRole): PreparedStoryWorkspace =
-            throw UnsupportedOperationException()
-
-        override fun resetForReImplementation(storyRun: StoryRunRecord): Boolean {
-            resetStoryKeys += storyRun.storyKey
-            return true
-        }
-
-        override fun syncAfterAgent(storyRun: StoryRunRecord, role: AgentRole): RepositorySyncResult {
-            syncedRoles += role
-            return RepositorySyncResult(
-                workspacePath = Path.of("/tmp/story-workspace"),
-                repoRoot = Path.of("/tmp/story-workspace/repo"),
-                branchName = "ai/${storyRun.storyKey}",
-                baseBranch = "main",
-                branchPrefix = "ai/",
-                deploymentConfig = DeploymentConfig(previewNamespaceTemplate = "app-pr-{pr_num}"),
-                committed = true,
-                pushed = true,
-                prNumber = 43,
-                prUrl = "https://github.example/pr/43",
-            )
-        }
-
-        override fun cleanup(storyKey: String): Boolean {
-            cleanedStoryKeys += storyKey
-            return true
-        }
-    }
 
     private class FakePreviewEnvironmentCleaner : PreviewApi {
         override fun render(template: String?, prNumber: Int?): String? = PreviewApi.renderTemplate(template, prNumber)

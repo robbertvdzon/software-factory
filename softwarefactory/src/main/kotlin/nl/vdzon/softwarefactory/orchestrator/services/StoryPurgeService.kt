@@ -4,7 +4,6 @@ import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
-import nl.vdzon.softwarefactory.core.contracts.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import org.slf4j.LoggerFactory
@@ -12,7 +11,7 @@ import org.springframework.stereotype.Service
 
 /**
  * Ruimt een hele story synchroon en hard op: het tracker-issue + z'n subtaken worden
- * permanent verwijderd, plus de branch, workfolder, PR, preview en de story-run-rij.
+ * permanent verwijderd, plus de branch, PR, preview en de story-run-rij.
  *
  * Bedoeld om (test-)stories op te ruimen vanuit het dashboard. Anders dan het
  * comment-gedreven `delete`-commando (dat alleen `(CANCELLED)` markeert en pas door de
@@ -29,7 +28,6 @@ class StoryPurgeService(
     private val storyRunRepository: StoryRunRepository,
     private val pullRequestClient: GitHubApi,
     private val previewApi: PreviewApi,
-    private val storyWorkspaceService: StoryWorkspaceApi,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -41,7 +39,6 @@ class StoryPurgeService(
         step("close PR", storyKey) { closePullRequest(run) }
         step("delete branch", storyKey) { deleteBranch(run) }
         step("cleanup preview", storyKey) { cleanupPreview(run) }
-        step("cleanup workspace", storyKey) { storyWorkspaceService.cleanup(storyKey) }
         run?.let { step("delete run", storyKey) { storyRunRepository.delete(it.id) } }
 
         // Tracker als laatste: zo blijven branch/run beschikbaar als een eerdere stap die

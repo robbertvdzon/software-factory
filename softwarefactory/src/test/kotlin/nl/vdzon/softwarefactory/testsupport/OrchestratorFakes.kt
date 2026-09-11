@@ -5,17 +5,12 @@ import nl.vdzon.softwarefactory.core.contracts.CostMonitor
 import nl.vdzon.softwarefactory.core.contracts.CostMonitorCheckResult
 import nl.vdzon.softwarefactory.core.contracts.CreditsPause
 import nl.vdzon.softwarefactory.core.contracts.CreditsPauseCoordinator
-import nl.vdzon.softwarefactory.core.DeploymentConfig
 import nl.vdzon.softwarefactory.core.contracts.ManualCommandApplication
 import nl.vdzon.softwarefactory.core.contracts.ManualCommandProcessor
-import nl.vdzon.softwarefactory.core.contracts.PreparedStoryWorkspace
-import nl.vdzon.softwarefactory.core.contracts.RepositorySyncResult
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
-import nl.vdzon.softwarefactory.core.contracts.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.tracker.repositories.ProcessedCommentStore
-import java.nio.file.Path
 import java.time.OffsetDateTime
 
 /** In-memory [ProcessedCommentStore]: houdt verwerkte (story, comment, rol)-triples in een set bij. */
@@ -40,33 +35,6 @@ class FakePreviewEnvironmentCleaner : PreviewApi {
         cleanedNamespaces += namespace
         return true
     }
-}
-
-/** [StoryWorkspaceApi]-fake: 'prepareert' een workspace onder /tmp zonder echt te clonen. */
-class FakeStoryWorkspaceService : StoryWorkspaceApi {
-    override fun prepare(storyRun: StoryRunRecord, role: AgentRole): PreparedStoryWorkspace {
-        val workspace = Path.of("/tmp/software-factory-test-workspaces/${storyRun.storyKey}")
-        return PreparedStoryWorkspace(
-            workspacePath = workspace,
-            repoRoot = workspace.resolve("repo"),
-            branchName = storyRun.branchName ?: "ai/${storyRun.storyKey}",
-            baseBranch = storyRun.baseBranch ?: "main",
-            branchPrefix = storyRun.branchPrefix ?: "ai/",
-            deploymentConfig = DeploymentConfig(
-                defaultBaseBranch = storyRun.baseBranch ?: "main",
-                branchPrefix = storyRun.branchPrefix ?: "ai/",
-                previewUrlTemplate = storyRun.previewUrlTemplate,
-                previewNamespaceTemplate = storyRun.previewNamespaceTemplate,
-                previewDbSecretRecipe = storyRun.previewDbSecretRecipe,
-            ),
-        )
-    }
-
-    override fun syncAfterAgent(storyRun: StoryRunRecord, role: AgentRole): RepositorySyncResult =
-        error("Not used by these tests")
-
-    override fun cleanup(storyKey: String): Boolean =
-        true
 }
 
 /** [CostMonitor]-fake: budgetcheck slaat alleen aan wanneer een test [paused] op true zet. */

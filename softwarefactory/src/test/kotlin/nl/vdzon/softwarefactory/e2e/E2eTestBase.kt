@@ -1,12 +1,10 @@
 package nl.vdzon.softwarefactory.e2e
 
 import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceFactory
 import org.awaitility.Awaitility
 import org.junit.jupiter.api.BeforeEach
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
-import java.nio.file.Files
 import java.time.Duration
 
 /**
@@ -32,28 +30,6 @@ abstract class E2eTestBase {
         runtime.reset()
         E2eTestConfig.FAKE_GITHUB.reset()
         E2eTestConfig.RECORDING_TELEGRAM_CLIENT.reset()
-        // Eénmalig per test-JVM: workspaces van VORIGE runs verwijzen naar een `origin` in een
-        // inmiddels verwijderde temp-remote; hergebruik laat elke git-stap (en dus de hele
-        // pipeline) stranden. Niet per test: workspaces van eerdere tests in deze run worden
-        // door de asynchrone poller nog verwerkt (hun story-runs staan open in de DB) en
-        // verwijderen-onder-de-poller-vandaan laat hele polls falen.
-        if (staleWorkspacesCleaned.compareAndSet(false, true)) {
-            deleteStaleStoryWorkspaces()
-        }
-    }
-
-    private fun deleteStaleStoryWorkspaces() {
-        val storiesRoot = AgentWorkspaceFactory.projectRoot().resolve("work").resolve("stories")
-        if (!Files.isDirectory(storiesRoot)) return
-        Files.list(storiesRoot).use { entries ->
-            entries
-                .filter { it.fileName.toString().startsWith("${state.projectKey}-") }
-                .forEach { dir ->
-                    Files.walk(dir).use { walk ->
-                        walk.sorted(Comparator.reverseOrder()).forEach(Files::deleteIfExists)
-                    }
-                }
-        }
     }
 
     /** UI-driver die direct in de tracker-teststate schrijft (geen HTTP-calls meer). */
@@ -138,8 +114,5 @@ abstract class E2eTestBase {
     companion object {
         /** Factory-afgedwongen afsluit-subtaken (SF-154/SF-213/SF-192), niet door de planner geleverd. */
         private val ENFORCED_SUBTASK_TYPES = setOf("documentation", "merge", "deploy", "manual-approve")
-
-        /** Eénmalig per test-JVM (elke testklasse forkt z'n eigen JVM, zie surefire-config). */
-        private val staleWorkspacesCleaned = java.util.concurrent.atomic.AtomicBoolean(false)
     }
 }

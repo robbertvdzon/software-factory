@@ -132,7 +132,6 @@ class MergePolicyE2eTest {
             pullRequestClient = github,
             pullRequestMergeService = mergeService(github),
             previewApi = FakePreviewEnvironmentCleaner(),
-            storyWorkspaceService = null,
             settings = settings(),
             clock = clock,
         )

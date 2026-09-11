@@ -15,8 +15,6 @@ import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.runtime.models.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.types.CompletionOutcome
-import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceCleaner
-import nl.vdzon.softwarefactory.core.contracts.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.runtime.RuntimeApi
 import nl.vdzon.softwarefactory.support.SupportApi
 import nl.vdzon.softwarefactory.core.AgentRole
@@ -35,21 +33,15 @@ import nl.vdzon.softwarefactory.core.contracts.StoryRunPullRequestUpdate
 import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence
 import nl.vdzon.softwarefactory.runtime.v2.RuntimePublicationStatus
 import nl.vdzon.softwarefactory.runtime.v2.RuntimeArtifactApi
-import nl.vdzon.softwarefactory.runtime.v2.RuntimeScreenshot
 import nl.vdzon.softwarefactory.runtime.v2.RuntimeVerificationStatus
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
-import java.nio.file.Files
-import java.nio.file.Path
 import java.time.Clock
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
-import kotlin.io.path.extension
-import kotlin.io.path.isRegularFile
-import kotlin.io.path.name
 
 @Service
 class AgentRunCompletionService(
@@ -60,8 +52,6 @@ class AgentRunCompletionService(
     private val processedCommentService: ProcessedCommentsApi,
     private val pullRequestClient: GitHubApi,
     private val knowledgeApi: KnowledgeApi,
-    private val agentWorkspaceCleaner: AgentWorkspaceCleaner,
-    private val storyWorkspaceService: StoryWorkspaceApi? = null,
     private val costMonitor: CostMonitor,
     private val creditsPauseCoordinator: CreditsPauseCoordinator,
     private val factoryEnvironmentProvider: ConfigApi,
@@ -69,8 +59,6 @@ class AgentRunCompletionService(
     // materializer met een LEGE ProjectConfiguration, waardoor een vergeten bean onopgemerkt
     // verkeerde (lege) project-config zou gebruiken.
     private val subtaskPlanMaterializer: SubtaskPlanMaterializer,
-    private val testerVerificationEvidenceValidator: TesterVerificationEvidenceValidator =
-        TesterVerificationEvidenceValidator(agentRunRepository, nl.vdzon.softwarefactory.git.GitApi.default()),
     private val clock: Clock,
     private val objectMapper: ObjectMapper,
     private val eventPublisher: ApplicationEventPublisher? = null,
@@ -121,7 +109,7 @@ class AgentRunCompletionService(
         logCompletionReceived(request)
         val coordinator = durableCompletionCoordinator
         return if (coordinator == null) {
-            val validated = testerVerificationEvidenceValidator.enforce(request)
+            val validated = request
             runtimeArtifactApi.validate(validated.containerName, validated.role, validated.runtimeArtifacts)
             completeDirect(validated)
         } else {
@@ -156,7 +144,6 @@ class AgentRunCompletionService(
             markProcessedTrackerComments(validatedRequest)
             markClaimedPrComments(validatedRequest, completed.storyRunId)
         }
-        cleanupWorkspace(completed, validatedRequest)
         logAgentFinished(validatedRequest, completed)
         wakeOrchestratorPoller(validatedRequest)
         return CompletionOutcome.Completed(completed.agentRunId, completed.storyRunId)
@@ -180,7 +167,7 @@ class AgentRunCompletionService(
         val coordinator = requireNotNull(durableCompletionCoordinator)
         var durable = accepted
         if (!durable.completion.payloadValidated) {
-            val validated = testerVerificationEvidenceValidator.enforce(durable.request)
+            val validated = durable.request
             runtimeArtifactApi.validate(validated.containerName, validated.role, validated.runtimeArtifacts)
             durable = coordinator.storeValidatedPayload(
                 durable.completion.id,
@@ -215,7 +202,8 @@ class AgentRunCompletionService(
                 markProcessedTrackerComments(request)
                 markClaimedPrComments(request, completed.storyRunId)
             },
-            CompletionStep.CLEAN_WORKSPACE to { cleanupWorkspace(completed, request) },
+            // Historische durable stap blijft als no-op bestaan voor reeds opgeslagen completions.
+            CompletionStep.CLEAN_WORKSPACE to { Unit },
             CompletionStep.PUBLISH_COMPLETION_WAKE to {
                 logAgentFinished(request, completed)
                 wakeOrchestratorPoller(request)
@@ -378,49 +366,14 @@ class AgentRunCompletionService(
         // syncen — zonder deze skip faalt de sync altijd (poging tot push van een niet-bestaande
         // branch) en blijft de completion permanent vastzitten.
         if (role == AgentRole.REFINER || role == AgentRole.PLANNER || role == AgentRole.AUDITOR) {
-            return if (role == AgentRole.AUDITOR && isRuntimeJob(request.containerName)) {
+            return if (role == AgentRole.AUDITOR) {
                 validateReadOnlyRuntimeRepository(request, completed, role)
             } else {
                 true
             }
         }
         if (role == AgentRole.SUMMARIZER) return true
-        if (isRuntimeJob(request.containerName)) {
-            return syncRuntimeRepository(request, completed, role)
-        }
-        if (!request.isSuccessful()) return true
-        val storyRun = storyRunRepository.get(completed.storyRunId) ?: return true
-        val workspaceService = storyWorkspaceService ?: return true
-        return runCatching {
-            val sync = workspaceService.syncAfterAgent(storyRun, role)
-            storyRunRepository.updatePullRequest(StoryRunPullRequestUpdate(
-                storyRunId = completed.storyRunId,
-                branchName = sync.branchName,
-                prNumber = sync.prNumber,
-                prUrl = sync.prUrl,
-                baseBranch = sync.baseBranch,
-                branchPrefix = sync.branchPrefix,
-                previewUrlTemplate = sync.deploymentConfig.previewUrlTemplate,
-                previewNamespaceTemplate = sync.deploymentConfig.previewNamespaceTemplate,
-                previewDbSecretRecipe = sync.deploymentConfig.previewDbSecretRecipe,
-            ))
-            logger.info(
-                "Repository synced after agent: story={} role={} branch={} committed={} pushed={} prNumber={} repo={}",
-                request.storyKey,
-                request.role,
-                sync.branchName,
-                sync.committed,
-                sync.pushed,
-                sync.prNumber ?: "<none>",
-                SupportApi.default().redact(storyRun.targetRepo),
-            )
-            true
-        }.getOrElse { exception ->
-            val message = "[ORCHESTRATOR] Git sync na ${role.markerKeyPart} faalde: ${exception.message}"
-            logger.warn("Repository sync failed after agent completion for {} {}", request.storyKey, role, exception)
-            issueTrackerClient.updateIssueFields(request.storyKey, TrackerFieldUpdate.of(TrackerField.ERROR to message))
-            false
-        }
+        return syncRuntimeRepository(request, completed, role)
     }
 
     private fun syncRuntimeRepository(
@@ -431,7 +384,11 @@ class AgentRunCompletionService(
         val storyRun = storyRunRepository.get(completed.storyRunId)
             ?: return repositoryFailure(request, role, "Story-run ${completed.storyRunId} ontbreekt")
         val repository = request.runtimeRepositoryResult
-            ?: return repositoryFailure(request, role, "Agent Runtime leverde geen repositoryResult")
+            ?: return if (request.isSuccessful()) {
+                repositoryFailure(request, role, "Agent Runtime leverde geen repositoryResult")
+            } else {
+                true
+            }
         if (!hasExpectedRuntimeAlias(storyRun.targetRepo, repository.alias)) {
             return repositoryFailure(request, role, "Runtime rapporteerde onverwachte repositoryalias '${repository.alias}'")
         }
@@ -449,8 +406,16 @@ class AgentRunCompletionService(
             return validateReadOnlyRuntimeRepository(request, completed, role)
         }
 
-        if (!request.isSuccessful()) return true
         val verification = request.runtimeVerificationResult
+        if (!request.isSuccessful()) {
+            return if (verification?.status != RuntimeVerificationStatus.PASSED &&
+                repository.publicationStatus == RuntimePublicationStatus.PUSHED
+            ) {
+                repositoryFailure(request, role, "Runtime pushte ondanks mislukte job of rode verificatie")
+            } else {
+                true
+            }
+        }
         if (verification?.status != RuntimeVerificationStatus.PASSED) {
             if (repository.publicationStatus == RuntimePublicationStatus.PUSHED) {
                 return repositoryFailure(request, role, "Runtime pushte ondanks rode of ontbrekende verificatie")
@@ -548,9 +513,6 @@ class AgentRunCompletionService(
         return false
     }
 
-    private fun isRuntimeJob(containerName: String): Boolean =
-        runCatching { java.util.UUID.fromString(containerName) }.isSuccess
-
     private fun updateTracker(request: AgentRunCompleteRequest, storyRunId: Long) {
         val role = AgentRole.entries.firstOrNull { it.markerKeyPart == request.role } ?: return
         runCatching {
@@ -640,31 +602,6 @@ class AgentRunCompletionService(
         if (request.role != AgentRole.SUMMARIZER.markerKeyPart || !request.isSuccessful()) {
             return
         }
-        val storyRun = storyRunRepository.get(completed.storyRunId) ?: return
-        val workspaceService = storyWorkspaceService ?: return
-        runCatching {
-            val issue = issueTrackerClient.getIssue(storyRun.storyKey)
-            val finalStory = workspaceService.writeFinalStory(
-                storyRun = storyRun,
-                summary = issue.summary,
-                description = issue.description,
-                finalSummary = finalSummaryText(request.summaryText.orEmpty()),
-            )
-            logger.info(
-                "Final story document written: story={} storyRunId={} path={}",
-                request.storyKey,
-                completed.storyRunId,
-                finalStory ?: "<none>",
-            )
-        }.onFailure { exception ->
-            logger.warn("Failed to write final story document for {}", request.storyKey, exception)
-            issueTrackerClient.updateIssueFields(
-                request.storyKey,
-                TrackerFieldUpdate.of(
-                    TrackerField.ERROR to "[ORCHESTRATOR] Definitief story-document schrijven faalde: ${exception.message}",
-                ),
-            )
-        }
         // Overschrijft bewust de refiner's voorspellende description_summary: dit is gebaseerd op
         // wat er echt is opgeleverd (post-test, pre-merge), niet op de oorspronkelijke planning.
         request.descriptionSummary?.trim()?.takeIf { it.isNotBlank() }?.let {
@@ -723,30 +660,17 @@ class AgentRunCompletionService(
         // Valt terug op de eigen key als er geen parent is.
         val targetKey = runCatching { issueTrackerClient.parentStoryKey(request.storyKey) }
             .getOrNull() ?: request.storyKey
-        if (request.runtimeArtifacts.isNotEmpty()) {
-            publishTesterScreenshots(
-                targetKey,
-                completed.agentRunId,
-                runtimeArtifactApi.testerScreenshots(request.containerName, request.runtimeArtifacts),
-            )
-        } else {
-            runCatching {
-                publishTesterScreenshots(targetKey, completed.agentRunId, legacyScreenshots(completed.workspacePath))
-            }.onFailure { exception ->
-                logger.warn("Failed to sync tester screenshots for {}", targetKey, exception)
-            }
-        }
+        publishTesterScreenshots(
+            targetKey,
+            completed.agentRunId,
+            runtimeArtifactApi.testerScreenshots(request.containerName, request.runtimeArtifacts),
+        )
     }
-
-    private fun legacyScreenshots(workspacePath: String?): List<RuntimeScreenshot> =
-        screenshotFiles(workspacePath).map { screenshot ->
-            RuntimeScreenshot(screenshot.name, screenshotMimeType(screenshot), Files.readAllBytes(screenshot))
-        }
 
     private fun publishTesterScreenshots(
         targetKey: String,
         agentRunId: Long,
-        screenshots: List<RuntimeScreenshot>,
+        screenshots: List<nl.vdzon.softwarefactory.runtime.v2.RuntimeScreenshot>,
     ) {
         val oldAttachments = issueTrackerClient.listIssueAttachments(targetKey)
             .filter { it.name.startsWith(TesterScreenshots.ATTACHMENT_PREFIX) }
@@ -778,23 +702,6 @@ class AgentRunCompletionService(
         )
     }
 
-    private fun screenshotFiles(workspacePath: String?): List<Path> {
-        if (workspacePath.isNullOrBlank()) {
-            return emptyList()
-        }
-        val root = Path.of(workspacePath).resolve("screenshots")
-        if (!Files.exists(root)) {
-            return emptyList()
-        }
-        return Files.walk(root).use { paths ->
-            paths
-                .filter { it.isRegularFile() }
-                .filter { it.extension.lowercase() in TesterScreenshots.EXTENSIONS }
-                .sorted()
-                .toList()
-        }
-    }
-
     private fun testerScreenshotAttachmentName(storyKey: String, agentRunId: Long, index: Int, filename: String): String {
         val extension = filename.substringAfterLast('.', "png").lowercase().ifBlank { "png" }
         val base = filename
@@ -805,13 +712,6 @@ class AgentRunCompletionService(
             .ifBlank { "screenshot" }
         return "${TesterScreenshots.ATTACHMENT_PREFIX}${storyKey}__run-${agentRunId}__${index.toString().padStart(2, '0')}__$base.$extension"
     }
-
-    private fun screenshotMimeType(path: Path): String =
-        when (path.extension.lowercase()) {
-            "jpg", "jpeg" -> "image/jpeg"
-            "webp" -> "image/webp"
-            else -> "image/png"
-        }
 
     private fun AgentRunCompleteRequest.isRetryableFailure(): Boolean =
         AgentFailurePolicy.isRetryable(outcome, summaryText)
@@ -847,14 +747,6 @@ class AgentRunCompletionService(
             }.onFailure { exception ->
                 logger.warn("Failed to persist agent knowledge update for {} {}", request.storyKey, request.role, exception)
             }
-        }
-    }
-
-    private fun cleanupWorkspace(completed: CompletedAgentRun, request: AgentRunCompleteRequest) {
-        runCatching {
-            agentWorkspaceCleaner.cleanup(completed.workspacePath, failed = !request.isSuccessful())
-        }.onFailure { exception ->
-            logger.warn("Failed to cleanup workspace for {}", request.containerName, exception)
         }
     }
 
