@@ -65,7 +65,6 @@ class AgentCommentContextTest {
             fields = TrackerIssueFields(
                 targetRepo = "repo",
                 aiPhase = null,
-                aiLevel = null,
                 aiTokenBudget = null,
                 aiTokensUsed = null,
                 agentStartedAt = null,

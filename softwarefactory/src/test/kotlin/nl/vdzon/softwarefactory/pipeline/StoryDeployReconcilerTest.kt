@@ -48,7 +48,6 @@ class StoryDeployReconcilerTest {
             targetRepo = targetRepo,
             repo = "softwarefactory",
             aiPhase = null,
-            aiLevel = null,
             aiTokenBudget = null,
             aiTokensUsed = null,
             agentStartedAt = null,

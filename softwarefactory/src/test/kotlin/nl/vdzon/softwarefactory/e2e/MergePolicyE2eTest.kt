@@ -173,7 +173,6 @@ class MergePolicyE2eTest {
         targetRepo = TARGET_REPO,
         repo = repo,
         aiPhase = null,
-        aiLevel = null,
         aiTokenBudget = null,
         aiTokensUsed = null,
         agentStartedAt = null,

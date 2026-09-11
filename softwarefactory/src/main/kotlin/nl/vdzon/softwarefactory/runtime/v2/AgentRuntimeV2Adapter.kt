@@ -62,6 +62,9 @@ class AgentRuntimeV2Adapter(
             startedAt = created.createdAt,
             workspacePath = null,
             idempotencyKey = idempotencyKey,
+            executionVendorId = execution.vendorId,
+            executionModel = execution.model,
+            executionMode = execution.mode.name,
         )
     }
 

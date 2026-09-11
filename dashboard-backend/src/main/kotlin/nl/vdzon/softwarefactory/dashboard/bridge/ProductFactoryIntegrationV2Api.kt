@@ -375,10 +375,10 @@ private object ProductFactoryV2Validator {
     }
 
     /**
-     * Zelfde bekende suppliers als [nl.vdzon.softwarefactory.core.contracts.AiRouting.bucket] —
-     * bewust hier los gehouden (dashboard-backend heeft geen afhankelijkheid op de
-     * `softwarefactory`-module, alleen op `factory-contracts`). Het model zelf blijft onuitgevalideerde
-     * vrije tekst, exact zoals `DashboardCommandService.createStory` het al accepteert.
+     * Bekende legacy suppliers uit het bestaande Product Factory-contract. De daadwerkelijke
+     * uitvoering wordt gekozen via de Runtime-configuratie per agentrol. Het model zelf blijft
+     * onuitgevalideerde vrije tekst, exact zoals `DashboardCommandService.createStory` het al
+     * accepteert.
      */
     private fun validateAiSupplier(value: String?): String? {
         val supplier = value?.trim()?.takeIf(String::isNotBlank) ?: return null

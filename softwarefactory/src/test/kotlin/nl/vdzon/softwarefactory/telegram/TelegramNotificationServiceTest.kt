@@ -1162,7 +1162,6 @@ class TelegramNotificationServiceTest {
         aiSupplier = null,
         approvalMode = if (autoApprove) ApprovalMode.AUTOMATIC.trackerValue else ApprovalMode.EVERY_STEP.trackerValue,
         aiPhase = null,
-        aiLevel = null,
         aiTokenBudget = null,
         aiTokensUsed = null,
         agentStartedAt = null,

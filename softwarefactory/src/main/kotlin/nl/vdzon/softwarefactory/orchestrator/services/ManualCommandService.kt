@@ -12,7 +12,6 @@ import nl.vdzon.softwarefactory.merge.PullRequestMergeResult
 import nl.vdzon.softwarefactory.merge.PullRequestMergeService
 import nl.vdzon.softwarefactory.core.contracts.BoardState
 import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.core.contracts.AiLevelTrigger
 import nl.vdzon.softwarefactory.core.contracts.AiSupplierTrigger
 import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
 import nl.vdzon.softwarefactory.core.contracts.AutoApproveTrigger
@@ -75,7 +74,7 @@ class ManualCommandService(
         var current = issue
         issue.comments.forEach { comment ->
             val instructions = issueTrackerClient.parseInstructions(comment.body)
-                .filter { it is TrackerCommandInstruction || it is AiLevelTrigger || it is AiSupplierTrigger || it is AutoApproveTrigger }
+                .filter { it is TrackerCommandInstruction || it is AiSupplierTrigger || it is AutoApproveTrigger }
             if (instructions.isEmpty()) {
                 return@forEach
             }
@@ -114,7 +113,6 @@ class ManualCommandService(
         var current = issue
         instructions.forEach { instruction ->
             when (instruction) {
-                is AiLevelTrigger -> current = setAiLevel(current, instruction.level)
                 is AiSupplierTrigger -> current = setAiSupplier(current, instruction.supplier)
                 is AutoApproveTrigger -> current = setAutoApprove(current, instruction.enabled)
                 is TrackerCommandInstruction -> {
@@ -132,11 +130,6 @@ class ManualCommandService(
 
     private fun applyCommand(issue: TrackerIssue, command: FactoryCommand, commentBody: String): ManualCommandApplication =
         requireNotNull(commandHandlers[command]) { "Geen handler geregistreerd voor $command" }(issue, commentBody)
-
-    private fun setAiLevel(issue: TrackerIssue, level: Int): TrackerIssue {
-        issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.AI_LEVEL to level))
-        return issue.copy(fields = issue.fields.copy(aiLevel = level))
-    }
 
     private fun setAiSupplier(issue: TrackerIssue, supplier: String): TrackerIssue {
         issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.AI_SUPPLIER to supplier))

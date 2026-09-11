@@ -17,7 +17,6 @@ class TrackerIssueFieldsTest {
     private val fields = TrackerIssueFields(
         targetRepo = null,
         aiPhase = null,
-        aiLevel = null,
         aiTokenBudget = null,
         aiTokensUsed = null,
         agentStartedAt = null,

@@ -5,7 +5,6 @@ import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.DeploymentConfig
 import nl.vdzon.softwarefactory.core.TrackerField
 
-import nl.vdzon.softwarefactory.core.contracts.AiLevelTrigger
 import nl.vdzon.softwarefactory.core.contracts.AiSupplierTrigger
 import nl.vdzon.softwarefactory.core.contracts.AutoApproveTrigger
 import nl.vdzon.softwarefactory.core.contracts.BudgetTrigger
@@ -16,7 +15,6 @@ import nl.vdzon.softwarefactory.core.contracts.TrackerCommentInstruction
 
 object TrackerCommentParser {
     private val commandPattern = Regex("""(?i)@factory:command:([a-z-]+)""")
-    private val levelPattern = Regex("""(?i)\bLEVEL\s*=\s*(\d{1,2})\b""")
     private val supplierPattern = Regex("""(?i)\bSUPPLIER\s*=\s*(none|mock|claude|openai|copilot|microsoft)\b""")
     private val autoApprovePattern = Regex("""(?i)\bAUTO-APPROVE\s*=\s*(on|off)\b""")
     private val budgetPattern = Regex("""(?i)\bBUDGET\s*=\s*(\d+)\b""")
@@ -43,13 +41,6 @@ object TrackerCommentParser {
             val command = FactoryCommand.entries.firstOrNull { it.token == match.groupValues[1].lowercase() }
             if (command != null) {
                 instructions += TrackerCommandInstruction(command, match.value)
-            }
-        }
-
-        levelPattern.findAll(body).forEach { match ->
-            val level = match.groupValues[1].toInt()
-            if (level in 0..10) {
-                instructions += AiLevelTrigger(level, match.value)
             }
         }
 

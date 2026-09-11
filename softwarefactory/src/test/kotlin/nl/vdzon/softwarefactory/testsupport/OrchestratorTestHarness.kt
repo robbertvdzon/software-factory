@@ -166,7 +166,6 @@ abstract class OrchestratorTestHarness {
                 repo = repo,
                 aiSupplier = aiSupplier,
                 aiPhase = phase,
-                aiLevel = 5,
                 aiMaxDeveloperLoopbacks = maxDeveloperLoopbacks,
                 aiMaxTestChainResets = maxTestChainResets,
                 aiTokenBudget = 100000,

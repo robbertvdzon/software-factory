@@ -107,7 +107,6 @@ class StoryPurgeServiceTest {
             fields = TrackerIssueFields(
                 targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
                 aiPhase = null,
-                aiLevel = null,
                 aiTokenBudget = null,
                 aiTokensUsed = null,
                 agentStartedAt = null,

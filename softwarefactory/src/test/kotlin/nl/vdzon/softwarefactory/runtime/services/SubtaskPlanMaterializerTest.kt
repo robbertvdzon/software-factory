@@ -138,7 +138,6 @@ class SubtaskPlanMaterializerTest {
             targetRepo = null,
             aiSupplier = supplier,
             aiPhase = null,
-            aiLevel = null,
             aiTokenBudget = null,
             aiTokensUsed = null,
             agentStartedAt = null,

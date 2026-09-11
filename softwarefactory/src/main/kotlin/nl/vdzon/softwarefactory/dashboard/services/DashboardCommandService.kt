@@ -8,7 +8,6 @@ import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectDashboardSettings
 import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.core.contracts.AiRouting
 import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
 import nl.vdzon.softwarefactory.core.contracts.IssueType
 import nl.vdzon.softwarefactory.core.contracts.NotificationEvent
@@ -129,7 +128,6 @@ class DashboardCommandService(
         require(command.title.isNotBlank()) { "Titel is verplicht." }
         val supplier = command.aiSupplier?.takeIf(String::isNotBlank)
         val model = command.aiModel?.takeIf(String::isNotBlank)
-            ?: AiRouting.resolve(null, supplier, AgentRole.DEVELOPER).model
         val story = tracker.createStory(
             projectKey = projectKey(command.projectKey),
             title = command.title,

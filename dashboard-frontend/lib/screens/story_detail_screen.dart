@@ -707,7 +707,6 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                     'Target repo': text(fields['targetRepo'], fallback: '-'),
                     'AI-supplier': text(fields['aiSupplier'], fallback: '-'),
                     'AI-model': text(fields['aiModel'], fallback: '-'),
-                    'AI-level': text(fields['aiLevel'], fallback: '-'),
                     'Started': formatTimestamp(run['startedAt']),
                     'Ended': formatTimestamp(run['endedAt']),
                     // Alles hieronder komt uit `usage`: opgeteld over ÁLLE story-runs van deze story,

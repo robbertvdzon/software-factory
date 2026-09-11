@@ -10,7 +10,6 @@ enum class TrackerField(val displayName: String) {
     REPO("Repo"),
     AI_SUPPLIER("AI-supplier"),
     AI_PHASE("AI Phase"),
-    AI_LEVEL("AI Level"),
     AI_MODEL("AI Model"),
     AI_REASONING_EFFORT("AI Reasoning Effort"),
     STORY_PHASE("Story Phase"),

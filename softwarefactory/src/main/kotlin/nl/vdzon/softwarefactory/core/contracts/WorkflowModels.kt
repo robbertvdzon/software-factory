@@ -144,11 +144,6 @@ data class TrackerCommandInstruction(
 
 sealed interface TrackerTriggerInstruction : TrackerCommentInstruction
 
-data class AiLevelTrigger(
-    val level: Int,
-    override val sourceText: String,
-) : TrackerTriggerInstruction
-
 data class AiSupplierTrigger(
     val supplier: String,
     override val sourceText: String,
@@ -237,7 +232,6 @@ data class TrackerIssueFields(
     val repo: String? = null,
     val aiSupplier: String? = null,
     val aiPhase: String?,
-    val aiLevel: Int?,
     val aiMaxDeveloperLoopbacks: Int? = null,
     val aiMaxTestChainResets: Int? = null,
     val aiTokenBudget: Long?,
@@ -288,7 +282,7 @@ data class TrackerIssueFields(
     // exhaustief over alle TrackerField-waarden (compiler dwingt nog steeds een nieuw veld af),
     // de groepering zelf is puur organisatorisch.
     fun applying(field: TrackerField, value: Any?): TrackerIssueFields = when (field) {
-        TrackerField.AI_PHASE, TrackerField.AI_LEVEL, TrackerField.AI_MAX_DEVELOPER_LOOPBACKS,
+        TrackerField.AI_PHASE, TrackerField.AI_MAX_DEVELOPER_LOOPBACKS,
         TrackerField.AI_MAX_TEST_CHAIN_RESETS, TrackerField.AI_TOKEN_BUDGET, TrackerField.AI_TOKENS_USED,
         TrackerField.AI_SUPPLIER, TrackerField.AI_MODEL, TrackerField.AI_REASONING_EFFORT,
         -> applyingAiField(field, value)
@@ -303,7 +297,6 @@ data class TrackerIssueFields(
 
     private fun applyingAiField(field: TrackerField, value: Any?): TrackerIssueFields = when (field) {
         TrackerField.AI_PHASE -> copy(aiPhase = value as String?)
-        TrackerField.AI_LEVEL -> copy(aiLevel = value as Int?)
         TrackerField.AI_MAX_DEVELOPER_LOOPBACKS -> copy(aiMaxDeveloperLoopbacks = value as Int?)
         TrackerField.AI_MAX_TEST_CHAIN_RESETS -> copy(aiMaxTestChainResets = value as Int?)
         TrackerField.AI_TOKEN_BUDGET -> copy(aiTokenBudget = value as Long?)

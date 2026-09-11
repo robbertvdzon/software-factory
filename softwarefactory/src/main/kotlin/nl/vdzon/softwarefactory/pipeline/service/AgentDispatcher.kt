@@ -11,7 +11,6 @@ import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
 import nl.vdzon.softwarefactory.core.contracts.recordStarted
 import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
 import nl.vdzon.softwarefactory.core.contracts.AiPhase
-import nl.vdzon.softwarefactory.core.contracts.AiRouting
 import nl.vdzon.softwarefactory.core.contracts.CostMonitor
 import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
 import nl.vdzon.softwarefactory.core.contracts.OrchestratorSettings
@@ -148,16 +147,13 @@ class AgentDispatcher(
 
             logger.info(
                 "Starting agent dispatch: story={} role={} storyRunId={} sourcePhase={} " +
-                    "targetPhase={} supplier={} level={} model={} targetRepo={} prNumber={} " +
+                    "targetPhase={} targetRepo={} prNumber={} " +
                     "branch={}",
                 issue.key,
                 role.markerKeyPart,
                 storyRun.id,
                 sourcePhase?.trackerValue ?: "<empty>",
                 activePhaseValue,
-                request.aiSupplier?.takeIf { it.isNotBlank() } ?: "<unset>",
-                request.aiLevel ?: "<unset>",
-                request.aiModel?.takeIf { it.isNotBlank() } ?: "<default>",
                 SupportApi.default().redact(targetRepo),
                 storyRun.prNumber ?: "<none>",
                 preparedRun.branchName ?: "<none>",
@@ -167,9 +163,9 @@ class AgentDispatcher(
                 storyRunId = storyRun.id,
                 role = role,
                 containerName = dispatch.containerName,
-                model = request.aiModel,
-                effort = request.aiEffort,
-                level = request.aiLevel,
+                model = dispatch.executionModel,
+                effort = dispatch.executionMode,
+                level = null,
                 workspacePath = dispatch.workspacePath,
                 // Voor subtaken (storyRun keyt op de parent) → markeer de run met de subtask-key.
                 subtaskKey = issue.key.takeIf { storyRunKey != issue.key },
@@ -185,17 +181,16 @@ class AgentDispatcher(
             }
             logger.info(
                 "Agent started: story={} role={} agentRunId={} storyRunId={} container={} " +
-                    "workspace={} phase={} supplier={} level={} model={}",
+                    "phase={} vendor={} mode={} model={}",
                 issue.key,
                 role.markerKeyPart,
                 agentRunId,
                 storyRun.id,
                 dispatch.containerName,
-                dispatch.workspacePath ?: "<unknown>",
                 activePhaseValue,
-                request.aiSupplier?.takeIf { it.isNotBlank() } ?: "<unset>",
-                request.aiLevel ?: "<unset>",
-                request.aiModel?.takeIf { it.isNotBlank() } ?: "<default>",
+                dispatch.executionVendorId ?: "<unknown>",
+                dispatch.executionMode ?: "<unknown>",
+                dispatch.executionModel ?: "<unknown>",
             )
             IssueProcessResult.Dispatched(issue.key, role, dispatch.containerName)
         } catch (exception: Exception) {
@@ -226,7 +221,6 @@ class AgentDispatcher(
             ?: parentContext?.fields?.aiModel?.takeIf { it.isNotBlank() }
         val effort = issue.fields.aiReasoningEffort?.takeIf { it.isNotBlank() }
             ?: parentContext?.fields?.aiReasoningEffort?.takeIf { it.isNotBlank() }
-        val aiRoute = AiRouting.resolve(issue.fields.aiLevel, supplier, role)
         return AgentDispatchRequest(
             storyKey = issue.key,
             projectKey = issue.projectKey,
@@ -249,11 +243,10 @@ class AgentDispatcher(
             trackerContext = trackerContext(issue, role, parentContext),
             prCommentContext = prCommentContext,
             inputAttachments = productFactoryAttachments(storyRun.storyKey),
-            aiLevel = aiRoute.level,
             aiSupplier = supplier,
-            // Per-subtask model/effort (planner-keuze) gaat voor; anders parent, anders routing.
-            aiModel = model ?: aiRoute.model,
-            aiEffort = effort ?: aiRoute.effort,
+            // Legacy storymetadata blijft alleen context; Runtimeconfiguratie kiest de uitvoering.
+            aiModel = model,
+            aiEffort = effort,
             questionsAllowed = issueTrackerClient.effectiveQuestionsAllowed(issue),
         )
     }
@@ -326,7 +319,6 @@ class AgentDispatcher(
             appendLine("- Project: `${issue.projectKey}`")
             issue.fields.subtaskType?.let { appendLine("- Subtask Type: `$it`") }
             issue.fields.aiSupplier?.let { appendLine("- AI Supplier: `$it`") }
-            issue.fields.aiLevel?.let { appendLine("- AI Level: `$it`") }
             // Fase 6 — subtask-agent krijgt de (gerefinede) parent story-tekst mee.
             parentContext?.let { parent ->
                 appendLine()

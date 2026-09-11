@@ -23,7 +23,6 @@ import nl.vdzon.softwarefactory.core.contracts.recordStarted
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRateLimit
 import nl.vdzon.softwarefactory.core.contracts.AgentRunStart
 import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
-import nl.vdzon.softwarefactory.core.contracts.AiRouting
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
@@ -77,8 +76,6 @@ class AuditGatewayAdapter(
         val repo = projects.repoFor(project) ?: error("Onbekend project: $project")
         val detail = auditJobsReader.readJob(repo, project, auditType)
             ?: error("Audit niet gevonden: $project/$auditType")
-        val route = AiRouting.resolve(null, detail.job.aiSupplier, AgentRole.AUDITOR)
-        val model = detail.job.aiModel?.takeIf { it.isNotBlank() } ?: route.model
 
         // Synthetische, stabiele sleutel i.p.v. een tracker-storyKey: een audit heeft geen story.
         // Stabiel (geen timestamp) zodat `openOrCreate` een eventueel nog-open run van een vorige,
@@ -95,7 +92,7 @@ class AuditGatewayAdapter(
             phase = "auditing",
             baseBranch = storyRun.baseBranch?.takeIf(String::isNotBlank) ?: DEFAULT_BASE_BRANCH,
             aiSupplier = detail.job.aiSupplier,
-            aiModel = model,
+            aiModel = detail.job.aiModel,
             trackerContext = auditTaskContext(project, auditType, detail.prompt),
             workspacePath = null,
         )
@@ -118,9 +115,9 @@ class AuditGatewayAdapter(
                 storyRunId = storyRun.id,
                 role = AgentRole.AUDITOR,
                 containerName = result.containerName,
-                model = model,
-                effort = route.effort,
-                level = route.level,
+                model = result.executionModel,
+                effort = result.executionMode,
+                level = null,
                 workspacePath = result.workspacePath,
             ),
         )

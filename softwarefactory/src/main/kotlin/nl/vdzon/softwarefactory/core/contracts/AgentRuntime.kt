@@ -41,7 +41,6 @@ data class AgentDispatchRequest(
     val prCommentContext: String? = null,
     /** Invoerbestanden die via Runtime-objectuploads worden aangeleverd; nooit via een gedeelde map. */
     val inputAttachments: List<AgentInputAttachment> = emptyList(),
-    val aiLevel: Int? = null,
     val aiSupplier: String? = null,
     val aiModel: String? = null,
     val aiEffort: String? = null,
@@ -74,11 +73,15 @@ data class AgentDispatchResult(
     val startedAt: OffsetDateTime,
     val workspacePath: String? = null,
     val idempotencyKey: String? = null,
+    /** Daadwerkelijk door Runtime gekozen uitvoering; leidend voor runhistorie en kostenprojectie. */
+    val executionVendorId: String? = null,
+    val executionModel: String? = null,
+    val executionMode: String? = null,
 )
 
 class NotConfiguredAgentRuntime : AgentRuntime {
     override fun dispatch(request: AgentDispatchRequest): AgentDispatchResult =
-        error("Agent runtime is not configured yet; Docker dispatch is implemented in KAN-004.")
+        error("Agent Runtime v2 is niet geconfigureerd.")
 
     override fun isAgentRunning(storyKey: String, role: AgentRole): Boolean =
         false

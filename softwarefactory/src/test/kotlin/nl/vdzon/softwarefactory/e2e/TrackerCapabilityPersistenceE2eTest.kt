@@ -434,13 +434,11 @@ class TrackerCapabilityPersistenceE2eTest {
             TrackerFieldUpdate.of(
                 TrackerField.STORY_PHASE to "implement",
                 TrackerField.PAUSED to true,
-                TrackerField.AI_LEVEL to 3,
             ),
         )
         val reloaded = client.getIssue(story.key)
         assertEquals("implement", reloaded.fields.storyPhase)
         assertTrue(reloaded.fields.paused)
-        assertEquals(3, reloaded.fields.aiLevel)
     }
 
     @Test

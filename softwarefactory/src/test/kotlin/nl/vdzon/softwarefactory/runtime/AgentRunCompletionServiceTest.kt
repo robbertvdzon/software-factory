@@ -443,7 +443,6 @@ class AgentRunCompletionServiceTest {
                 fields = TrackerIssueFields(
                     targetRepo = null,
                     aiPhase = null,
-                    aiLevel = null,
                     aiTokenBudget = null,
                     aiTokensUsed = null,
                     agentStartedAt = null,
@@ -513,7 +512,6 @@ class AgentRunCompletionServiceTest {
                 fields = TrackerIssueFields(
                     targetRepo = null,
                     aiPhase = null,
-                    aiLevel = null,
                     aiTokenBudget = null,
                     aiTokensUsed = null,
                     agentStartedAt = null,
@@ -573,7 +571,6 @@ class AgentRunCompletionServiceTest {
                 targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
                 repo = "sample",
                 aiPhase = null,
-                aiLevel = 5,
                 aiTokenBudget = 40000,
                 aiTokensUsed = 0,
                 agentStartedAt = null,
@@ -633,7 +630,6 @@ class AgentRunCompletionServiceTest {
                 targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
                 repo = "sample",
                 aiPhase = null,
-                aiLevel = 5,
                 aiTokenBudget = 40000,
                 aiTokensUsed = 0,
                 agentStartedAt = null,
@@ -1668,7 +1664,6 @@ class AgentRunCompletionServiceTest {
                 fields = TrackerIssueFields(
                     targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
                     aiPhase = null,
-                    aiLevel = 5,
                     aiTokenBudget = 40000,
                     aiTokensUsed = 0,
                     agentStartedAt = null,

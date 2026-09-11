@@ -63,7 +63,7 @@ class ManualCommandServiceTest {
     }
 
     @Test
-    fun `resume and level commands update fields once`() {
+    fun `resume and supplier commands update fields once`() {
         val issueTracker = FakeTrackerApi()
         val store = InMemoryProcessedCommentStore()
         val service = service(issueTracker, store = store)
@@ -79,7 +79,6 @@ class ManualCommandServiceTest {
         assertNull(applied.stopResult)
         assertFalse(applied.issue.fields.paused)
         assertNull(applied.issue.fields.error)
-        assertEquals(7, applied.issue.fields.aiLevel)
         assertEquals("copilot", applied.issue.fields.aiSupplier)
         assertEquals(issue, again.issue)
         assertEquals(
@@ -89,7 +88,6 @@ class ManualCommandServiceTest {
                     TrackerField.ERROR to null,
                     TrackerField.RETRY_AFTER to null,
                 ),
-                mapOf(TrackerField.AI_LEVEL to 7),
                 mapOf(TrackerField.AI_SUPPLIER to "copilot"),
             ),
             issueTracker.updates.getValue("KAN-1").map { it.values },
@@ -362,7 +360,6 @@ class ManualCommandServiceTest {
         // v2: een story re-implement reset het Story Phase-veld (niet AI Phase).
         assertTrue(lastUpdate.containsKey(TrackerField.STORY_PHASE))
         assertNull(lastUpdate[TrackerField.STORY_PHASE])
-        assertFalse(lastUpdate.containsKey(TrackerField.AI_LEVEL))
         assertTrue(lastUpdate.containsKey(TrackerField.AI_MAX_DEVELOPER_LOOPBACKS))
         assertNull(lastUpdate[TrackerField.AI_MAX_DEVELOPER_LOOPBACKS])
         assertFalse(lastUpdate.containsKey(TrackerField.AI_TOKEN_BUDGET))
@@ -704,7 +701,6 @@ class ManualCommandServiceTest {
                 repo = "demo",
                 aiSupplier = "claude",
                 aiPhase = phase,
-                aiLevel = 5,
                 aiMaxDeveloperLoopbacks = maxDeveloperLoopbacks,
                 aiMaxTestChainResets = maxTestChainResets,
                 aiTokenBudget = 40000,

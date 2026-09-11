@@ -57,7 +57,6 @@ class TelegramResultNotifyPollerTest {
             repo = repo,
             aiSupplier = "claude",
             aiPhase = null,
-            aiLevel = null,
             aiTokenBudget = null,
             aiTokensUsed = null,
             agentStartedAt = null,
@@ -80,7 +79,6 @@ class TelegramResultNotifyPollerTest {
         fields = TrackerIssueFields(
             targetRepo = null,
             aiPhase = null,
-            aiLevel = null,
             aiTokenBudget = null,
             aiTokensUsed = null,
             agentStartedAt = agentStartedAt,

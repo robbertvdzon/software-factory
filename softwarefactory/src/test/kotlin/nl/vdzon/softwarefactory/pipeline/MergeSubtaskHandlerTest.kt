@@ -36,7 +36,6 @@ class MergeSubtaskHandlerTest {
         fields = TrackerIssueFields(
             targetRepo = targetRepo,
             aiPhase = null,
-            aiLevel = null,
             aiTokenBudget = null,
             aiTokensUsed = null,
             agentStartedAt = null,
@@ -55,7 +54,6 @@ class MergeSubtaskHandlerTest {
             targetRepo = targetRepo,
             repo = projectName,
             aiPhase = null,
-            aiLevel = null,
             aiTokenBudget = null,
             aiTokensUsed = null,
             agentStartedAt = null,

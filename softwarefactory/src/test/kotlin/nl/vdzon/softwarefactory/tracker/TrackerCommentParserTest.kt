@@ -36,7 +36,6 @@ class TrackerCommentParserTest {
             listOf(
                 TrackerCommandInstruction(FactoryCommand.PAUSE, "@factory:command:pause"),
                 TrackerCommandInstruction(FactoryCommand.RETRY_CURRENT_STEP, "@factory:command:retry-current-step"),
-                AiLevelTrigger(7, "LEVEL=7"),
                 AiSupplierTrigger("mock", "SUPPLIER=mock"),
                 AutoApproveTrigger(true, "AUTO-APPROVE=on"),
                 BudgetTrigger(120000, "BUDGET=120000"),
@@ -63,10 +62,10 @@ class TrackerCommentParserTest {
     }
 
     @Test
-    fun `rejects invalid levels and recognizes non agent comments`() {
+    fun `ignores obsolete levels and recognizes non agent comments`() {
         val instructions = TrackerCommentParser.parseInstructions("LEVEL=11 and LEVEL=0")
 
         assertFalse(TrackerCommentParser.isAgentComment("Factory, please proceed"))
-        assertEquals(listOf(AiLevelTrigger(0, "LEVEL=0")), instructions)
+        assertEquals(emptyList<TrackerCommentInstruction>(), instructions)
     }
 }

@@ -49,7 +49,6 @@ class TrackerStoryApiControllerTest {
                 repo = "softwarefactory",
                 aiSupplier = "claude",
                 aiPhase = null,
-                aiLevel = null,
                 aiTokenBudget = null,
                 aiTokensUsed = null,
                 agentStartedAt = null,

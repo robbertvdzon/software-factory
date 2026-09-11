@@ -1,4 +1,4 @@
-/// Zelfde suppliers/modellen als core/AiRouting.kt (`AI_SUPPLIER_OPTIONS`/`MODELS_BY_SUPPLIER`);
+/// Legacy suppliers/modellen voor bestaande storymetadata; Runtime-configuratie kiest de uitvoering.
 /// hier gedupliceerd omdat er geen bridge-operatie is die deze catalogus opvraagt. Gedeeld tussen
 /// het "Nieuwe story"-dialoog (stories_screen.dart) en het edit-dialoog op het story-detailscherm
 /// (story_detail_screen.dart), zodat beide dezelfde lijst tonen.

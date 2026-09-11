@@ -327,7 +327,6 @@ class DashboardQueryServiceTest {
             fields = TrackerIssueFields(
                 targetRepo = null,
                 aiPhase = null,
-                aiLevel = null,
                 aiTokenBudget = null,
                 aiTokensUsed = null,
                 agentStartedAt = null,
@@ -1325,7 +1324,6 @@ class DashboardQueryServiceTest {
             fields = TrackerIssueFields(
                 targetRepo = null,
                 aiPhase = null,
-                aiLevel = null,
                 aiTokenBudget = null,
                 aiTokensUsed = null,
                 agentStartedAt = null,
@@ -1350,7 +1348,6 @@ class DashboardQueryServiceTest {
             fields = TrackerIssueFields(
                 targetRepo = null,
                 aiPhase = null,
-                aiLevel = null,
                 aiTokenBudget = null,
                 aiTokensUsed = null,
                 agentStartedAt = null,
@@ -1432,7 +1429,6 @@ class DashboardQueryServiceTest {
                 fields = TrackerIssueFields(
                     targetRepo = repo,
                     aiPhase = "",
-                    aiLevel = null,
                     aiTokenBudget = 0L,
                     aiTokensUsed = 0L,
                     error = null,

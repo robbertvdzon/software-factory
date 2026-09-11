@@ -59,9 +59,6 @@ class OrchestratorGateTest : OrchestratorTestHarness() {
         assertEquals(now, issueTracker.lastUpdate("KAN-3").values[TrackerField.AGENT_STARTED_AT])
         assertEquals("KAN-3", runtime.dispatches.single().labels["story-key"])
         assertEquals("refiner", runtime.dispatches.single().labels["role"])
-        assertEquals(5, runtime.dispatches.single().aiLevel)
-        assertEquals("claude-sonnet-5", runtime.dispatches.single().aiModel)
-        assertEquals("medium", runtime.dispatches.single().aiEffort)
         assertEquals(1, agentRuns.countForRole(1, AgentRole.REFINER))
     }
 

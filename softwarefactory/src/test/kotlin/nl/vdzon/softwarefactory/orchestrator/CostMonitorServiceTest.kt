@@ -205,7 +205,6 @@ class CostMonitorServiceTest {
             fields = TrackerIssueFields(
                 targetRepo = "git@example/repo.git",
                 aiPhase = null,
-                aiLevel = 5,
                 aiTokenBudget = budget,
                 aiTokensUsed = tokensUsed,
                 agentStartedAt = null,
