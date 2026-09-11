@@ -66,6 +66,57 @@ class GitHubCliClient(
             ?: throw GitHubClientException("gh pr create failed: ${SupportApi.default().redact(created.output).take(1000)}")
     }
 
+    override fun ensureRemoteBranch(targetRepo: String, branchName: String, baseBranch: String): String {
+        val slug = requireSlug(targetRepo)
+        latestCommitSha(targetRepo, branchName)?.let { return it }
+        val baseSha = requireNotNull(latestCommitSha(targetRepo, baseBranch)) {
+            "Base branch '$baseBranch' does not exist in $slug"
+        }
+        val created = runGh(
+            args = listOf(
+                "api", "-X", "POST", "repos/$slug/git/refs",
+                "-f", "ref=refs/heads/$branchName",
+                "-f", "sha=$baseSha",
+            ),
+        )
+        if (created.exitCode != 0) {
+            return latestCommitSha(targetRepo, branchName)
+                ?: throw GitHubClientException(
+                    "gh api create branch failed: ${SupportApi.default().redact(created.output).take(1000)}",
+                )
+        }
+        return latestCommitSha(targetRepo, branchName) ?: baseSha
+    }
+
+    override fun ensurePullRequest(
+        targetRepo: String,
+        branchName: String,
+        baseBranch: String,
+        title: String,
+        body: String,
+    ): PullRequestInfo {
+        val slug = requireSlug(targetRepo)
+        findOpenPullRequest(slug, branchName)?.let { return it }
+        val created = runGh(
+            args = listOf(
+                "pr", "create", "--repo", slug,
+                "--base", baseBranch,
+                "--head", branchName,
+                "--title", title,
+                "--body", body,
+            ),
+            timeoutSeconds = 120,
+        )
+        if (created.exitCode == 0) {
+            return findOpenPullRequest(slug, branchName)
+                ?: PullRequestInfo(number = 0, url = created.stdout.trim().takeIf(String::isNotBlank))
+        }
+        return findOpenPullRequest(slug, branchName)
+            ?: throw GitHubClientException(
+                "gh pr create failed: ${SupportApi.default().redact(created.output).take(1000)}",
+            )
+    }
+
     override fun isMerged(targetRepo: String, prNumber: Int): Boolean =
         fetchPullRequest(targetRepo, prNumber).isMerged
 
@@ -354,6 +405,17 @@ class GitHubCliClient(
         val result = runGh(
             cwd = repoRoot,
             args = listOf("pr", "list", "--head", branchName, "--state", "open", "--limit", "1", "--json", "number,url,state"),
+        )
+        requireSuccess(result, "gh pr list")
+        return objectMapper.readTree(result.stdout).firstOrNull()?.let(::parsePullRequest)
+    }
+
+    private fun findOpenPullRequest(slug: String, branchName: String): PullRequestInfo? {
+        val result = runGh(
+            args = listOf(
+                "pr", "list", "--repo", slug, "--head", branchName,
+                "--state", "open", "--limit", "1", "--json", "number,url,state",
+            ),
         )
         requireSuccess(result, "gh pr list")
         return objectMapper.readTree(result.stdout).firstOrNull()?.let(::parsePullRequest)

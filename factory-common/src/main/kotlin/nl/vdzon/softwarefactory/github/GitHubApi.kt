@@ -43,6 +43,19 @@ sealed interface PullRequestChecksResult {
 interface GitHubApi {
     fun ensurePullRequest(repoRoot: Path, branchName: String, baseBranch: String, title: String, body: String): PullRequestInfo
 
+    /** Maakt een remote branch vanaf de actuele base-branch zonder lokale checkout; idempotent. */
+    fun ensureRemoteBranch(targetRepo: String, branchName: String, baseBranch: String): String =
+        throw UnsupportedOperationException("Remote branch creation is not implemented")
+
+    /** Idempotente PR-aanmaak zonder lokale checkout. */
+    fun ensurePullRequest(
+        targetRepo: String,
+        branchName: String,
+        baseBranch: String,
+        title: String,
+        body: String,
+    ): PullRequestInfo = throw UnsupportedOperationException("Remote pull-request creation is not implemented")
+
     fun isMerged(targetRepo: String, prNumber: Int): Boolean
 
     /**

@@ -161,6 +161,94 @@ class GitHubCliClientTest {
     }
 
     @Test
+    fun `ensureRemoteBranch reuses an existing remote branch`() {
+        val runner = FakeProcessRunner { command ->
+            when (command) {
+                listOf("gh", "api", "repos/robbertvdzon/sample-build-project/commits/ai/KAN-42", "-q", ".sha") ->
+                    GitProcessResult(0, "story-head\n", "")
+                else -> GitProcessResult(99, "", "unexpected command: $command")
+            }
+        }
+        val client = GitHubCliClient(runner)
+
+        val sha = client.ensureRemoteBranch(
+            "git@github.com:robbertvdzon/sample-build-project.git",
+            "ai/KAN-42",
+            "main",
+        )
+
+        assertEquals("story-head", sha)
+        assertEquals(1, runner.commands.size)
+    }
+
+    @Test
+    fun `ensureRemoteBranch creates a missing branch at the current base head`() {
+        var storyLookup = 0
+        val runner = FakeProcessRunner { command ->
+            when (command) {
+                listOf("gh", "api", "repos/robbertvdzon/sample-build-project/commits/ai/KAN-42", "-q", ".sha") -> {
+                    storyLookup += 1
+                    if (storyLookup == 1) GitProcessResult(1, "", "not found")
+                    else GitProcessResult(0, "base-head\n", "")
+                }
+                listOf("gh", "api", "repos/robbertvdzon/sample-build-project/commits/main", "-q", ".sha") ->
+                    GitProcessResult(0, "base-head\n", "")
+                listOf(
+                    "gh", "api", "-X", "POST", "repos/robbertvdzon/sample-build-project/git/refs",
+                    "-f", "ref=refs/heads/ai/KAN-42", "-f", "sha=base-head",
+                ) -> GitProcessResult(0, "{}", "")
+                else -> GitProcessResult(99, "", "unexpected command: $command")
+            }
+        }
+        val client = GitHubCliClient(runner)
+
+        val sha = client.ensureRemoteBranch(
+            "git@github.com:robbertvdzon/sample-build-project.git",
+            "ai/KAN-42",
+            "main",
+        )
+
+        assertEquals("base-head", sha)
+        assertTrue(runner.commands.any { it.contains("ref=refs/heads/ai/KAN-42") })
+    }
+
+    @Test
+    fun `remote ensurePullRequest uses target repo and reuses the created PR`() {
+        var listCalls = 0
+        val runner = FakeProcessRunner { command ->
+            when {
+                command.take(3) == listOf("gh", "pr", "list") -> {
+                    listCalls += 1
+                    if (listCalls == 1) GitProcessResult(0, "[]", "")
+                    else GitProcessResult(0, """[{"number":9,"url":"https://github.example/pr/9","state":"OPEN"}]""", "")
+                }
+                command.take(3) == listOf("gh", "pr", "create") ->
+                    GitProcessResult(0, "https://github.example/pr/9\n", "")
+                else -> GitProcessResult(99, "", "unexpected command: $command")
+            }
+        }
+        val client = GitHubCliClient(runner)
+
+        val pr = client.ensurePullRequest(
+            "git@github.com:robbertvdzon/sample-build-project.git",
+            "ai/KAN-42",
+            "main",
+            "KAN-42 title",
+            "body",
+        )
+
+        assertEquals(9, pr.number)
+        assertTrue(
+            runner.commands.any {
+                it == listOf(
+                    "gh", "pr", "create", "--repo", "robbertvdzon/sample-build-project",
+                    "--base", "main", "--head", "ai/KAN-42", "--title", "KAN-42 title", "--body", "body",
+                )
+            },
+        )
+    }
+
+    @Test
     fun `factory comments ignore agent comments and already reacted comments`() {
         val runner = FakeProcessRunner { command ->
             when {

@@ -22,7 +22,7 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 | 0 | bezig | Productie-health is groen; execution options en repositoryaliases zijn op 2026-09-11 uitgelezen; een echte `STRUCTURED_GENERATION`-probe eindigde `SUCCEEDED` met job `3a2c4970-b6b3-426c-830a-488aa47ef8af`. | Mock- en repositoryprobes afronden. De allowlist bevat `test-repository`, maar er is nog geen online worker die die alias aanbiedt. |
 | 1 | afgerond | [`ontwerp-runtimevervanging.md`](ontwerp-runtimevervanging.md) legt vervanging, correlatie, prompts, Git-eigenaarschap, modelconfiguratie, quota en workspace-aannames vast. | Runtime-consumer bouwen. |
 | 2 | bezig | De v2-adapter maakt idempotente jobs, bouwt rolprompts/schema's, projecteert events/resultaten en gebruikt databasegestuurde modelkeuze. Refiner, planner en summarizer volgen hiermee het v2-pad. | Beheerscherm, uploadonderbreking en expliciete correlatieprojectie afronden. |
-| 3 | niet gestart | — | Stap 2 groen. |
+| 3 | bezig | De GitHub-consumer kan een storybranch en PR idempotent rechtstreeks in de targetrepository maken, zonder checkout in de Software Factory. | Dispatcher/completion omzetten en repositorybewijs fail-closed verwerken. |
 | 4 | niet gestart | — | Stap 3 groen. |
 | 5 | niet gestart | — | Oude runner verwijderd en volledige reactor lokaal groen. |
 
@@ -92,3 +92,11 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 - Test: `ProjectConfigurationTest`, `AgentRuntimeV2HttpClientTest` en
   `AgentRuntimeV2ResultMapperTest` — 28 tests groen. Volledige testcompilatie van de geraakte reactor
   is eveneens groen.
+
+### 2026-09-11 — begin stap 3
+
+- De GitHub-client kan een ontbrekende remote storybranch idempotent vanaf de actuele base-head
+  aanmaken en een bestaande branch zonder wijziging hergebruiken.
+- PR-aanmaak gebruikt alleen repositoryslug, basebranch en storybranch en vereist geen lokale
+  checkout. Een al geopende PR wordt hergebruikt.
+- Test: `GitHubCliClientTest` — 15 tests groen, inclusief branchaanmaak en remote PR-hergebruik.
