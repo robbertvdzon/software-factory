@@ -25,7 +25,7 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 | 2 | afgerond | De v2-adapter maakt idempotente jobs, bouwt volledige rolprompts en begrensde schema's, projecteert events/resultaten/artifacts/usage/status/fouten en gebruikt databasegestuurde modelkeuze. Refiner, planner en summarizer volgen het v2-pad, inclusief vragen en hervatting. De lokale acceptatieroundtrip gebruikt uitsluitend `mock/mock/MOCK`. | Repositoryketen in stap 3 afronden. |
 | 3 | lokaal afgerond | Storybranch, dispatch, repositorybewijs, verificatiebewijs en PR worden zonder lokale checkout verwerkt; projectmodelkeuze gebruikt de canonieke repositoryprojectnaam. Ook audits gebruiken een read-only Runtime-checkout en getypeerd resultaat. Alias, branch, publicatiemodus en actuele remote HEAD worden fail-closed getoetst; stale bewijs wordt zichtbaar geweigerd. De volledige lokale E2E-harness gebruikt hetzelfde branch-/completionprotocol. | Live story-, hotfix- en auditacceptatie in stap 5. |
 | 4 | afgerond | Agentworker, lokale Docker-runtime, storyworkspaces, resultbestandcontracten, lokale AI-routes, providercredentials en AI-level zijn verwijderd. Actuele documentatie beschrijft Runtime v2. | — |
-| 5 | bezig | Kwaliteitsratchet, volledige Maven-reactor, volledige Flutter-suite en `verify.yml` zijn groen. De dashboardimages `sha-6b7d86d` draaien `Synced`/`Healthy` op OpenShift. De Runtime-token is lokaal actief en de Product Factory v2-contractproef voor status/create/idempotent create/get/list/attachment/cancel is groen. | Een online, niet-productieve repositoryalias beschikbaar maken; daarna story-, hotfix-, audit- en Telegramacceptatie uitvoeren. |
+| 5 | bezig | Kwaliteitsratchet, volledige Maven-reactor, volledige Flutter-suite en `verify.yml` zijn groen. De dashboardimages `sha-8c1e42f` draaien `Synced`/`Healthy` op OpenShift. De Runtime-token is lokaal actief en de Product Factory v2-contractproef voor status/create/idempotent create/get/list/attachment/cancel is groen. | Een online, niet-productieve repositoryalias beschikbaar maken; daarna story-, hotfix-, audit- en Telegramacceptatie uitvoeren. |
 
 ## Contractcontrole
 
@@ -384,6 +384,12 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 - `./quality/run.sh` is opnieuw groen met 709 geregistreerde bevindingen en nul nieuwe findings of
   suppressies. `mvn -B --no-transfer-progress clean verify` is opnieuw groen voor de volledige
   reactor: 851 Software Factory-unittests, alle E2E-suites en 90 dashboard-backendtests.
+- Reparatiecommit `8c1e42f3` is naar `origin/main` gepusht. GitHub Actions-run `34625685942` is
+  volledig groen; de backend- en frontendimageworkflows `34626267828` en `34626267720` zijn ook
+  geslaagd. Hun manifest-PR's `#485` en `#486` zijn na exacte-headverificatie gemerged.
+- Argo CD staat op revisie `be7c7d82`, `Synced` en `Healthy`. Beide dashboarddeployments zijn `1/1`
+  en draaien image `sha-8c1e42f`; de publieke healthcheck retourneert `ok`. De lokale orchestrator
+  is schoon herstart op `be7c7d82` en Product Factory meldt diezelfde factoryversie als verbonden.
 - De live catalogus meldt alle echte projectaliases beschikbaar, maar `test-repository` nog steeds
   `available=false`. Daarom worden story-, hotfix- en auditacceptatie niet op een productierepository
   uitgevoerd. Telegramdelivery en menselijke reply-/commandinteractie blijven onderdeel van
