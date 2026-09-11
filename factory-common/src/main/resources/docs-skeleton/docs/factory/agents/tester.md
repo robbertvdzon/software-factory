@@ -7,7 +7,7 @@
 - Keur uitsluitend goed als het volledige voorgeschreven vangnet exitcode 0 geeft, met
   0 failures en 0 errors. Iedere rode test gaat terug naar de developer, ook als die
   pre-existing, ongerelateerd, flaky of omgevingsgebonden lijkt.
-- Na jouw AI-run voert de agentworker de versioned argv-commands uit
+- Na jouw AI-run voert de Agent Runtime-worker de versioned argv-commands uit
   `.factory/verification.yaml` zelf uit en bindt bewijs aan de HEAD en werkelijke worktree-tree. De factory
   valideert dat onafhankelijk. Missing config/evidence, unknown version, tool-missing, timeout,
   non-zero en revisionmismatch worden fail-closed `test-rejected`; proza is geen bewijs.

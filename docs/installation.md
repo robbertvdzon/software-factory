@@ -1,258 +1,121 @@
-# Installation and running
+# Installation
 
-Everything you need to get Software Factory running on your own machine. For what the factory
-*does*, see the [README](../README.md); for day-to-day operations see [runbook.md](../runbook.md).
+Deze instructie installeert de huidige tussenfase: de Software Factory-orchestrator draait lokaal,
+dashboard-backend/-frontend draaien lokaal of op OpenShift, en alle AI-uitvoering gaat naar Agent
+Runtime v2. De latere volledige OpenShift-topologie staat in
+[`software-factory-v2/topologie-naar-openshift.md`](software-factory-v2/topologie-naar-openshift.md).
 
-## Requirements
+## Vereisten
 
-- JDK 21
-- Maven
-- Docker Desktop or a working Docker Engine
-- GitHub token with access to the target repositories
-- No local Flutter SDK is needed for the dashboard frontend; the Docker build
-  uses a Flutter builder image.
+- JDK 21;
+- Maven 3.9+;
+- Git en GitHub CLI waar de factory GitHubhandelingen uitvoert;
+- PostgreSQL 16+ of Docker voor de meegeleverde lokale database;
+- Flutter alleen voor frontendontwikkeling;
+- bereikbare Agent Runtime v2 met een geregistreerde repositoryalias per project;
+- een Runtime-worker met de benodigde execution image, providercredentials en Gitrechten.
 
-## 1. Create secrets
+Software Factory zelf heeft geen Docker-socket, providercredential, targetcheckout of blijvende
+agentworkspace nodig. Docker Desktop is lokaal alleen nodig voor de optionele Compose-services en
+Testcontainers.
 
-Create a local `secrets.env` at the root of this repo:
+## Repository en configuratie
 
 ```bash
+git clone git@github.com:robbertvdzon/software-factory.git
+cd software-factory
 cp secrets.env.example secrets.env
 ```
 
-Then fill in at least these values:
+Vul minimaal in:
 
 ```env
-SF_GITHUB_TOKEN=...
-SF_GOOGLE_CLIENT_ID=...apps.googleusercontent.com
-SF_ALLOWED_EMAILS=you@example.com
-SF_DASHBOARD_REMEMBER_SECRET=...
-SF_BRIDGE_TOKEN=...
-SF_BRIDGE_URLS=ws://localhost:9090/bridge
-```
-
-The example already points to the local Docker Postgres:
-
-```env
+SF_GITHUB_TOKEN=
 SF_DATABASE_URL=postgresql://software_factory:software_factory@localhost:5432/software_factory
 SF_DATABASE_SCHEMA=software_factory_dev
+SF_AGENT_RUNTIME_TOKEN=
 ```
 
-The application always polls the tracker database as soon as it runs. Make sure PostgreSQL and
-the required secrets are correct before starting the application.
+Voor dashboard/bridge, Telegram, Product Factory en OpenShift zijn extra keys nodig; zie
+[`factory/secrets-local.md`](factory/secrets-local.md). Gebruik `properties.env` voor niet-geheime
+lokale overrides.
 
-## 2. Linking projects to repos
+## Projectcatalogus
 
-The repo a story works on comes from a config file next to `secrets.env`:
+Configureer ieder targetproject in `projects.yaml` met ten minste:
 
-```bash
-cp projects.yaml.example projects.yaml
-```
+- canonieke projectnaam en repository;
+- base branch;
+- geregistreerde Agent Runtime-repositoryalias;
+- verplichte GitHub-checks voor merge;
+- optioneel Telegramkanaal, preview, deploy en cleanup.
 
-Fill in a name and git repo per logical project:
+De alias moet op de beschikbare Runtime-worker bekend zijn. Software Factory stuurt nooit een
+repositorycredential of lokaal pad mee.
 
-```yaml
-projects:
-  - name: personal-feed
-    repo: git@github.com:robbertvdzon/personal-feed.git
-```
+Ieder actief targetproject bevat een geldige `.factory/verification.yaml`. Agent Runtime voert die
+config binnen de muterende job uit en pusht alleen na groen bewijs.
 
-On a story, you pick one of these project names in the **`Repo`** field; the factory uses the
-matching repo. The choices come straight from `projects.yaml`. A single project can hold stories
-for multiple repos this way; subtasks automatically inherit the repo from their parent story. A
-story with an empty `Repo` field is not picked up and gets an `Error`.
-
-Which projects get scanned is determined by `SF_TRACKER_PROJECTS` (empty = all). The config
-file's path can be overridden with `SF_PROJECTS_FILE`.
-
-## 3. Start Docker services
-
-Start PostgreSQL, dashboard-backend, and dashboard-frontend:
+## Lokale database en backend
 
 ```bash
 ./factory local-services
 ```
 
-PostgreSQL then runs on `localhost:5432`.
-
-The external dashboard runs on:
-
-```text
-http://localhost:9080
-```
-
-The dashboard-backend is directly reachable at:
-
-```text
-http://localhost:9090
-```
-
-Then start the factory; it connects outbound with the same bridge token:
+Dit start de Compose-services uit `docker/docker-compose.yml`. Stop ze met:
 
 ```bash
+./factory local-services-stop
+```
+
+## Bouwen en starten
+
+```bash
+mvn -B --no-transfer-progress test
 ./factory start
 ```
 
-Repeatable health/auth/bridge smoke test with isolated containers and automatic teardown:
+Flyway migreert het schema bij start. De hoofdapp luistert standaard op poort 8080.
+
+Voor een herstartende lokale proceswrapper:
 
 ```bash
-docker/smoke-local-quickstart.sh
+./factory-loop.sh
 ```
 
-## 4. Build the code
+Dit is geen agentworker: het script start alleen de Spring-app opnieuw. In de uiteindelijke
+OpenShift-topologie verdwijnt deze lokale wrapper.
 
-Build and test the Maven projects from the root. Fast unit run:
+## Dashboardfrontend
 
 ```bash
-mvn test
+cd dashboard-frontend
+flutter pub get
+flutter analyze
+flutter test
+flutter run -d chrome
 ```
 
-Full safety net including e2e/Testcontainers tests (Docker required):
+Configureer Google-login, secure cookies en de toegestane e-mailadressen. Bij sessieverloop moet de
+frontend opnieuw naar de loginflow kunnen navigeren.
 
-```bash
-mvn verify
-```
+## Installatie controleren
 
-A story is only ready to merge once this full safety net returns exit code 0. The GitHub check
-`tools/verify-repository` is the local full gate (versioned command ID:
-`repository-verification/v1`). The GitHub check `Repository verification` evaluates the same
-backend, Flutter, and agent image components. `projects.yaml` contains the exact
-`merge.requiredChecks` per repo: queued/in-progress waits without an Error; missing, skipped,
-cancelled, or red blocks fail-closed. Green proof only counts for the current PR head, and that
-SHA is the atomic merge precondition. "Pre-existing" test failures are not an exception: they
-go back to development for a fix or human escalation.
+1. `GET` de health/status van de hoofdapp en dashboard-backend.
+2. Controleer dat Flyway zonder fout op de laatste migratie staat.
+3. Controleer de bridgeverbinding in de huidige topologie.
+4. Vraag Runtime execution options en repositoryaliassen op.
+5. Dien een `mock/mock/MOCK` structured-generationjob in.
+6. Dien een read-only repositoryjob in op een testalias.
+7. Dien een muterende testjob in en controleer verificatie, commit/push en cleanup.
+8. Open het dashboard, laat de sessie verlopen en controleer dat opnieuw inloggen mogelijk is.
 
-Or build packages:
+## Productie
 
-```bash
-mvn package
-```
+Gebruik secretobjects/environmentvariabelen in plaats van gecommitte `.env`-bestanden. Geef
+GitHub-, packagecleanup-, previewcleanup- en Runtime-tokens elk de kleinste eigen scope. Zet
+`SF_DASHBOARD_COOKIE_SECURE=true` achter HTTPS.
 
-The Flutter dashboard frontend is separate from the Maven build.
-
-## 5. Build agent images
-
-Software Factory starts agent runs via local Docker images. Build these on
-every machine where you run the main application:
-
-```bash
-./factory build-images
-```
-
-This creates:
-
-```text
-agent:local
-```
-
-A single shared image for all agent roles. Without this step, an agent run fails
-with a Docker error saying `agent:local` cannot be found.
-
-## 6. Start Software Factory
-
-Start the application from the root, so `./secrets.env` is found:
-
-```bash
-mvn -f softwarefactory/pom.xml spring-boot:run
-```
-
-Or use the helper script:
-
-```bash
-./factory start
-```
-
-The local web interface runs by default on:
-
-```text
-http://localhost:8080
-```
-
-## 7. Create a story
-
-- Via the dashboard, or via the Telegram assistant (`sf-story create ...`).
-- On a story: choose a `Repo` (from `projects.yaml`, see step 2), set
-  `AI-supplier` (e.g. `claude` or `mock`), and set `Story Phase` to `start` to
-  have it picked up.
-- New stories default to the `Als deployed` notification preset, stored as the concrete event set
-  `QUESTION`, `MANUAL_ACTION_REQUIRED`, `ERROR`, `DEPLOYED`. Choose another preset or edit the
-  individual events on story detail when different behavior is desired.
-
-## Running permanently via a LaunchAgent (macOS)
-
-`factory-loop.sh` can also run as a macOS LaunchAgent instead of being started manually.
-**This is how it runs on Robbert's laptop**: the factory then starts automatically as soon as
-the laptop boots and you log in, and also restarts automatically after a crash — without
-needing to keep a terminal open. See
-[onboarding-senior-developer.md](onboarding-senior-developer.md) section 7 for the
-plist file to set it up.
-
-If it's already running as a LaunchAgent, use these commands instead of starting the script
-again yourself:
-
-```bash
-# Is it running?
-launchctl list | grep factory-loop
-```
-
-```bash
-# Follow live logs
-tail -f ~/git/softwarefactory/work/factory-loop.log
-```
-
-```bash
-# (Re)start — also needed after a Stop via the UI, since the LaunchAgent
-# won't restart it automatically in that case
-launchctl kickstart -k gui/$(id -u)/nl.vdzon.factory-loop
-```
-
-## Maven modules
-
-The root `pom.xml` is the Maven parent and aggregator for five modules:
-
-- **`factory-contracts`** — lightweight wire contracts for agent results and bridge frames.
-- **`factory-common`** — shared tooling/config code (git, github, docs/skeleton, preview,
-  support, `AgentRole`, `ProjectConfiguration`).
-- **`softwarefactory`** — the main application: orchestrator, pipeline, tracker
-  (`tracker` package, its own Postgres tables), built-in HTML dashboard, Telegram, audits.
-- **`agentworker`** — the CLI that runs inside the agent Docker container.
-- **`dashboard-backend`** — JSON API for the Flutter `dashboard-frontend`
-  (which itself sits outside the Maven build).
-
-Tests are split: `mvn test` runs the fast unit suite; `mvn verify` additionally runs
-the e2e/Testcontainers tests (requires a running Docker).
-
-## Handy commands
-
-Start a local AI coding agent with Ollama + OpenHands:
-
-```bash
-LOCAL_WORKSPACE="$(pwd)" docker compose -f docker/local-ai/docker-compose.yml up -d --build
-```
-
-See [../docker/local-ai/README.md](../docker/local-ai/README.md) for the full
-setup and usage instructions.
-
-Start all local services:
-
-```bash
-docker compose up -d --build
-```
-
-Stop all local services:
-
-```bash
-docker compose stop
-```
-
-Start only PostgreSQL:
-
-```bash
-./factory local-db
-```
-
-Stop only PostgreSQL:
-
-```bash
-./factory local-db-stop
-```
+De huidige deployment van dashboard-backend en -frontend staat onder `deploy/`. Verplaats de
+orchestrator of database niet ad hoc; voer daarvoor het afzonderlijke topologieplan uit, inclusief
+rollback en datamigratie.

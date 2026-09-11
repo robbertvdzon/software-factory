@@ -35,9 +35,8 @@ class OcPreviewEnvironmentCleaner(
         if (normalized.isBlank()) {
             return false
         }
-        // Apart, minimaal gescopeerd kubeconfig (alleen namespaces/projects get/list/delete) i.p.v.
-        // het gedeelde read-only agent-kubeconfig — dat laatste heeft nergens delete-rechten, wat
-        // eerder al tot verweesde pnf-pr-*-namespaces leidde (zie docs/cluster-inventory.md §8).
+        // Apart, minimaal gescopeerd kubeconfig (alleen namespaces/projects get/list/delete) voor
+        // cleanup. Dit blijft buiten Agent Runtime en AI-jobs.
         val env = (factorySecrets.previewCleanupKubeconfig ?: factorySecrets.kubeconfig)
             ?.takeIf { it.isNotBlank() }
             ?.let { mapOf("KUBECONFIG" to localPath(it)) }

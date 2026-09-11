@@ -1,210 +1,130 @@
-# Secrets Local
+# Lokale configuratie en secrets
 
-Lokale secrets staan in `secrets.env` in de root van deze repository. Dit
-bestand staat in `.gitignore` en mag niet gecommit worden.
+## Laadvolgorde
 
-Gebruik `secrets.env.example` als template.
+`SecretsEnvLoader` voegt vier lagen samen; een latere laag wint:
 
-Verplichte keys:
+1. `properties.default.env` — committed defaults;
+2. `properties.env` — lokale gitignored overrides;
+3. `secrets.env` — lokale gitignored secrets;
+4. echte environmentvariabelen.
+
+Gebruik `secrets.env.example` als startpunt. Commit nooit `secrets.env`, tokens, kubeconfigs of
+providercredentials.
+
+## Verplicht voor de hoofdapp
 
 ```env
 SF_GITHUB_TOKEN=
-SF_DATABASE_URL=
-SF_DATABASE_SCHEMA=software_factory
+SF_DATABASE_URL=postgresql://user:password@host:5432/database
+SF_DATABASE_SCHEMA=software_factory_dev
+SF_AGENT_RUNTIME_TOKEN=
 ```
 
-De verplichte keys staan in `FactorySecrets.REQUIRED_KEYS`; ontbreekt er één
-(in `secrets.env` én in de system environment), dan start de applicatie niet.
+De eerste drie keys worden door `FactorySecrets` bij opstart afgedwongen. Zonder
+`SF_AGENT_RUNTIME_TOKEN` kan de app wel starten, maar geen AI-job of Telegram-assistentbeurt
+uitvoeren.
 
-Optioneel: beperk de tracker-scan tot specifieke projectkeys. Leeg laten
-betekent dat de factory alle project_key's gebruikt die al in de eigen
-tracker-tabellen voorkomen.
+`SF_DATABASE_SCHEMA` moet een geldige PostgreSQL-identifier zijn en mag niet `factory` zijn.
+
+## Projecten en bestanden
 
 ```env
 SF_TRACKER_PROJECTS=
+SF_TRACKER_ATTACHMENTS_DIR=attachments
+SF_PROJECTS_FILE=projects.yaml
+SF_SECRETS_FILE=/optioneel/absoluut/pad/secrets.env
 ```
 
-Database-keuze:
+Een lege `SF_TRACKER_PROJECTS` laat de tracker bestaande projectkeys ontdekken. `projects.yaml`
+bevat geen providercredential: het koppelt projectnamen aan repositoryconfiguratie, Runtime-alias,
+base branch, Telegram, previews en mergechecks.
 
-- Thuis kun je `SF_DATABASE_URL` naar Neon laten wijzen.
-- Op werk kun je de lokale Docker Postgres starten met `./factory local-db`
-  en deze waarden gebruiken:
+## Runtime
 
 ```env
-SF_DATABASE_URL=postgresql://software_factory:software_factory@localhost:5432/software_factory
-SF_DATABASE_SCHEMA=software_factory_dev
+SF_AGENT_RUNTIME_TOKEN=
+SF_AGENT_RUNTIME_URL=https://agent-runtime.vdzonsoftware.nl
+SF_AGENT_RUNTIME_POLL_MS=2000
+SF_AGENT_RUNTIME_MAX_REPAIR_ATTEMPTS=3
+SF_ASSISTANT_TIMEOUT_SECONDS=3600
 ```
 
-Voor branch/story-werk mag `SF_DATABASE_SCHEMA` ook bijvoorbeeld
-`software_factory_sf_020` zijn. Gebruik nooit `factory`; dat schema hoort bij
-een ander systeem.
+`SF_AGENT_RUNTIME_TOKEN` is een Software Factory-tenanttoken. AI-providercredentials en de
+Gitpublicatiecredentials van de Runtime-worker horen uitsluitend in Agent Runtime en staan niet in
+deze repository of deployment.
 
-Dashboard-login via Google-SSO en links voor meldingen. `dashboard-backend` logt
-in met een Google **ID-token** (`POST /api/v1/auth/google`) i.p.v. username/password:
-`SF_GOOGLE_CLIENT_ID` (de OAuth-web-client-ID = audience) is **verplicht**, net als
-`SF_DASHBOARD_REMEMBER_SECRET` (ondertekent het HMAC-sessie-token — geen fallback meer
-op een wachtwoord). Ook `SF_ALLOWED_EMAILS` is **verplicht** (sinds SF-1551; er is geen
-fallback-adres in de broncode meer): een komma-gescheiden allowlist van toegestane,
-geverifieerde e-mailadressen — alleen deze adressen krijgen een sessie-token. Een gezette
-maar lege lijst (bijvoorbeeld `,` of ` , `) telt óók als ontbrekend en faalt met
-`Empty dashboard configuration: SF_ALLOWED_EMAILS contains no e-mail addresses`.
-Zonder een verplichte waarde start dashboard-backend niet op.
+De jobtimeout wordt per request doorgegeven. De Telegramtimeout hierboven is alleen de default voor
+een assistentbeurt.
 
-De frontend heeft dezelfde web-client-ID nodig als build-time waarde
-`SF_GOOGLE_CLIENT_ID` (doorgegeven als `--dart-define=GOOGLE_CLIENT_ID` in
-`docker/docker-compose.yml`). Het aanmaken van de OAuth-client in Google Cloud Console
-is een externe, handmatige stap.
+## GitHub en OpenShift
 
 ```env
-SF_GOOGLE_CLIENT_ID=<oauth-web-client-id>.apps.googleusercontent.com
-SF_ALLOWED_EMAILS=<jouw-google-account>@example.com
-SF_DASHBOARD_REMEMBER_SECRET=<kies-een-sterk-geheim>
-SF_DASHBOARD_BASE_URL=
-SF_DASHBOARD_REMEMBER_DAYS=30
-SF_DASHBOARD_COOKIE_SECURE=false
+SF_GITHUB_TOKEN=
+SF_GITHUB_PACKAGES_TOKEN=
+SF_KUBECONFIG=
+SF_PREVIEW_CLEANUP_KUBECONFIG=
 ```
 
-Sinds de bridge-architectuur (zie `docs/ontwerp-bridge-dashboard.md`) heeft
-`dashboard-backend` geen eigen tracker-, database- of GitHub-toegang meer —
-alleen bovenstaande login-keys plus de bridge-token hieronder.
+`SF_GITHUB_TOKEN` is nodig omdat Software Factory zelf branches, pull requests, merges en releases
+beheert. Geef alleen de vereiste repositoriescopes. Gebruik voor packagecleanup een apart minimaal
+token met `read:packages`/`delete:packages`.
 
-Bridge tussen de factory (client) en `dashboard-backend` (server, "de hub"):
-`SF_BRIDGE_URLS` (op de factory) is een komma-gescheiden lijst van uitgaande
-websocket-URL's, leeg = bridge uit. `SF_BRIDGE_TOKEN` moet op **beide** kanten
-gelijk zijn (factory-hello ↔ backend-check); leeg op de backend weigert elke
-hello. Sinds SF-2214 is die hello ook verplicht en aan een termijn gebonden: een
-verbinding die binnen 10 seconden geen geldige hello stuurt wordt gesloten, en
-frames van een sessie die zich niet geauthenticeerd heeft worden genegeerd
-(zie `docs/ontwerp-bridge-dashboard.md` §5). Een verkeerd of ontbrekend token
-merk je dus als een socket die telkens dichtgaat, niet als een stille sessie.
+`SF_KUBECONFIG` is alleen voor de preview-/deployment-/clusterhandelingen die de factory zelf
+beheert. `SF_PREVIEW_CLEANUP_KUBECONFIG` kan die destructieve cleanup apart begrenzen en valt anders
+terug op `SF_KUBECONFIG`. Geen van beide gaat naar Agent Runtime of een AI-prompt.
 
-```env
-SF_BRIDGE_URLS=ws://localhost:9090/bridge
-SF_BRIDGE_TOKEN=<gedeeld-geheim>
-```
-
-Optioneel: token dat de `POST /api/restart`-endpoint beschermt (leeg => endpoint
-geeft 404/uit):
-
-```env
-SF_FACTORY_API_TOKEN=
-```
-
-Telegram-meldingen (beide leeg => uitgeschakeld):
+## Telegram
 
 ```env
 SF_TELEGRAM_BOT_TOKEN=
 SF_TELEGRAM_CHAT_ID=
+SF_DASHBOARD_BASE_URL=
 ```
 
-De Telegram-assistent (zie `functional-spec.md`) draait `claude` in een aparte
-container en is alleen actief wanneer er een Claude-token (`SF_AI_OAUTH_TOKEN`)
-is gezet. De container-image is standaard `assistant:local` (`Dockerfile.assistant`,
-overschrijfbaar met `SF_ASSISTANT_IMAGE`) en wordt na `SF_ASSISTANT_TIMEOUT_SECONDS`
-(default 3600s) hard afgebroken.
+Bot-token en standaardchat-id moeten beide gezet zijn om Telegram te activeren. Projectspecifieke
+chat-id's staan in `projects.yaml`. De conversationele assistent gebruikt Agent Runtime v2 en geen
+apart Claude-/Codex-token of assistantimage.
 
-De agent-workspaces onder `work/` worden na elke agent-run opgeruimd. Dat is uit
-te zetten met `SF_AGENT_WORKSPACE_CLEANUP_ENABLED=false`, en met
-`SF_AGENT_WORKSPACE_PRESERVE_ON_FAILURE=true` blijft de workspace van een
-mislukte run staan voor analyse.
-
-Als achtervang bovenop die event-gedreven opruiming draait een scheduled
-achtervang-cleanup (`WorkCleanupPoller`, elk uur) die de `work/`-mappen die
-langer dan `SF_WORK_CLEANUP_RETENTION_DAYS` (default 7 dagen) niet meer zijn
-aangeraakt alsnog verwijdert — nuttig na crashes of gekilde processen. Uit te
-zetten met `SF_WORK_CLEANUP_ENABLED=false`.
-
-In de database gelden aparte retenties op de twee agent-tabellen, elk met een eigen uurlijkse
-poller, eigen aan/uit-vlag en eigen termijn: `SF_AGENT_EVENT_RETENTION_*` voor de agent-logregels
-(default 30 dagen) en `SF_AGENT_RUN_RETENTION_*` voor de agent-runs zelf (default 90 dagen, want die
-dragen de kostenhistorie van het agent-log-scherm). Beide verwijderen batchgewijs, met
-`BATCH_SIZE × MAX_BATCHES` als bovengrens per ronde; wat overblijft gaat de volgende tick mee. De
-run-retentie laat een lopende run en een run met een onafgeronde completion altijd staan. Zie
-`technical-spec.md` §Opruimen.
-
-De `*_ENABLED`-vlaggen (`SF_WORK_CLEANUP_ENABLED`, `SF_AGENT_EVENT_RETENTION_ENABLED`,
-`SF_AGENT_RUN_RETENTION_ENABLED`) gelden sinds SF-1929 ook voor de "Nu draaien"-knoppen op het
-Opruimen-scherm: staat een opruimer uit, dan start de knop niets en meldt hij dat zichtbaar
-(`disabled`) — de knop is geen ontsnapping aan de instelling. Datzelfde geldt voor
-`sf.maintenance.dry-run` bij een handmatige GitHub-ronde.
-
-Optionele keys, afhankelijk van tester/AI-runtime:
+## Huidige dashboardbridge en Product Factory
 
 ```env
-SF_KUBECONFIG=
-SF_AI_CREDENTIALS_DIR=
-SF_AI_OAUTH_TOKEN=
-SF_CODEX_CREDENTIALS_DIR=
-SF_COPILOT_CREDENTIALS_DIR=
-SF_COPILOT_TOKEN=
-SF_SECRETS_FILE=
-SF_PROJECTS_FILE=projects.yaml
-SF_ASSISTANT_IMAGE=assistant:local
-SF_ASSISTANT_TIMEOUT_SECONDS=3600
-SF_AGENT_WORKSPACE_CLEANUP_ENABLED=true
-SF_AGENT_WORKSPACE_PRESERVE_ON_FAILURE=false
-SF_WORK_CLEANUP_ENABLED=true
-SF_WORK_CLEANUP_RETENTION_DAYS=7
-SF_AGENT_EVENT_RETENTION_ENABLED=true
-SF_AGENT_EVENT_RETENTION_DAYS=30
-SF_AGENT_EVENT_RETENTION_BATCH_SIZE=5000
-SF_AGENT_EVENT_RETENTION_MAX_BATCHES=20
-SF_AGENT_RUN_RETENTION_ENABLED=true
-SF_AGENT_RUN_RETENTION_DAYS=90
-SF_AGENT_RUN_RETENTION_BATCH_SIZE=1000
-SF_AGENT_RUN_RETENTION_MAX_BATCHES=20
-SF_POLL_INTERVAL_MS=60000
-SF_MAX_PARALLEL_REFINER=1
-SF_MAX_PARALLEL_DEVELOPER=2
-SF_MAX_PARALLEL_REVIEWER=2
-SF_MAX_PARALLEL_TESTER=1
-SF_MAX_PARALLEL_TOTAL=4
-SF_MAX_DEVELOPER_LOOPBACKS=5
-SF_MAX_TEST_CHAIN_RESETS=3
-SF_MAX_TRANSIENT_RETRIES=2
-SF_AGENT_HARD_TIMEOUT_MINUTES=60
-SF_ACTIVE_PHASE_RECOVERY_DELAY_MS=60000
-SF_COST_MONITOR_INTERVAL_MS=300000
-SF_CREDITS_PAUSE_DEFAULT_MINUTES=30
+SF_BRIDGE_URLS=ws://localhost:9090/bridge
+SF_BRIDGE_TOKEN=
+SF_FACTORY_API_TOKEN=
+SF_PRODUCT_FACTORY_TOKEN=
 ```
 
-Regel: alle environment variables die door deze factory gelezen of aan
-agent-containers doorgegeven worden, beginnen met `SF_`.
+`SF_BRIDGE_TOKEN` is gedeeld tussen de lokale orchestrator en `dashboard-backend` zolang de huidige
+WebSockettopologie bestaat. `SF_PRODUCT_FACTORY_TOKEN` beschermt `/api/integrations/v1`.
+`SF_FACTORY_API_TOKEN` beschermt machinecalls op de hoofdapp. Deze tokens zijn onderling niet
+uitwisselbaar.
 
-De applicatie leest standaard `./secrets.env`. Als een key daarin ontbreekt of
-leeg is, valt de applicatie terug op de system environment variable met dezelfde
-naam. Ontbreekt een verplichte key in beide bronnen, dan start de applicatie
-niet.
+Na uitvoering van `topologie-naar-openshift.md` verdwijnen bridge- en lokaal procesbeheer; pas dan
+mag deze sectie worden verwijderd.
 
-## Wat een agent-container níét meekrijgt
+## Dashboardlogin
 
-Elke agent-run krijgt een `factory.env` in zijn workspace met alle `SF_`-waarden
-van de factory, mínus een vaste denylist (`AGENT_ENV_DENYLIST` in
-`runtime/workspaces/AgentWorkspace.kt`). Het filter is rolonafhankelijk: deze
-tien namen komen bij géén enkele agent in het env-bestand terecht.
+```env
+SF_GOOGLE_CLIENT_ID=
+SF_ALLOWED_EMAILS=user@example.com
+SF_DASHBOARD_REMEMBER_SECRET=
+SF_DASHBOARD_REMEMBER_DAYS=30
+SF_DASHBOARD_COOKIE_SECURE=true
+```
 
-| Niet doorgegeven | Reden |
-| --- | --- |
-| `SF_GITHUB_TOKEN` | schrijfrechten op de repo's; de factory doet commit/push/PR zelf |
-| `SF_COPILOT_TOKEN` | wordt voor copilot-runs apart en tijdelijk als `COPILOT_GITHUB_TOKEN` doorgegeven |
-| `SF_BRIDGE_TOKEN` | geeft toegang tot het bridge-kanaal factory ↔ dashboard-backend |
-| `SF_PRODUCT_FACTORY_TOKEN` | apart machine-token waarmee Product Factory stories via de dashboard-bridge aanmaakt en volgt |
-| `SF_DASHBOARD_REMEMBER_SECRET` | ondertekent dashboard-sessies; wie hem heeft omzeilt de Google-login |
-| `SF_DASHBOARD_PASSWORD` | legacy dashboard-wachtwoord (login loopt sinds SF-794 via Google-SSO) |
-| `SF_ALLOWED_EMAILS` | allowlist van accounts die op het dashboard mogen |
-| `SF_GOOGLE_CLIENT_ID` | configuratie van de dashboard-login |
-| `SF_GITHUB_PACKAGES_TOKEN` | pakket-registry-credential |
-| `SF_TELEGRAM_BOT_TOKEN` | laat berichten namens de factory-bot versturen |
-| `SF_FACTORY_API_TOKEN` | beschermt `/api/restart` en de `/api/tracker/*`-endpoints |
+Gebruik op HTTPS een secure cookie. Een lege allowlist of foutieve Google-clientconfig kan de login
+fail-closed maken. De frontend moet een 401/sessieverloop naar een zichtbare nieuwe loginroute
+sturen; alleen een foutbanner “Log opnieuw in” is onvoldoende.
 
-Geen enkele agent leest deze waarden, dus het filter verandert niets aan wat
-agents kunnen. `SF_DATABASE_URL` en `SF_AI_OAUTH_TOKEN` staan bewust **niet** op
-de denylist: die worden in de container wél gebruikt en moeten doorgegeven
-blijven worden.
+## Targetprojectsecrets veranderen niet
 
-Voeg je een nieuwe secret toe die een agent niet nodig heeft, zet hem dan
-meteen op deze denylist — de default is doorgeven. `DockerAgentRuntimeTest`
-(`denylisted factory secrets never reach the agent env file`) bewaakt de tien
-namen én hun waarden; die test wordt rood zodra een naam van de lijst verdwijnt.
-De assistent-container (`ClaudeAssistantClient`) bouwt zijn eigen `docker run`
-en valt niet onder deze denylist: die krijgt `SF_FACTORY_API_TOKEN` bewust wél.
+Een gitignored `secrets.env` dat naast een targetrepository in iemands persoonlijke gitmap staat,
+wordt niet gelezen, gekopieerd, gemount, gesynchroniseerd, gewijzigd of gepusht. Er komt geen
+netwerkshare voor. De eigenaar blijft dat bestand zelf beheren zoals voorheen.
+
+## Logging en tests
+
+`FactorySecrets.toString()` en `redactedSummary()` maskeren tokens en databasecredentials. Log nooit
+de volledige resolved environment. Tests gebruiken fictieve waarden en controleren dat Runtime-
+requests geen provider-, Git-, database-, bridge-, Telegram- of projectsecret bevatten.

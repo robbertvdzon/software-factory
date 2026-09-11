@@ -382,8 +382,8 @@ class SubtaskExecutionCoordinator(
 
     /**
      * SF-1959 — hotfix-stap: dezelfde DEVELOPER-flow als [developmentSubtask] (inclusief de
-     * deterministische verificatie-poort in de agentworker die `developed` naar
-     * `development-rejected` kan overrulen, en dezelfde loopback-cap), maar dan reviewerloos:
+     * deterministische verificatiepoort in Agent Runtime die publicatie bij rood bewijs blokkeert,
+     * en dezelfde loopback-cap), maar dan reviewerloos:
      * `developed` gaat ONVOORWAARDELIJK door naar [SubtaskPhase.HOTFIX_APPROVED]. `ApprovalMode`
      * wordt hier bewust genegeerd — geen menselijke goedkeuring, dat is het hele punt van een
      * hotfix. Vragen blijven wel gewoon werken (vragen=uit levert een `[CLARIFICATION]`-error).

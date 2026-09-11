@@ -13,676 +13,20 @@
   ],
   "findings": [
     {
-      "fingerprint": "72234c500a337f4b2899",
-      "message": "The function mapPhase appears to be too complex based on Cyclomatic Complexity (ARGS). Defined complexity threshold for methods is set to 'ID'",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
-      "rule": "CyclomaticComplexMethod",
-      "shape": "IDIDID(ID:ID,ID:ID):ID?{"
-    },
-    {
-      "fingerprint": "fc0a1541bc4895758b91",
-      "message": "The function mapPhase is too long (ARGS). The maximum length is NUM.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
-      "rule": "LongMethod",
-      "shape": "IDIDID(ID:ID,ID:ID):ID?{"
-    },
-    {
-      "fingerprint": "904bc6828830e70bc399",
-      "message": "The function executeAgent is too long (ARGS). The maximum length is NUM.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/cli/AgentCli.kt",
-      "rule": "LongMethod",
-      "shape": "IDIDID("
-    },
-    {
-      "fingerprint": "12b012e799d9ee1ef511",
-      "message": "The function enrichedTaskMarkdown(ARGS) has too many parameters. The current threshold is set to NUM.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/cli/AgentCli.kt",
-      "rule": "LongParameterList",
-      "shape": "IDIDID("
-    },
-    {
-      "fingerprint": "7a0da64f7e031f7fc81e",
-      "message": "The function writeResult(ARGS) has too many parameters. The current threshold is set to NUM.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/cli/AgentCli.kt",
-      "rule": "LongParameterList",
-      "shape": "IDIDID("
-    },
-    {
-      "fingerprint": "ecf0d90a6e510c36b175",
-      "message": "The function finish(ARGS) has too many parameters. The current threshold is set to NUM.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/cli/AgentCli.kt",
-      "rule": "LongParameterList",
-      "shape": "IDIDID("
-    },
-    {
-      "fingerprint": "f750455e69008e875cce",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/AiClient.kt",
-      "rule": "MagicNumber",
-      "shape": "ID=ID.ID(ID,ID),"
-    },
-    {
-      "fingerprint": "f750455e69008e875cce",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/AiClient.kt",
-      "rule": "MagicNumber",
-      "shape": "ID=ID.ID(ID,ID),"
-    },
-    {
-      "fingerprint": "f750455e69008e875cce",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/AiClient.kt",
-      "rule": "MagicNumber",
-      "shape": "ID=ID.ID(ID,ID),"
-    },
-    {
-      "fingerprint": "f750455e69008e875cce",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/AiClient.kt",
-      "rule": "MagicNumber",
-      "shape": "ID=ID.ID(ID,ID),"
-    },
-    {
-      "fingerprint": "f750455e69008e875cce",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/AiClient.kt",
-      "rule": "MagicNumber",
-      "shape": "ID=ID.ID(ID,ID),"
-    },
-    {
-      "fingerprint": "f750455e69008e875cce",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/AiClient.kt",
-      "rule": "MagicNumber",
-      "shape": "ID=ID.ID(ID,ID),"
-    },
-    {
-      "fingerprint": "f750455e69008e875cce",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/AiClient.kt",
-      "rule": "MagicNumber",
-      "shape": "ID=ID.ID(ID,ID),"
-    },
-    {
-      "fingerprint": "f750455e69008e875cce",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/AiClient.kt",
-      "rule": "MagicNumber",
-      "shape": "ID=ID.ID(ID,ID),"
-    },
-    {
-      "fingerprint": "f750455e69008e875cce",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/AiClient.kt",
-      "rule": "MagicNumber",
-      "shape": "ID=ID.ID(ID,ID),"
-    },
-    {
-      "fingerprint": "0cfabd28aa7f6663f6a0",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/claude/ClaudeCodeAiClient.kt",
-      "rule": "MagicNumber",
-      "shape": "ID=ID,"
-    },
-    {
-      "fingerprint": "7434912d1ec4b9fe2c16",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/claude/ClaudeStreamParser.kt",
-      "rule": "MagicNumber",
-      "shape": "ID+=ID(ID,ID.ID(ID(IDIDID.ID(ID))))"
-    },
-    {
-      "fingerprint": "0cfabd28aa7f6663f6a0",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/codex/CodexAiClient.kt",
-      "rule": "MagicNumber",
-      "shape": "ID=ID,"
-    },
-    {
-      "fingerprint": "7434912d1ec4b9fe2c16",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/codex/CodexAiClient.kt",
-      "rule": "MagicNumber",
-      "shape": "ID+=ID(ID,ID.ID(ID(IDIDID.ID(ID))))"
-    },
-    {
-      "fingerprint": "0cfabd28aa7f6663f6a0",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/copilot/CopilotAiClient.kt",
-      "rule": "MagicNumber",
-      "shape": "ID=ID,"
-    },
-    {
-      "fingerprint": "246b11c9466a8f91da29",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/copilot/CopilotAiClient.kt",
-      "rule": "MagicNumber",
-      "shape": "?:ID.ID().ID{ID.ID()}?.ID(ID)"
-    },
-    {
-      "fingerprint": "7434912d1ec4b9fe2c16",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/copilot/CopilotAiClient.kt",
-      "rule": "MagicNumber",
-      "shape": "ID+=ID(ID,ID.ID(ID(IDIDID.ID(ID))))"
-    },
-    {
-      "fingerprint": "c9a45a26b895f5402144",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/copilot/CopilotAiClient.kt",
-      "rule": "MagicNumber",
-      "shape": "?.ID(ID)"
-    },
-    {
-      "fingerprint": "4e5fecc33425e669ed3a",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/dummy/DummyAiClient.kt",
-      "rule": "MagicNumber",
-      "shape": "ID(ID.ID(ID)<ID)IDIDID"
-    },
-    {
-      "fingerprint": "4e5fecc33425e669ed3a",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/dummy/DummyAiClient.kt",
-      "rule": "MagicNumber",
-      "shape": "ID(ID.ID(ID)<ID)IDIDID"
-    },
-    {
-      "fingerprint": "8b11f6b7d51c9336553d",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/cli/AgentCli.kt",
-      "rule": "MagicNumber",
-      "shape": "ID.ID(ID)"
-    },
-    {
-      "fingerprint": "85b69a19e241b59282c2",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/flows/TesterPreviewFlow.kt",
-      "rule": "MagicNumber",
-      "shape": "ID(ID==ID){"
-    },
-    {
-      "fingerprint": "ad74852949c876622b33",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/flows/TesterPreviewFlow.kt",
-      "rule": "MagicNumber",
-      "shape": "IDID(ID)"
-    },
-    {
-      "fingerprint": "e3ded50c15478d16d86a",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/flows/TesterPreviewFlow.kt",
-      "rule": "MagicNumber",
-      "shape": "ID=ID.ID(ID[ID]?.ID()?:15L),"
-    },
-    {
-      "fingerprint": "f9a7a7ec9deff25ca338",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/flows/TesterPreviewFlow.kt",
-      "rule": "MagicNumber",
-      "shape": "ID=ID.ID(ID[ID]?.ID()?:1200L),"
-    },
-    {
-      "fingerprint": "1e46b156e13a21978991",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/verification/TesterVerificationRunner.kt",
-      "rule": "MagicNumber",
-      "shape": "IDID=ID{ID.ID(ID,ID.ID)}.ID"
-    },
-    {
-      "fingerprint": "6ea318d7f64e98531c56",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/verification/TesterVerificationRunner.kt",
-      "rule": "MagicNumber",
-      "shape": "ID.ID(ID,ID.ID)"
-    },
-    {
-      "fingerprint": "bb79bdcb5b830c953f23",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/verification/TesterVerificationRunner.kt",
-      "rule": "MagicNumber",
-      "shape": ".ID(ID)"
-    },
-    {
-      "fingerprint": "4617c4197a358f6aee68",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/claude/ClaudeCodeAiClient.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID=ID,"
-    },
-    {
-      "fingerprint": "80ae203a471c9af3c9c3",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/claude/ClaudeCodeAiClient.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID=IDIDID-IDIDID.ID,"
-    },
-    {
-      "fingerprint": "f6ca69dfe5866d3a78ef",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/claude/ClaudeCodeAiClient.kt",
-      "rule": "MaxLineLength",
-      "shape": "IDID"
-    },
-    {
-      "fingerprint": "4617c4197a358f6aee68",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/codex/CodexAiClient.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID=ID,"
-    },
-    {
-      "fingerprint": "80ae203a471c9af3c9c3",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/codex/CodexAiClient.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID=IDIDID-IDIDID.ID,"
-    },
-    {
-      "fingerprint": "f6ca69dfe5866d3a78ef",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/codex/CodexAiClient.kt",
-      "rule": "MaxLineLength",
-      "shape": "IDID"
-    },
-    {
-      "fingerprint": "4617c4197a358f6aee68",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/copilot/CopilotAiClient.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID=ID,"
-    },
-    {
-      "fingerprint": "f6ca69dfe5866d3a78ef",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/copilot/CopilotAiClient.kt",
-      "rule": "MaxLineLength",
-      "shape": "IDID"
-    },
-    {
-      "fingerprint": "143a806492844ba96cc5",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID.ID->ID...ID-ID-ID1STRSTR"
-    },
-    {
-      "fingerprint": "31e4bb7cd27c4c4d877b",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
-      "rule": "MaxLineLength",
-      "shape": "IDID=ID(ID).ID().ID{ID(ID)}?:IDID()"
-    },
-    {
-      "fingerprint": "42430821c2dce136d124",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID.ID->ID.ID/10STRproposedStorySTRtitleSTR...ID...ID"
-    },
-    {
-      "fingerprint": "495fbe9d400955c2c0ac",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID.ID->ID-ID-ID-ID1STRSTR"
-    },
-    {
-      "fingerprint": "495fbe9d400955c2c0ac",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID.ID->ID-ID-ID-ID1STRSTR"
-    },
-    {
-      "fingerprint": "87f4a237107611c064fd",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID.ID->ID-ID-ID1STRSTR"
-    },
-    {
-      "fingerprint": "87f4a237107611c064fd",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID.ID->ID-ID-ID1STRSTR"
-    },
-    {
-      "fingerprint": "87f4a237107611c064fd",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID.ID->ID-ID-ID1STRSTR"
-    },
-    {
-      "fingerprint": "f3bccae2196bdfe1aeba",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID.ID->ID"
-    },
-    {
-      "fingerprint": "f3bccae2196bdfe1aeba",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID.ID->ID"
-    },
-    {
-      "fingerprint": "f3bccae2196bdfe1aeba",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID.ID->ID"
-    },
-    {
-      "fingerprint": "f3bccae2196bdfe1aeba",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID.ID->ID"
-    },
-    {
-      "fingerprint": "f3bccae2196bdfe1aeba",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID.ID->ID"
-    },
-    {
-      "fingerprint": "f3bccae2196bdfe1aeba",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID.ID->ID"
-    },
-    {
-      "fingerprint": "f3bccae2196bdfe1aeba",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID.ID->ID"
-    },
-    {
-      "fingerprint": "f3bccae2196bdfe1aeba",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID.ID->ID"
-    },
-    {
-      "fingerprint": "35f44d07748b6f3699ca",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/cli/AgentCli.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID(ID)"
-    },
-    {
-      "fingerprint": "a1bb127185091ea96e3d",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/flows/TargetRepositoryFlow.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID"
-    },
-    {
-      "fingerprint": "ac41816657edbfa8b7a4",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/flows/TargetRepositoryFlow.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID,"
-    },
-    {
-      "fingerprint": "5673f3cc1a20674e53a8",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/flows/TesterPreviewFlow.kt",
-      "rule": "MaxLineLength",
-      "shape": "IDID(ID)"
-    },
-    {
-      "fingerprint": "24408e6efd957cdafdf7",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/verification/TesterVerificationRunner.kt",
-      "rule": "MaxLineLength",
-      "shape": "IDID=ID.ID{ID.ID!=ID&&ID.ID!=ID||(ID.ID==ID&&ID.ID!=ID)}"
-    },
-    {
-      "fingerprint": "4617c4197a358f6aee68",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/verification/TesterVerificationRunner.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID=ID,"
-    },
-    {
-      "fingerprint": "cf5e88a5268dd2ba4f8f",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/verification/TesterVerificationRunner.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID(ID,ID,ID)"
-    },
-    {
-      "fingerprint": "ddee92e177d901f85d78",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/verification/TesterVerificationRunner.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID.ID.ID.ID,"
-    },
-    {
-      "fingerprint": "ebf85a6ff0cea37d5160",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/verification/TesterVerificationRunner.kt",
-      "rule": "MaxLineLength",
-      "shape": "IDID=ID(ID.ID.ID().ID(ID,ID=ID))IDIDID"
-    },
-    {
-      "fingerprint": "0f133c1e9899343c0a35",
-      "message": "Function parse is nested too deeply.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/codex/CodexAiClient.kt",
-      "rule": "NestedBlockDepth",
-      "shape": "IDID(ID:ID<ID>):ID{"
-    },
-    {
-      "fingerprint": "079146fa8e59044b1ec5",
-      "message": "Function hasClaudeCredentials has NUM return statements which exceeds the limit of NUM.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/claude/ClaudeCodeAiClient.kt",
-      "rule": "ReturnCount",
-      "shape": "IDIDID(ID:ID):ID{"
-    },
-    {
-      "fingerprint": "174963161a1783c378ea",
-      "message": "Function run has NUM return statements which exceeds the limit of NUM.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/claude/ClaudeCodeAiClient.kt",
-      "rule": "ReturnCount",
-      "shape": "IDIDID(ID:ID):ID{"
-    },
-    {
-      "fingerprint": "880ac0ac36b1ee08c757",
-      "message": "Function outcomeForRole has NUM return statements which exceeds the limit of NUM.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/claude/ClaudeCodeAiClient.kt",
-      "rule": "ReturnCount",
-      "shape": "IDIDID(ID:ID,ID:ID):ID{"
-    },
-    {
-      "fingerprint": "9a743aa893a241f5b900",
-      "message": "Function validateCredentials has NUM return statements which exceeds the limit of NUM.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/claude/ClaudeCodeAiClient.kt",
-      "rule": "ReturnCount",
-      "shape": "IDIDID(ID:ID<ID,ID>):ID?{"
-    },
-    {
-      "fingerprint": "aeceb05273189971be87",
-      "message": "Function execute has NUM return statements which exceeds the limit of NUM.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/claude/ClaudeCodeAiClient.kt",
-      "rule": "ReturnCount",
-      "shape": "IDIDID(ID:ID,ID:ID,ID:ID):ID{"
-    },
-    {
-      "fingerprint": "0cb69ae6fb433e4700a8",
-      "message": "Function hasCodexCredentials has NUM return statements which exceeds the limit of NUM.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/codex/CodexAiClient.kt",
-      "rule": "ReturnCount",
-      "shape": "IDIDID(ID:ID):ID{"
-    },
-    {
-      "fingerprint": "174963161a1783c378ea",
-      "message": "Function run has NUM return statements which exceeds the limit of NUM.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/codex/CodexAiClient.kt",
-      "rule": "ReturnCount",
-      "shape": "IDIDID(ID:ID):ID{"
-    },
-    {
-      "fingerprint": "4cdc7b9e918b998c89a9",
-      "message": "Function outcomeForRole has NUM return statements which exceeds the limit of NUM.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/codex/CodexAiClient.kt",
-      "rule": "ReturnCount",
-      "shape": "IDIDID("
-    },
-    {
-      "fingerprint": "174963161a1783c378ea",
-      "message": "Function run has NUM return statements which exceeds the limit of NUM.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/copilot/CopilotAiClient.kt",
-      "rule": "ReturnCount",
-      "shape": "IDIDID(ID:ID):ID{"
-    },
-    {
-      "fingerprint": "4cdc7b9e918b998c89a9",
-      "message": "Function outcomeForRole has NUM return statements which exceeds the limit of NUM.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/copilot/CopilotAiClient.kt",
-      "rule": "ReturnCount",
-      "shape": "IDIDID("
-    },
-    {
-      "fingerprint": "9a743aa893a241f5b900",
-      "message": "Function validateCredentials has NUM return statements which exceeds the limit of NUM.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/copilot/CopilotAiClient.kt",
-      "rule": "ReturnCount",
-      "shape": "IDIDID(ID:ID<ID,ID>):ID?{"
-    },
-    {
-      "fingerprint": "13b26b89d9d08639fab9",
-      "message": "Function executeAgent has NUM return statements which exceeds the limit of NUM.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/cli/AgentCli.kt",
-      "rule": "ReturnCount",
-      "shape": "IDIDID("
-    },
-    {
-      "fingerprint": "c0a5c4b055125974732d",
-      "message": "Function detectCommit has NUM return statements which exceeds the limit of NUM.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/flows/TargetRepositoryFlow.kt",
-      "rule": "ReturnCount",
-      "shape": "IDID(ID:ID,ID:ID?):ID?{"
-    },
-    {
-      "fingerprint": "1803a33eac609389b97a",
-      "message": "Function verify has NUM return statements which exceeds the limit of NUM.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/verification/TesterVerificationRunner.kt",
-      "rule": "ReturnCount",
-      "shape": "IDID(ID:ID,ID:ID?=ID):ID{"
-    },
-    {
-      "fingerprint": "c9ba4da8888bc3a8680e",
-      "message": "Function run has NUM return statements which exceeds the limit of NUM.",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/verification/TesterVerificationRunner.kt",
-      "rule": "ReturnCount",
-      "shape": "IDIDID(ID:ID<ID>,ID:ID,ID:ID):ID{"
-    },
-    {
-      "fingerprint": "45bbf935c5f856cb1404",
-      "message": "Class 'ID' with 'ID' functions detected. Defined threshold inside classes is set to 'ID'",
-      "module": "agentworker",
-      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/dummy/DummyAiClient.kt",
-      "rule": "TooManyFunctions",
-      "shape": "IDID("
-    },
-    {
       "fingerprint": "2c5f38e95add6e26bb07",
       "message": "This condition is too complex (ARGS). Defined complexity threshold for conditions is set to 'ID'",
       "module": "dashboard-backend",
       "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/config/DashboardConfig.kt",
       "rule": "ComplexCondition",
       "shape": "ID((ID(ID)&&ID(ID))||(ID(ID)&&ID(ID)))ID(ID,ID-ID)IDID"
+    },
+    {
+      "fingerprint": "dcabd1bc624700c0c626",
+      "message": "The function packageSha256(ARGS) has too many parameters. The current threshold is set to NUM.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "LongParameterList",
+      "shape": "IDIDID("
     },
     {
       "fingerprint": "5aa3e8a37111deb0f05c",
@@ -741,6 +85,22 @@
       "shape": "IDIDID:ID=ID(ID,ID.ID),"
     },
     {
+      "fingerprint": "19d0461ceedc7076479a",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MagicNumber",
+      "shape": "ID(ID.ID!IDID..ID)ID(ID.ID,ID,ID)"
+    },
+    {
+      "fingerprint": "19d0461ceedc7076479a",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MagicNumber",
+      "shape": "ID(ID.ID!IDID..ID)ID(ID.ID,ID,ID)"
+    },
+    {
       "fingerprint": "2480653411141f8aff10",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "dashboard-backend",
@@ -763,6 +123,14 @@
       "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/api/AuthService.kt",
       "rule": "MaxLineLength",
       "shape": "IDID=ID[ID].ID()?:IDID(ID.ID,ID)"
+    },
+    {
+      "fingerprint": "0dc01665f414e3f1a819",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/BridgeApiController.kt",
+      "rule": "MaxLineLength",
+      "shape": "IDID(@ID(ID,ID=ID)ID:ID?):ID<ID>{"
     },
     {
       "fingerprint": "1ae475576bf9183d7620",
@@ -813,14 +181,6 @@
       "shape": "ID(IDIDID.ID,IDIDID.ID,IDIDID.ID,IDIDID.ID),"
     },
     {
-      "fingerprint": "e7d4b9fa83d781369992",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "dashboard-backend",
-      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/BridgeApiController.kt",
-      "rule": "MaxLineLength",
-      "shape": "IDIDID(IDID:ID?=ID,IDID:ID?=ID,IDID:ID?=ID)"
-    },
-    {
       "fingerprint": "f07a32f4d32b6a1f6233",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "dashboard-backend",
@@ -835,6 +195,238 @@
       "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/BridgeHub.kt",
       "rule": "MaxLineLength",
       "shape": "IDID=ID(ID=ID,ID=ID,ID=ID(ID,ID))"
+    },
+    {
+      "fingerprint": "30a3e0b6901e3c1d1b30",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationApi.kt",
+      "rule": "MaxLineLength",
+      "shape": "IDID=ID.ID(IDIDID.ID,IDIDID.ID,IDIDID.ID.ID())"
+    },
+    {
+      "fingerprint": "61d0129dbe75ef6eddce",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationApi.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID.ID(ID.ID).ID(ID(ID,ID,ID.ID))"
+    },
+    {
+      "fingerprint": "7045fbc9b4f0eac51590",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationApi.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID(!ID.ID)IDID(ID(ID.ID?.ID),ID.ID?.ID?:ID)"
+    },
+    {
+      "fingerprint": "9280178b92f87541b01b",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationApi.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID(ID=ID,ID=ID,ID=ID(ID,ID.ID?:ID))"
+    },
+    {
+      "fingerprint": "b030b348024ee9714140",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationApi.kt",
+      "rule": "MaxLineLength",
+      "shape": "(ID.ID?.ID{ID.ID()}?:ID(ID,ID,ID,ID))"
+    },
+    {
+      "fingerprint": "c2425c07c4caf92e8021",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationApi.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID(ID.ID()||!ID.ID(ID.ID(ID.ID),ID.ID(ID.ID))){"
+    },
+    {
+      "fingerprint": "05ee0cb302c6d40f7f42",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "IDID=ID"
+    },
+    {
+      "fingerprint": "0aa8d757504e5b59c368",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID(!ID.ID)ID(ID.ID,ID,ID,ID)"
+    },
+    {
+      "fingerprint": "1bf4b34cd95cd61335b1",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID(ID.ID<=ID)ID(ID.ID,ID,ID)"
+    },
+    {
+      "fingerprint": "22d0feacebbdf7b775f7",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID(ID.ID<ID)ID(ID.ID,ID,ID)"
+    },
+    {
+      "fingerprint": "338f5b665c1f5a025e47",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID(ID.ID())ID(ID.ID,ID,ID)"
+    },
+    {
+      "fingerprint": "35dbcfc09b864bec6542",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID(ID!IDID)ID(ID.ID,ID,ID)"
+    },
+    {
+      "fingerprint": "36f31e939cb8a63a5ad2",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID(ID,ID.ID().ID(ID,ID).ID(ID,ID).ID(ID,ID))"
+    },
+    {
+      "fingerprint": "3d7c41e6468aa255517a",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID(ID.ID,ID,ID)"
+    },
+    {
+      "fingerprint": "3d7c41e6468aa255517a",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID(ID.ID,ID,ID)"
+    },
+    {
+      "fingerprint": "3d7c41e6468aa255517a",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID(ID.ID,ID,ID)"
+    },
+    {
+      "fingerprint": "454fd9e51eb0fb20a0b4",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID(!ID.ID(ID))ID(ID.ID,ID,ID)"
+    },
+    {
+      "fingerprint": "4e6c20fcaedeccd64a2f",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "IDID(ID.ID,ID,ID,ID)"
+    },
+    {
+      "fingerprint": "50c95e18d175c9a008ca",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "?:ID(ID.ID,ID,ID,ID)"
+    },
+    {
+      "fingerprint": "8e2de0d2bbeac0284cd9",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID(ID.ID,ID,ID,ID)"
+    },
+    {
+      "fingerprint": "8e2de0d2bbeac0284cd9",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID(ID.ID,ID,ID,ID)"
+    },
+    {
+      "fingerprint": "8e2de0d2bbeac0284cd9",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID(ID.ID,ID,ID,ID)"
+    },
+    {
+      "fingerprint": "ab386f8fcf382c726341",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID(ID.ID!IDID)ID(ID.ID,ID,ID)"
+    },
+    {
+      "fingerprint": "bddac906511de4f6d19e",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID(ID.ID==ID)ID(ID.ID,ID,ID)"
+    },
+    {
+      "fingerprint": "c4b7522cd5bd594a68a5",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID(ID.ID!IDID..ID)ID(ID.ID,ID,ID)"
+    },
+    {
+      "fingerprint": "d2646a90ac868857e789",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "IDID(ID,ID,ID,ID,ID,ID,ID)"
+    },
+    {
+      "fingerprint": "d88521245005952fab83",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID.ID().ID(ID(ID,ID,ID))"
+    },
+    {
+      "fingerprint": "e01b189e5f24241ed58e",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID.ID(ID.ID).ID(ID(ID.ID,ID.ID,ID.ID))"
+    },
+    {
+      "fingerprint": "e7c785a1838cbf74d851",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "MaxLineLength",
+      "shape": "IDID=ID(ID,ID,ID,ID,ID,ID,ID)"
     },
     {
       "fingerprint": "c273867470ad8ce42626",
@@ -853,12 +445,28 @@
       "shape": "IDID("
     },
     {
+      "fingerprint": "f6882c0c603f2fd8c863",
+      "message": "Function productFactoryAttachmentContent has NUM return statements which exceeds the limit of NUM.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/BridgeApiController.kt",
+      "rule": "ReturnCount",
+      "shape": "IDID("
+    },
+    {
       "fingerprint": "2ced69ff3133db768e7a",
       "message": "In most cases using a spread operator causes a full copy of the array to be created before calling a method. This may result in a performance penalty.",
       "module": "dashboard-backend",
       "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/DashboardBackendApplication.kt",
       "rule": "SpreadOperator",
       "shape": "ID<ID>(*ID)"
+    },
+    {
+      "fingerprint": "205c1077570cad297a5d",
+      "message": "In most cases using a spread operator causes a full copy of the array to be created before calling a method. This may result in a performance penalty.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/BridgeApiController.kt",
+      "rule": "SpreadOperator",
+      "shape": "IDID=ID.ID{ID.ID()}?.ID{ID(*ID.ID())}"
     },
     {
       "fingerprint": "59dcf734915b53270828",
@@ -917,6 +525,22 @@
       "shape": "IDID("
     },
     {
+      "fingerprint": "a3c988615ee185c3bc81",
+      "message": "Object 'ID' with 'ID' functions detected. Defined threshold inside objects is set to 'ID'",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationV2Api.kt",
+      "rule": "TooManyFunctions",
+      "shape": "IDIDID{"
+    },
+    {
+      "fingerprint": "2f921af9c6faf9b17eed",
+      "message": "org.springframework.web.bind.annotation.* is a wildcard import. Replace it with fully qualified imports.",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/ProductFactoryIntegrationApi.kt",
+      "rule": "WildcardImport",
+      "shape": "IDID.ID.ID.ID.ID.*"
+    },
+    {
       "fingerprint": "593360cb22f432d1142c",
       "message": "The function parse appears to be too complex based on Cyclomatic Complexity (ARGS). Defined complexity threshold for methods is set to 'ID'",
       "module": "factory-common",
@@ -965,6 +589,14 @@
       "shape": "IDID("
     },
     {
+      "fingerprint": "11735e9aae2eff4cfa9c",
+      "message": "The loop contains more than one break or continue statement. The code should be refactored to increase readability.",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/support/ControlJsonStripper.kt",
+      "rule": "LoopWithTooManyJumpStatements",
+      "shape": "ID((ID,ID)IDID.ID()){"
+    },
+    {
       "fingerprint": "bb79bdcb5b830c953f23",
       "message": "This expression contains a magic number. Consider defining it to a well named constant.",
       "module": "factory-common",
@@ -989,12 +621,28 @@
       "shape": "ID,"
     },
     {
-      "fingerprint": "121dec6af77d804582e2",
+      "fingerprint": "48781bc79fa90c3101bf",
       "message": "This expression contains a magic number. Consider defining it to a well named constant.",
       "module": "factory-common",
       "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/git/services/ProcessRunner.kt",
       "rule": "MagicNumber",
-      "shape": "ID(ID,ID,ID)"
+      "shape": "ID.ID(ID.ID.ID(ID))"
+    },
+    {
+      "fingerprint": "48781bc79fa90c3101bf",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/git/services/ProcessRunner.kt",
+      "rule": "MagicNumber",
+      "shape": "ID.ID(ID.ID.ID(ID))"
+    },
+    {
+      "fingerprint": "bba230d929a3bcb1e945",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/git/services/ProcessRunner.kt",
+      "rule": "MagicNumber",
+      "shape": "ID(ID,ID.ID(),ID)"
     },
     {
       "fingerprint": "67635f9db9d1b4e04033",
@@ -1019,6 +667,22 @@
       "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt",
       "rule": "MagicNumber",
       "shape": "IDID(ID)"
+    },
+    {
+      "fingerprint": "b018759fcba4d646767a",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt",
+      "rule": "MagicNumber",
+      "shape": "ID,"
+    },
+    {
+      "fingerprint": "b018759fcba4d646767a",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt",
+      "rule": "MagicNumber",
+      "shape": "ID,"
     },
     {
       "fingerprint": "b018759fcba4d646767a",
@@ -1333,6 +997,14 @@
       "shape": "IDIDID(ID:ID?):ID<ID>{"
     },
     {
+      "fingerprint": "d8412ef3819d9cdd38ca",
+      "message": "Function keyFor has NUM return statements which exceeds the limit of NUM.",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/config/ProjectConfiguration.kt",
+      "rule": "ReturnCount",
+      "shape": "IDIDID(ID:ID?):ID?{"
+    },
+    {
       "fingerprint": "3ea90e754796b16b4561",
       "message": "Function parse has NUM return statements which exceeds the limit of NUM.",
       "module": "factory-common",
@@ -1373,6 +1045,14 @@
       "shape": "IDIDID("
     },
     {
+      "fingerprint": "1dec73ce6d20394b7033",
+      "message": "Function ensurePullRequest has NUM return statements which exceeds the limit of NUM.",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt",
+      "rule": "ReturnCount",
+      "shape": "IDIDID("
+    },
+    {
       "fingerprint": "5019bafc63833c902283",
       "message": "Function changedFiles has NUM return statements which exceeds the limit of NUM.",
       "module": "factory-common",
@@ -1403,6 +1083,14 @@
       "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt",
       "rule": "ReturnCount",
       "shape": "IDIDID(ID:ID,ID:ID,ID:ID):ID?{"
+    },
+    {
+      "fingerprint": "c2bcf43f3fabdbe335db",
+      "message": "Function ensureRemoteBranch has NUM return statements which exceeds the limit of NUM.",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt",
+      "rule": "ReturnCount",
+      "shape": "IDIDID(ID:ID,ID:ID,ID:ID):ID{"
     },
     {
       "fingerprint": "def5a9c0f5161969fb86",
@@ -1509,12 +1197,12 @@
       "shape": "IDID("
     },
     {
-      "fingerprint": "9ef64f5fa82e6f3091c9",
-      "message": "This condition is too complex (ARGS). Defined complexity threshold for conditions is set to 'ID'",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/maintenance/services/MaintenanceCleanupScheduler.kt",
-      "rule": "ComplexCondition",
-      "shape": "ID(!ID&&(ID>ID||ID>ID)&&ID.ID){"
+      "fingerprint": "3ea90e754796b16b4561",
+      "message": "Function parse has NUM return statements which exceeds the limit of NUM.",
+      "module": "factory-contracts",
+      "path": "factory-contracts/src/main/kotlin/nl/vdzon/softwarefactory/contract/ProductFactoryMetadata.kt",
+      "rule": "ReturnCount",
+      "shape": "IDID(ID:ID):ID?{"
     },
     {
       "fingerprint": "cb69689d819c523ae78d",
@@ -1549,10 +1237,10 @@
       "shape": "IDIDID(ID:ID,ID:ID?):ID?="
     },
     {
-      "fingerprint": "9b79165281444598e4b8",
-      "message": "The function auditOutcome appears to be too complex based on Cyclomatic Complexity (ARGS). Defined complexity threshold for methods is set to 'ID'",
+      "fingerprint": "57ec290a73a519ec34a1",
+      "message": "The function storyDetail appears to be too complex based on Cyclomatic Complexity (ARGS). Defined complexity threshold for methods is set to 'ID'",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/AuditGatewayAdapter.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
       "rule": "CyclomaticComplexMethod",
       "shape": "IDIDID(ID:ID):ID{"
     },
@@ -1573,14 +1261,6 @@
       "shape": "IDID(ID:ID):ID{"
     },
     {
-      "fingerprint": "d2196b3b636f77a0b72f",
-      "message": "The function recoverActiveStoryPhase appears to be too complex based on Cyclomatic Complexity (ARGS). Defined complexity threshold for methods is set to 'ID'",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/StoryRefinementCoordinator.kt",
-      "rule": "CyclomaticComplexMethod",
-      "shape": "IDIDID(ID:ID,ID:ID):ID{"
-    },
-    {
       "fingerprint": "81e9bf014054ac325f3a",
       "message": "The function developmentSubtask appears to be too complex based on Cyclomatic Complexity (ARGS). Defined complexity threshold for methods is set to 'ID'",
       "module": "softwarefactory",
@@ -1589,12 +1269,12 @@
       "shape": "IDIDID(ID:ID,ID:ID?):ID="
     },
     {
-      "fingerprint": "1417355a5fa4d8b3af7d",
-      "message": "The function notifyPending appears to be too complex based on Cyclomatic Complexity (ARGS). Defined complexity threshold for methods is set to 'ID'",
+      "fingerprint": "8a16c7424e6a6d863459",
+      "message": "The function syncRuntimeRepository appears to be too complex based on Cyclomatic Complexity (ARGS). Defined complexity threshold for methods is set to 'ID'",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
       "rule": "CyclomaticComplexMethod",
-      "shape": "IDIDID(){"
+      "shape": "IDIDID("
     },
     {
       "fingerprint": "d94780c611245dd62481",
@@ -1617,6 +1297,14 @@
       "message": "Class DashboardQueryService is too large. Consider splitting it into smaller pieces.",
       "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "rule": "LargeClass",
+      "shape": "IDID("
+    },
+    {
+      "fingerprint": "1c159c4e3f5efb2cc34f",
+      "message": "Class AgentRunCompletionService is too large. Consider splitting it into smaller pieces.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
       "rule": "LargeClass",
       "shape": "IDID("
     },
@@ -1645,6 +1333,14 @@
       "shape": "IDIDID(ID:ID):ID{"
     },
     {
+      "fingerprint": "4e817dc8336c2bb770a2",
+      "message": "The function storyDetail is too long (ARGS). The maximum length is NUM.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "rule": "LongMethod",
+      "shape": "IDIDID(ID:ID):ID{"
+    },
+    {
       "fingerprint": "b4b31832eea9c817743c",
       "message": "The function dispatch is too long (ARGS). The maximum length is NUM.",
       "module": "softwarefactory",
@@ -1653,20 +1349,12 @@
       "shape": "IDID(ID:ID):ID{"
     },
     {
-      "fingerprint": "137f8d43b1351e3b6901",
-      "message": "The function runDocker is too long (ARGS). The maximum length is NUM.",
+      "fingerprint": "b34ea7e6df1fd10c76fb",
+      "message": "The function syncRuntimeRepository is too long (ARGS). The maximum length is NUM.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
       "rule": "LongMethod",
-      "shape": "IDIDID(ID:ID<ID>,ID:ID,ID:ID,ID:ID):ID{"
-    },
-    {
-      "fingerprint": "4f15dd8543165b6ea3c5",
-      "message": "The function systemPrompt is too long (ARGS). The maximum length is NUM.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAssistantService.kt",
-      "rule": "LongMethod",
-      "shape": "IDIDID(ID:ID,ID:ID.ID):ID{"
+      "shape": "IDIDID("
     },
     {
       "fingerprint": "da9f6087da0969cc60da",
@@ -1821,28 +1509,20 @@
       "shape": "IDID("
     },
     {
-      "fingerprint": "2228d196b666cda5efcb",
-      "message": "The function ask(ARGS) has too many parameters. The current threshold is set to NUM.",
+      "fingerprint": "4c92fa4ea7b48c1ec163",
+      "message": "The constructor(ARGS) has too many parameters. The current threshold is set to NUM.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeV2Adapter.kt",
       "rule": "LongParameterList",
       "shape": "IDID("
     },
     {
-      "fingerprint": "7cb18bc061df02cecb42",
-      "message": "The function dockerCommand(ARGS) has too many parameters. The current threshold is set to NUM.",
+      "fingerprint": "2228d196b666cda5efcb",
+      "message": "The function ask(ARGS) has too many parameters. The current threshold is set to NUM.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/TelegramApi.kt",
       "rule": "LongParameterList",
-      "shape": "IDIDID("
-    },
-    {
-      "fingerprint": "b739a78ceb8e3e1d525b",
-      "message": "The function attempt(ARGS) has too many parameters. The current threshold is set to NUM.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
-      "rule": "LongParameterList",
-      "shape": "IDIDID("
+      "shape": "IDID("
     },
     {
       "fingerprint": "8ad234c0f38ff723d433",
@@ -1885,14 +1565,6 @@
       "shape": "ID((ID,ID)IDID){"
     },
     {
-      "fingerprint": "c895bb9e85929558056c",
-      "message": "The loop contains more than one break or continue statement. The code should be refactored to increase readability.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
-      "rule": "LoopWithTooManyJumpStatements",
-      "shape": "ID(IDIDID){"
-    },
-    {
       "fingerprint": "9ecc9b344a34259cf1ff",
       "message": "This expression contains a magic number. Consider defining it to a well named constant.",
       "module": "softwarefactory",
@@ -1925,20 +1597,20 @@
       "shape": "IDID(ID)"
     },
     {
-      "fingerprint": "178bdcbc8f4cd23b6bfe",
+      "fingerprint": "ed9544c44029e8e81769",
       "message": "This expression contains a magic number. Consider defining it to a well named constant.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/TrackerCommentParser.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/OrchestratorSettings.kt",
       "rule": "MagicNumber",
-      "shape": "ID(IDIDID..ID){"
+      "shape": "IDID:ID=ID.ID(ID),"
     },
     {
-      "fingerprint": "9d765316d7464648ed08",
+      "fingerprint": "aeb775d5431dedc63186",
       "message": "This expression contains a magic number. Consider defining it to a well named constant.",
       "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/AuditGatewayAdapter.kt",
       "rule": "MagicNumber",
-      "shape": "IDID=ID?.ID?.ID(ID)"
+      "shape": "IDID=ID.ID?.ID(ID)"
     },
     {
       "fingerprint": "9549713559a595780fca",
@@ -2059,14 +1731,6 @@
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/ProjectDeployClient.kt",
       "rule": "MagicNumber",
       "shape": "ID(ID.ID()IDID..ID)ID.ID()IDID"
-    },
-    {
-      "fingerprint": "80913382139969ac1048",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/WorkspaceDesktopLauncher.kt",
-      "rule": "MagicNumber",
-      "shape": "IDID=ID.ID(ID,ID.ID)"
     },
     {
       "fingerprint": "58647249e093aee76cd7",
@@ -2221,6 +1885,22 @@
       "shape": "IDID(ID:ID,ID:ID):ID=(ID-ID)/1_000_000"
     },
     {
+      "fingerprint": "bb79bdcb5b830c953f23",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/AgentDispatcher.kt",
+      "rule": "MagicNumber",
+      "shape": ".ID(ID)"
+    },
+    {
+      "fingerprint": "bb79bdcb5b830c953f23",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/AgentDispatcher.kt",
+      "rule": "MagicNumber",
+      "shape": ".ID(ID)"
+    },
+    {
       "fingerprint": "36c7f9a9ac26513b7f02",
       "message": "This expression contains a magic number. Consider defining it to a well named constant.",
       "module": "softwarefactory",
@@ -2285,46 +1965,6 @@
       "shape": "ID=ID.ID(ID)?.ID().ID(),"
     },
     {
-      "fingerprint": "9a5c4aebc5612cad90f5",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
-      "rule": "MagicNumber",
-      "shape": "ID.ID(ID.ID).ID(ID),"
-    },
-    {
-      "fingerprint": "9a5c4aebc5612cad90f5",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
-      "rule": "MagicNumber",
-      "shape": "ID.ID(ID.ID).ID(ID),"
-    },
-    {
-      "fingerprint": "b018759fcba4d646767a",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
-      "rule": "MagicNumber",
-      "shape": "ID,"
-    },
-    {
-      "fingerprint": "b018759fcba4d646767a",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
-      "rule": "MagicNumber",
-      "shape": "ID,"
-    },
-    {
-      "fingerprint": "bb79bdcb5b830c953f23",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
-      "rule": "MagicNumber",
-      "shape": ".ID(ID)"
-    },
-    {
       "fingerprint": "ed9544c44029e8e81769",
       "message": "This expression contains a magic number. Consider defining it to a well named constant.",
       "module": "softwarefactory",
@@ -2373,60 +2013,36 @@
       "shape": "IDID=ID.ID.ID().ID{ID.ID.ID}.ID(ID)"
     },
     {
-      "fingerprint": "6c8c586986a12e534c5b",
+      "fingerprint": "79d5386772440f4228f3",
       "message": "This expression contains a magic number. Consider defining it to a well named constant.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentResultFileCompletionPoller.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentEventRetentionSettings.kt",
       "rule": "MagicNumber",
-      "shape": ").ID(ID).ID{ID(ID)}.ID(ID)"
+      "shape": ".ID(1L,1_000L).ID(),"
     },
     {
-      "fingerprint": "6c8c586986a12e534c5b",
+      "fingerprint": "b3f3a6eebca17c050711",
       "message": "This expression contains a magic number. Consider defining it to a well named constant.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentResultFileCompletionPoller.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentEventRetentionSettings.kt",
       "rule": "MagicNumber",
-      "shape": ").ID(ID).ID{ID(ID)}.ID(ID)"
+      "shape": ".ID(100L,100_000L).ID(),"
     },
     {
-      "fingerprint": "ad7847b80cf00a902f7d",
+      "fingerprint": "b3f3a6eebca17c050711",
       "message": "This expression contains a magic number. Consider defining it to a well named constant.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentResultFileCompletionPoller.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentEventRetentionSettings.kt",
       "rule": "MagicNumber",
-      "shape": "?.ID{ID}"
+      "shape": ".ID(100L,100_000L).ID(),"
     },
     {
-      "fingerprint": "bb79bdcb5b830c953f23",
+      "fingerprint": "e350f5baaad50b5d7b6c",
       "message": "This expression contains a magic number. Consider defining it to a well named constant.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentResultFileCompletionPoller.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentEventRetentionSettings.kt",
       "rule": "MagicNumber",
-      "shape": ".ID(ID)"
-    },
-    {
-      "fingerprint": "ccb48a43e24fece024eb",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentResultFileCompletionPoller.kt",
-      "rule": "MagicNumber",
-      "shape": "IDID=ID{ID.ID(ID)}.ID()?:IDID(ID)"
-    },
-    {
-      "fingerprint": "3fa964333615ff484978",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
-      "rule": "MagicNumber",
-      "shape": "?.ID()?.ID(ID,ID)?:ID,"
-    },
-    {
-      "fingerprint": "3fa964333615ff484978",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
-      "rule": "MagicNumber",
-      "shape": "?.ID()?.ID(ID,ID)?:ID,"
+      "shape": "ID=ID.ID(ID,ID=30L).ID(1L,3650L),"
     },
     {
       "fingerprint": "3fa964333615ff484978",
@@ -2499,6 +2115,38 @@
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
       "rule": "MagicNumber",
       "shape": ".ID(ID)"
+    },
+    {
+      "fingerprint": "79d5386772440f4228f3",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunRetentionSettings.kt",
+      "rule": "MagicNumber",
+      "shape": ".ID(1L,1_000L).ID(),"
+    },
+    {
+      "fingerprint": "910c20e904cf248440d1",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunRetentionSettings.kt",
+      "rule": "MagicNumber",
+      "shape": "ID=ID.ID(ID,ID=90L).ID(1L,3650L),"
+    },
+    {
+      "fingerprint": "b3f3a6eebca17c050711",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunRetentionSettings.kt",
+      "rule": "MagicNumber",
+      "shape": ".ID(100L,100_000L).ID(),"
+    },
+    {
+      "fingerprint": "b3f3a6eebca17c050711",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunRetentionSettings.kt",
+      "rule": "MagicNumber",
+      "shape": ".ID(100L,100_000L).ID(),"
     },
     {
       "fingerprint": "44cc6c389810762d0e26",
@@ -2517,60 +2165,220 @@
       "shape": "ID+=ID"
     },
     {
-      "fingerprint": "04d643b52d8cb2efe4cd",
+      "fingerprint": "185af18302d30a5d530c",
       "message": "This expression contains a magic number. Consider defining it to a well named constant.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRoleExecutionConfig.kt",
       "rule": "MagicNumber",
-      "shape": "ID{ID(ID,ID,ID.ID).ID().ID(ID,ID.ID)}"
+      "shape": "ID(ID.ID.ID()&&ID.ID.ID<=ID){ID}"
     },
     {
-      "fingerprint": "0f731693ef14e8cf4a18",
+      "fingerprint": "e0db338c97d2ec717b2b",
       "message": "This expression contains a magic number. Consider defining it to a well named constant.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRoleExecutionConfig.kt",
       "rule": "MagicNumber",
-      "shape": "ID{ID(ID,ID,ID).ID().ID(ID,ID.ID)}"
+      "shape": "ID(ID.ID.ID.ID()&&ID.ID.ID.ID<=ID){ID}"
     },
     {
-      "fingerprint": "176c4d1b9ad5164a1d10",
+      "fingerprint": "49a54689e11eebc16959",
       "message": "This expression contains a magic number. Consider defining it to a well named constant.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeArtifactService.kt",
       "rule": "MagicNumber",
-      "shape": "ID.ID(ID,ID.ID(ID),ID.ID)"
+      "shape": "ID->ID.ID>=ID&&ID[ID]==0xff.ID()&&ID[ID]==0xd8.ID()&&ID[ID]==0xff.ID()"
     },
     {
-      "fingerprint": "8f711d7bf036bda05e8e",
+      "fingerprint": "55057aa4255627f905c3",
       "message": "This expression contains a magic number. Consider defining it to a well named constant.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeArtifactService.kt",
       "rule": "MagicNumber",
-      "shape": "ID.ID(ID.ID(ID))"
+      "shape": "ID->ID.ID>=ID&&"
     },
     {
-      "fingerprint": "ec8e13d310044560feeb",
+      "fingerprint": "5794d332e58d4816130c",
       "message": "This expression contains a magic number. Consider defining it to a well named constant.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeArtifactService.kt",
       "rule": "MagicNumber",
-      "shape": "IDID=ID"
+      "shape": "ID->ID.ID>=ID&&ID.ID(ID).ID().ID(ID)"
     },
     {
-      "fingerprint": "ec8e13d310044560feeb",
+      "fingerprint": "5794d332e58d4816130c",
       "message": "This expression contains a magic number. Consider defining it to a well named constant.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeArtifactService.kt",
       "rule": "MagicNumber",
-      "shape": "IDID=ID"
+      "shape": "ID->ID.ID>=ID&&ID.ID(ID).ID().ID(ID)"
     },
     {
-      "fingerprint": "fda4b70e1e4a17fa70cb",
+      "fingerprint": "691471666e7a2eb96d57",
       "message": "This expression contains a magic number. Consider defining it to a well named constant.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeArtifactService.kt",
       "rule": "MagicNumber",
-      "shape": "ID(ID.ID>ID)ID.ID()"
+      "shape": "ID(ID,ID,ID,ID.ID)==ID&&"
+    },
+    {
+      "fingerprint": "f0c8d1d18087bafd2bf3",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeArtifactService.kt",
+      "rule": "MagicNumber",
+      "shape": "ID(ID,ID,ID,ID.ID)==ID"
+    },
+    {
+      "fingerprint": "f0c8d1d18087bafd2bf3",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeArtifactService.kt",
+      "rule": "MagicNumber",
+      "shape": "ID(ID,ID,ID,ID.ID)==ID"
+    },
+    {
+      "fingerprint": "09de4ff923520c1d2226",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeInputUploadService.kt",
+      "rule": "MagicNumber",
+      "shape": "ID(ID.ID!=ID&&!ID.ID(ID))IDID"
+    },
+    {
+      "fingerprint": "00354217502c5b41571e",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeInstructionFactory.kt",
+      "rule": "MagicNumber",
+      "shape": "ID<ID>(ID,ID(ID(),ID))"
+    },
+    {
+      "fingerprint": "4694eca0d368553d0c37",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeInstructionFactory.kt",
+      "rule": "MagicNumber",
+      "shape": "ID<ID>(ID,ID(ID(ID=4_000),ID))"
+    },
+    {
+      "fingerprint": "a88f619637c2edd2db71",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeInstructionFactory.kt",
+      "rule": "MagicNumber",
+      "shape": "ID(ID==ID.ID)ID<ID>(ID,ID(ID(),ID))"
+    },
+    {
+      "fingerprint": "bb79bdcb5b830c953f23",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeInstructionFactory.kt",
+      "rule": "MagicNumber",
+      "shape": ".ID(ID)"
+    },
+    {
+      "fingerprint": "146076d984910264d548",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeV2Adapter.kt",
+      "rule": "MagicNumber",
+      "shape": "ID=ID.ID.ID.ID().ID(ID,86_400),"
+    },
+    {
+      "fingerprint": "146076d984910264d548",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeV2Adapter.kt",
+      "rule": "MagicNumber",
+      "shape": "ID=ID.ID.ID.ID().ID(ID,86_400),"
+    },
+    {
+      "fingerprint": "bb79bdcb5b830c953f23",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeV2Adapter.kt",
+      "rule": "MagicNumber",
+      "shape": ".ID(ID)"
+    },
+    {
+      "fingerprint": "2ea8df607f1ac9cf8c99",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeV2Configuration.kt",
+      "rule": "MagicNumber",
+      "shape": "ID[ID]?.ID()?.ID{ID>=ID}?:2_000,"
+    },
+    {
+      "fingerprint": "2ea8df607f1ac9cf8c99",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeV2Configuration.kt",
+      "rule": "MagicNumber",
+      "shape": "ID[ID]?.ID()?.ID{ID>=ID}?:2_000,"
+    },
+    {
+      "fingerprint": "3fa964333615ff484978",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeV2Configuration.kt",
+      "rule": "MagicNumber",
+      "shape": "?.ID()?.ID(ID,ID)?:ID,"
+    },
+    {
+      "fingerprint": "b13dfabd3a724d4703aa",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeV2HttpClient.kt",
+      "rule": "MagicNumber",
+      "shape": "IDID=ID.ID.ID().ID{ID.ID()}.ID(2_000)"
+    },
+    {
+      "fingerprint": "d060176f1d285a4ca2bd",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeV2HttpClient.kt",
+      "rule": "MagicNumber",
+      "shape": ".ID(ID,ID)"
+    },
+    {
+      "fingerprint": "b89be2150a4609ebceec",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeV2ResultMapper.kt",
+      "rule": "MagicNumber",
+      "shape": "ID.ID?.ID(ID::ID)?.ID{ID(ID.ID(4_000))}"
+    },
+    {
+      "fingerprint": "20924cc9af81b423ee6d",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/RuntimeAssistantClient.kt",
+      "rule": "MagicNumber",
+      "shape": "IDID=ID.ID(ID)"
+    },
+    {
+      "fingerprint": "20924cc9af81b423ee6d",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/RuntimeAssistantClient.kt",
+      "rule": "MagicNumber",
+      "shape": "IDID=ID.ID(ID)"
+    },
+    {
+      "fingerprint": "7ea818aa3b1e8576e348",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/RuntimeAssistantClient.kt",
+      "rule": "MagicNumber",
+      "shape": "ID=(ID?:ID).ID().ID(ID,86_400),"
+    },
+    {
+      "fingerprint": "7ea818aa3b1e8576e348",
+      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/RuntimeAssistantClient.kt",
+      "rule": "MagicNumber",
+      "shape": "ID=(ID?:ID).ID().ID(ID,86_400),"
     },
     {
       "fingerprint": "03cbb1ef9f588228711d",
@@ -2683,14 +2491,6 @@
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
       "rule": "MagicNumber",
       "shape": "ID?.ID{ID.ID()}?.ID{ID(ID,ID.ID(ID))}"
-    },
-    {
-      "fingerprint": "8595946b5ba32fbd155b",
-      "message": "This expression contains a magic number. Consider defining it to a well named constant.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAssistantService.kt",
-      "rule": "MagicNumber",
-      "shape": "IDID=ID.ID(ID,ID).ID(ID)"
     },
     {
       "fingerprint": "90e6695065d73291d401",
@@ -2941,22 +2741,6 @@
       "shape": "ID{ID(ID){ID.ID(ID.ID.ID.ID.ID())}}"
     },
     {
-      "fingerprint": "0c17766a0e75b35456c6",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID->ID(ID.ID(ID.ID(ID)))"
-    },
-    {
-      "fingerprint": "408ca3de3943d07ce6ca",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID(ID.ID(ID.ID(ID),ID.ID(ID)))"
-    },
-    {
       "fingerprint": "4e019254864dd6640dc5",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
@@ -2971,6 +2755,22 @@
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
       "rule": "MaxLineLength",
       "shape": "IDID(ID)"
+    },
+    {
+      "fingerprint": "9348c6cd331592ab0e62",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID.ID(ID.ID(ID),ID.ID(ID)),"
+    },
+    {
+      "fingerprint": "95e113f64afdd6bf4a47",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID(ID=ID.ID,ID=ID,ID=ID(ID=ID,ID=ID.ID.ID()))"
     },
     {
       "fingerprint": "95e113f64afdd6bf4a47",
@@ -3037,6 +2837,14 @@
       "shape": "ID->ID.ID(ID.ID(ID),ID.ID(ID))"
     },
     {
+      "fingerprint": "dcf4f915351caabc534f",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID->ID.ID(ID.ID(ID),ID.ID(ID))"
+    },
+    {
       "fingerprint": "e1f4845a47eb016c53d6",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
@@ -3069,12 +2877,12 @@
       "shape": "ID=ID(ID)?.ID{ID.ID()}?:ID,"
     },
     {
-      "fingerprint": "b90aa43778d695571242",
+      "fingerprint": "a66542b5c5e4b4c20434",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/AiRouting.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/AgentRuntime.kt",
       "rule": "MaxLineLength",
-      "shape": "IDIDID(ID,ID,ID,ID,ID),"
+      "shape": "/**IDID(IDID,IDIDIDIDID-ID)\u2014ID[ID.ID.ID.ID.ID.ID].*/"
     },
     {
       "fingerprint": "51dd6bb958117f8e077a",
@@ -3085,12 +2893,12 @@
       "shape": "IDID(ID:ID,ID:ID,ID:ID):ID?"
     },
     {
-      "fingerprint": "632f05263748e18031b5",
+      "fingerprint": "0252c97edbfea20c5fab",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/StoryWorkspace.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/WorkflowModels.kt",
       "rule": "MaxLineLength",
-      "shape": "IDID(ID:ID,ID:ID,ID:ID?,ID:ID):ID?=ID"
+      "shape": "IDID(ID:ID<ID>?):ID<ID>=ID.ID().ID(ID()){ID->"
     },
     {
       "fingerprint": "aab251893d3e754d45a1",
@@ -3107,6 +2915,14 @@
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/WorkflowModels.kt",
       "rule": "MaxLineLength",
       "shape": "?:IDID(ID)"
+    },
+    {
+      "fingerprint": "8320e1423158b6dec362",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/DashboardApi.kt",
+      "rule": "MaxLineLength",
+      "shape": "IDID(ID:ID,ID:ID?,ID:ID?,ID:ID?,ID:ID?)"
     },
     {
       "fingerprint": "616f2f42ef2fce9e6680",
@@ -3165,28 +2981,36 @@
       "shape": "IDID(ID=ID.ID,ID=ID,ID=ID,ID=ID,ID=ID)"
     },
     {
-      "fingerprint": "1bfcced429fed6d1a5b5",
+      "fingerprint": "5f885dd5f39ae1770165",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardCommandService.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/AuditGatewayAdapter.kt",
       "rule": "MaxLineLength",
-      "shape": "ID.ID(ID.ID,ID.ID(ID.IDIDID.ID.ID))"
+      "shape": "ID.ID(ID,ID,ID)"
     },
     {
-      "fingerprint": "4400b87169b24bbe5cc1",
+      "fingerprint": "9b6071b7cf60b58e2391",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardCommandService.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/AuditGatewayAdapter.kt",
       "rule": "MaxLineLength",
-      "shape": "ID.ID(ID,ID.ID(ID.IDIDID.ID.ID))"
+      "shape": "ID{ID.ID(ID,ID,ID.ID,ID.ID)}"
     },
     {
-      "fingerprint": "4400b87169b24bbe5cc1",
+      "fingerprint": "ef75ae808613150735cd",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardCommandService.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/AuditGatewayAdapter.kt",
       "rule": "MaxLineLength",
-      "shape": "ID.ID(ID,ID.ID(ID.IDIDID.ID.ID))"
+      "shape": "ID.ID(ID,ID,ID,ID.ID,ID.ID)"
+    },
+    {
+      "fingerprint": "f6ca69dfe5866d3a78ef",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/AuditGatewayAdapter.kt",
+      "rule": "MaxLineLength",
+      "shape": "IDID"
     },
     {
       "fingerprint": "4400b87169b24bbe5cc1",
@@ -3203,14 +3027,6 @@
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardCommandService.kt",
       "rule": "MaxLineLength",
       "shape": "ID.ID{ID.ID(ID.ID,ID.ID(ID.ID),ID.ID)}"
-    },
-    {
-      "fingerprint": "fa3a4bcae6687b42c8e2",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardCommandService.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID(ID.ID!=ID.ID.ID)ID(ID.ID,ID.ID)"
     },
     {
       "fingerprint": "fbb098f074219d16b7c0",
@@ -3387,6 +3203,14 @@
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
       "rule": "MaxLineLength",
       "shape": "?:IDID(ID,ID(),ID=ID,ID=ID(ID))"
+    },
+    {
+      "fingerprint": "f1a780c66a7e6eaec558",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "rule": "MaxLineLength",
+      "shape": "?.ID{(ID,ID)->ID{ID.ID(ID,ID)}.ID()}"
     },
     {
       "fingerprint": "6cee3dc537290b52895c",
@@ -3573,12 +3397,28 @@
       "shape": "ID.ID(ID,ID,ID)"
     },
     {
+      "fingerprint": "c9c90156679e1c49c328",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/maintenance/services/GitHubPackageCleanupClient.kt",
+      "rule": "MaxLineLength",
+      "shape": "/**IDID-IDID`ID/ID`,IDIDID'IDID;IDIDIDIDIDIDIDIDID.*/"
+    },
+    {
       "fingerprint": "4f8a1ed5fea68392f63e",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/maintenance/services/GitHubProtectedShaSource.kt",
       "rule": "MaxLineLength",
       "shape": "/**ID-ID'IDIDIDIDIDIDID`/ID?ID=ID`-ID(ID-IDID).ID/IDIDID.*/"
+    },
+    {
+      "fingerprint": "6cc5dc88ae0687d1e1c7",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/maintenance/services/GitHubProtectedShaSource.kt",
+      "rule": "MaxLineLength",
+      "shape": "*IDID`ID-*`-ID-IDID[ID.ID]IDIDIDID:IDIDIDIDID"
     },
     {
       "fingerprint": "deb6e4a2cd08e10abfc2",
@@ -3597,12 +3437,52 @@
       "shape": "IDID=ID.ID(ID,ID.ID,ID,ID.ID)"
     },
     {
+      "fingerprint": "177ae7fa2b5ca78eebb4",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/maintenance/services/MaintenanceCleanupScheduler.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID.ID(ID,ID,ID.ID)"
+    },
+    {
+      "fingerprint": "29300dd10605fa2653a2",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/maintenance/services/MaintenanceCleanupScheduler.kt",
+      "rule": "MaxLineLength",
+      "shape": ".ID{ID->ID?.ID{ID(ID,ID,ID,ID=ID.ID,ID=ID)}}"
+    },
+    {
       "fingerprint": "33150a383d23fe9f3ba3",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/maintenance/services/MaintenanceCleanupScheduler.kt",
       "rule": "MaxLineLength",
       "shape": ".ID{ID.ID(ID,ID.ID,ID.ID,ID,ID)}"
+    },
+    {
+      "fingerprint": "655f3ad3807bcd09981e",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/maintenance/services/MaintenanceCleanupScheduler.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID.ID(ID,ID.ID)"
+    },
+    {
+      "fingerprint": "7f176bc49f070d6d0a7e",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/maintenance/services/MaintenanceCleanupScheduler.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID.ID(ID,ID)"
+    },
+    {
+      "fingerprint": "acc2e20873f3c9c22c8f",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/maintenance/services/MaintenanceCleanupScheduler.kt",
+      "rule": "MaxLineLength",
+      "shape": "IDIDID(ID:ID,ID:ID,ID:ID<ID>):ID{"
     },
     {
       "fingerprint": "b920fb6f16453bca403e",
@@ -3653,12 +3533,12 @@
       "shape": ".ID{ID.ID(ID,ID.ID,ID.ID)}"
     },
     {
-      "fingerprint": "399e15779c987f00043c",
+      "fingerprint": "53674f7b681c7c899ed8",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/ManualCommandService.kt",
       "rule": "MaxLineLength",
-      "shape": ".ID{ID.ID(ID,ID.ID,ID.ID)}"
+      "shape": "ID.ID(ID,ID.ID,ID.ID)"
     },
     {
       "fingerprint": "55b49a56bbcc8ea65099",
@@ -3683,14 +3563,6 @@
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/ManualCommandService.kt",
       "rule": "MaxLineLength",
       "shape": "IDID=ID.ID.ID(ID.ID)+ID"
-    },
-    {
-      "fingerprint": "c2f01bb3741bfee20773",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/ManualCommandService.kt",
-      "rule": "MaxLineLength",
-      "shape": ".ID{IDIDID||IDIDID||IDIDID||IDIDID}"
     },
     {
       "fingerprint": "cb582c5bffd8d82a860a",
@@ -3749,6 +3621,14 @@
       "shape": "IDIDID(ID:ID,ID:ID,ID:ID):ID?{"
     },
     {
+      "fingerprint": "19bdc3546fa50dbed956",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "MaxLineLength",
+      "shape": "IDIDID(ID:ID,ID:ID,ID:ID,ID:ID):ID="
+    },
+    {
       "fingerprint": "1edf317abc9b0130fc25",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
@@ -3763,6 +3643,14 @@
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
       "rule": "MaxLineLength",
       "shape": "ID(ID)ID.ID(ID,ID.ID,ID,ID)"
+    },
+    {
+      "fingerprint": "5f630e8f97bdd6250c58",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "MaxLineLength",
+      "shape": ".ID{ID.ID(ID,ID,ID)}"
     },
     {
       "fingerprint": "60216faccce3f6572c03",
@@ -3813,6 +3701,22 @@
       "shape": "(ID.ID.ID.ID()||ID.ID.ID.ID(ID,ID=ID))"
     },
     {
+      "fingerprint": "1d40209800625032f9c9",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/StoryRefinementCoordinator.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID(ID==ID.ID)ID.ID.IDIDID.ID.ID"
+    },
+    {
+      "fingerprint": "3f02bf76e0a6bdd7b7b2",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/SubtaskExecutionCoordinator.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID.ID(ID,ID.ID,ID.ID.ID)"
+    },
+    {
       "fingerprint": "3f02bf76e0a6bdd7b7b2",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
@@ -3853,22 +3757,6 @@
       "shape": "IDID=ID.ID?.ID{ID.ID()}?.ID{ID(ID,ID)}.ID()"
     },
     {
-      "fingerprint": "a1bb127185091ea96e3d",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID"
-    },
-    {
-      "fingerprint": "ac41816657edbfa8b7a4",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID,"
-    },
-    {
       "fingerprint": "c1dc7077802cb3b7791a",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
@@ -3901,28 +3789,12 @@
       "shape": "ID,"
     },
     {
-      "fingerprint": "12b26c28efdb1d7a4a6a",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID.ID(ID.ID,ID.ID(*ID.ID()))"
-    },
-    {
       "fingerprint": "1d975ceda5171f654df4",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
       "rule": "MaxLineLength",
       "shape": "ID.ID(ID,ID.ID,ID.ID,ID)"
-    },
-    {
-      "fingerprint": "5e5ce1d398140d67eb9f",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID.ID(ID.ID,ID,ID(ID,ID.ID.ID()))"
     },
     {
       "fingerprint": "6a5e3397f700816cb333",
@@ -3933,12 +3805,36 @@
       "shape": "ID.ID(ID.ID,ID.ID,ID.ID())"
     },
     {
-      "fingerprint": "ac41816657edbfa8b7a4",
+      "fingerprint": "7dfb20dff76219225969",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
       "rule": "MaxLineLength",
-      "shape": "ID,"
+      "shape": "IDID(ID,ID,ID)"
+    },
+    {
+      "fingerprint": "7dfb20dff76219225969",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "MaxLineLength",
+      "shape": "IDID(ID,ID,ID)"
+    },
+    {
+      "fingerprint": "8e3a4f8408f7046afde7",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "MaxLineLength",
+      "shape": ".ID{ID->ID.ID(ID,ID.ID,ID)}"
+    },
+    {
+      "fingerprint": "8e3a4f8408f7046afde7",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "MaxLineLength",
+      "shape": ".ID{ID->ID.ID(ID,ID.ID,ID)}"
     },
     {
       "fingerprint": "ac41816657edbfa8b7a4",
@@ -3957,20 +3853,20 @@
       "shape": "ID,"
     },
     {
-      "fingerprint": "bd82fcf23d42e54e6f32",
+      "fingerprint": "ac41816657edbfa8b7a4",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
       "rule": "MaxLineLength",
-      "shape": "ID.ID(ID.IDIDID),"
+      "shape": "ID,"
     },
     {
-      "fingerprint": "e2e6b40a4a3ec098ece2",
+      "fingerprint": "e30cd859616b1a00100d",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
       "rule": "MaxLineLength",
-      "shape": "ID.IDIDID,"
+      "shape": "IDIDID(ID:ID,ID:ID,ID:ID,ID:ID):ID{"
     },
     {
       "fingerprint": "f6ca69dfe5866d3a78ef",
@@ -4053,148 +3949,84 @@
       "shape": "ID,"
     },
     {
-      "fingerprint": "0432b8959f5dc0779f93",
+      "fingerprint": "62ffd246824b581f876b",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/workspaces/AgentWorkspace.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeArtifactService.kt",
       "rule": "MaxLineLength",
-      "shape": "?:ID.ID(ID().ID{ID.ID()},ID)"
+      "shape": "ID->ID.ID>=ID&&ID[ID]==0xff.ID()&&ID[ID]==0xd8.ID()&&ID[ID]==0xff.ID()"
     },
     {
-      "fingerprint": "29bfc19b131026831e21",
+      "fingerprint": "c0153846cbc63f755df5",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/workspaces/AgentWorkspace.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeArtifactService.kt",
       "rule": "MaxLineLength",
-      "shape": "IDID(ID.ID?.ID()==ID&&ID!=ID&&ID.ID(ID).ID()){"
+      "shape": "ID{ID.ID(ID)}.ID{IDID(ID)}"
     },
     {
-      "fingerprint": "dc942fe9083d3257b291",
+      "fingerprint": "d130bc9a37da91e87f39",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/workspaces/AgentWorkspace.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeInputUploadService.kt",
       "rule": "MaxLineLength",
-      "shape": "ID.ID(ID).ID{ID.ID(ID).ID()}?.ID(ID)"
+      "shape": "ID=ID(ID<ID.ID.ID)ID.ID(ID.ID)IDID.ID(ID=ID)"
     },
     {
-      "fingerprint": "1d975ceda5171f654df4",
+      "fingerprint": "e9556e43ab659fb40645",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/workspaces/StoryWorkspaceService.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeInputUploadService.kt",
       "rule": "MaxLineLength",
-      "shape": "ID.ID(ID,ID.ID,ID.ID,ID)"
+      "shape": "ID(ID.ID==ID.ID&&ID.ID==ID&&ID.ID==ID.ID){"
     },
     {
-      "fingerprint": "aaea8d5e7930959b48ae",
+      "fingerprint": "35f44d07748b6f3699ca",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/workspaces/StoryWorkspaceService.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeInstructionFactory.kt",
       "rule": "MaxLineLength",
-      "shape": "IDID=ID(ID.ID(ID=ID),ID.ID(ID,ID).ID)"
+      "shape": "ID(ID)"
     },
     {
-      "fingerprint": "0287af1c38f9be9b989a",
+      "fingerprint": "5018b24e78fc59b9caee",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/workspaces/WorkCleanupPoller.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeV2Adapter.kt",
       "rule": "MaxLineLength",
-      "shape": "/**IDIDIDIDIDIDIDID-IDID.IDIDIDIDIDID.*/"
+      "shape": "ID(ID.ID,ID.ID,ID=ID,ID=ID)"
     },
     {
-      "fingerprint": "82aa77e62d1e99f5be2a",
+      "fingerprint": "25051a843ce76c042389",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/TelegramApi.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeV2ResultMapper.kt",
       "rule": "MaxLineLength",
-      "shape": "IDID(ID:ID,ID:ID,ID:ID<ID,ID>,ID:ID):ID"
+      "shape": "ID=ID(ID)IDIDID.ID(ID)?:ID.ID.ID.ID(),"
     },
     {
-      "fingerprint": "05ef2c9cd8ade92e60a2",
+      "fingerprint": "35f44d07748b6f3699ca",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeV2ResultMapper.kt",
       "rule": "MaxLineLength",
-      "shape": "ID(ID,ID=ID,ID=ID,ID=ID)"
+      "shape": "ID(ID)"
     },
     {
-      "fingerprint": "05ef2c9cd8ade92e60a2",
+      "fingerprint": "35f44d07748b6f3699ca",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeV2ResultMapper.kt",
       "rule": "MaxLineLength",
-      "shape": "ID(ID,ID=ID,ID=ID,ID=ID)"
+      "shape": "ID(ID)"
     },
     {
-      "fingerprint": "209bfc75e6aa181983f2",
+      "fingerprint": "d80122cdf6829cdd66b3",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/RuntimeAssistantClient.kt",
       "rule": "MaxLineLength",
-      "shape": ".ID{ID.ID(ID)&&ID.ID.ID().ID('.',ID).ID()IDID}"
-    },
-    {
-      "fingerprint": "28da050c2107072c5b8e",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
-      "rule": "MaxLineLength",
-      "shape": "/**IDIDIDIDIDID`ID`-ID-IDIDIDID(IDIDIDIDID-ID).*/"
-    },
-    {
-      "fingerprint": "3c11626a8a186f14bd64",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
-      "rule": "MaxLineLength",
-      "shape": "IDID(ID,ID.ID().ID(),ID,ID,ID,ID,ID,ID)"
-    },
-    {
-      "fingerprint": "5e158e6148e502828adb",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
-      "rule": "MaxLineLength",
-      "shape": "IDIDID(ID:ID<ID>,ID:ID,ID:ID,ID:ID):ID{"
-    },
-    {
-      "fingerprint": "5f74aedc712eb046af24",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID(ID).ID{ID.ID(ID)}.ID{ID=ID.ID(ID,ID)}"
-    },
-    {
-      "fingerprint": "5f885dd5f39ae1770165",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID.ID(ID,ID,ID)"
-    },
-    {
-      "fingerprint": "90a04415c21696884c05",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
-      "rule": "MaxLineLength",
-      "shape": "IDID(ID.ID?.ID()==ID&&ID!=ID&&ID.ID(ID.ID(ID))){"
-    },
-    {
-      "fingerprint": "92acf3f68eec34b2fcaf",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
-      "rule": "MaxLineLength",
-      "shape": "IDID=ID(ID,ID,ID,ID,ID,ID,ID,ID)"
-    },
-    {
-      "fingerprint": "92acf3f68eec34b2fcaf",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
-      "rule": "MaxLineLength",
-      "shape": "IDID=ID(ID,ID,ID,ID,ID,ID,ID,ID)"
+      "shape": "ID=ID(ID(ID,ID,ID,ID!=ID),ID),"
     },
     {
       "fingerprint": "17d1b5f45c1a918c15db",
@@ -4237,38 +4069,6 @@
       "shape": "ID,"
     },
     {
-      "fingerprint": "71f72262cd78a89d222b",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/AssistantWorkspaceService.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID{ID.ID(ID,ID.ID(ID.ID.ID()),ID.ID)}"
-    },
-    {
-      "fingerprint": "d4a22c40b20fa3760e9c",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/AssistantWorkspaceService.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID.ID(ID(ID,ID,ID,ID),ID=ID,ID=ID)"
-    },
-    {
-      "fingerprint": "35f44d07748b6f3699ca",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAssistantService.kt",
-      "rule": "MaxLineLength",
-      "shape": "ID(ID)"
-    },
-    {
-      "fingerprint": "3e1808830cb7b0ff78b1",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAssistantService.kt",
-      "rule": "MaxLineLength",
-      "shape": "IDID=ID.ID(ID,ID).ID(ID)"
-    },
-    {
       "fingerprint": "7fa50bb7a86bad8a8bf4",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
@@ -4277,12 +4077,20 @@
       "shape": "IDIDID(ID:ID,ID:ID,ID:ID?,ID:ID?,ID:ID?){"
     },
     {
-      "fingerprint": "b0e01f82d7f76ee37de7",
+      "fingerprint": "99a0468ba02d1b4bbc68",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAssistantService.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAuditQuestionService.kt",
       "rule": "MaxLineLength",
-      "shape": "IDID=ID.ID(ID,ID,ID,ID(ID,ID),ID,ID.ID)"
+      "shape": "IDIDID(ID:ID,ID:ID,ID:ID,ID:ID,ID:ID){"
+    },
+    {
+      "fingerprint": "f0ab878a0246b8c5df21",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAuditQuestionService.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID.ID(ID,ID,ID(ID,ID),ID,ID)"
     },
     {
       "fingerprint": "007dfac6f3eca99d8910",
@@ -4299,22 +4107,6 @@
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
       "rule": "MaxLineLength",
       "shape": "ID(ID.ID,ID,ID=ID)"
-    },
-    {
-      "fingerprint": "045b32a20ed88e38b91d",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
-      "rule": "MaxLineLength",
-      "shape": "IDID=ID{ID.ID(ID)}.ID(ID.ID)"
-    },
-    {
-      "fingerprint": "3312ec6e3771eef3e7eb",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
-      "rule": "MaxLineLength",
-      "shape": "IDID=ID(ID,ID,ID.ID,ID=ID.ID!=ID,ID=ID)"
     },
     {
       "fingerprint": "45bb58fbb68f081be69d",
@@ -4333,14 +4125,6 @@
       "shape": "IDID.ID()&&ID.ID{ID.ID(ID.ID.ID)?.ID==ID}"
     },
     {
-      "fingerprint": "76aa3d6d7a8759abf26e",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
-      "rule": "MaxLineLength",
-      "shape": "IDID=ID?.ID{ID.ID()}?.ID{ID}?:ID.ID"
-    },
-    {
       "fingerprint": "a69262d1f8c5b6d7cd1a",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
@@ -4349,12 +4133,12 @@
       "shape": "ID.ID->ID.ID.ID?.ID{ID.ID()}?.ID{ID+=ID(ID,ID.ID(ID))}"
     },
     {
-      "fingerprint": "fbbf33948d8e248ff344",
+      "fingerprint": "d956ff42d4fe5218f9a6",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
       "rule": "MaxLineLength",
-      "shape": "IDID(ID)IDIDID(ID.ID,ID,ID)"
+      "shape": "ID.ID->ID(ID)IDIDID(ID.ID,ID,ID)"
     },
     {
       "fingerprint": "ff7d5876d22c55fb0ec5",
@@ -4437,14 +4221,6 @@
       "shape": "IDID(IDID:ID):ID(ID)"
     },
     {
-      "fingerprint": "d3d00fc4f7cdf70a9929",
-      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/FactoryApiController.kt",
-      "rule": "MaxLineLength",
-      "shape": "IDID=ID.ID()[ID]?.ID{ID.ID()}"
-    },
-    {
       "fingerprint": "0df0eae89f4e1b88088d",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
@@ -4485,12 +4261,12 @@
       "shape": "IDID=ID(ID.ID==ID.ID)ID.ID(ID).ID{ID.ID}IDID()"
     },
     {
-      "fingerprint": "d3d00fc4f7cdf70a9929",
+      "fingerprint": "ba5dd95eab40d65478dc",
       "message": "Line detected, which is longer than the defined maximum line length in the code style.",
       "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/TrackerStoryApiController.kt",
       "rule": "MaxLineLength",
-      "shape": "IDID=ID.ID()[ID]?.ID{ID.ID()}"
+      "shape": "ID.ID?.ID{ID.ID(ID,ID);ID+=ID}"
     },
     {
       "fingerprint": "e76ff375a6d890bb8c51",
@@ -4515,6 +4291,22 @@
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/TrackerStoryApiController.kt",
       "rule": "MaxLineLength",
       "shape": ".ID{IDID.ID(ID.ID).ID(ID(IDIDID))}"
+    },
+    {
+      "fingerprint": "ef4d45d6ed4907c6bb02",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/TrackerStoryApiController.kt",
+      "rule": "MaxLineLength",
+      "shape": "/**ID[ID]IDIDIDIDIDID;IDID.ID.*/"
+    },
+    {
+      "fingerprint": "f46a39ae9a1e6e8ef0e1",
+      "message": "Line detected, which is longer than the defined maximum line length in the code style.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/TrackerStoryApiController.kt",
+      "rule": "MaxLineLength",
+      "shape": "ID[ID]=ID(ID,ID.ID.ID,ID.ID.ID,ID.ID.ID)"
     },
     {
       "fingerprint": "f9ecd039871de2aef047",
@@ -4539,22 +4331,6 @@
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
       "rule": "NestedBlockDepth",
       "shape": "IDIDID("
-    },
-    {
-      "fingerprint": "24a550399e4c25d4d7df",
-      "message": "Function cleanupAssistantSessions is nested too deeply.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/workspaces/WorkCleanupPoller.kt",
-      "rule": "NestedBlockDepth",
-      "shape": "IDIDID(ID:ID,ID:ID<ID>):ID{"
-    },
-    {
-      "fingerprint": "fd3ef50321ebdf65866f",
-      "message": "Function jsonObjectCandidates is nested too deeply.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
-      "rule": "NestedBlockDepth",
-      "shape": "IDIDID(ID:ID):ID<ID>{"
     },
     {
       "fingerprint": "82fffac51ff3bf1aff79",
@@ -4611,6 +4387,14 @@
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/AuditGatewayAdapter.kt",
       "rule": "ReturnCount",
       "shape": "IDIDID(ID:ID):ID{"
+    },
+    {
+      "fingerprint": "9a15757da8611086034a",
+      "message": "Function validateAuditRepositoryResult has NUM return statements which exceeds the limit of NUM.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/AuditGatewayAdapter.kt",
+      "rule": "ReturnCount",
+      "shape": "IDIDID(ID:ID,ID:ID):ID?{"
     },
     {
       "fingerprint": "0e6ee19b6f8bc53bd0b1",
@@ -4723,6 +4507,14 @@
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/AgentDispatcher.kt",
       "rule": "ReturnCount",
       "shape": "IDID(ID:ID):ID{"
+    },
+    {
+      "fingerprint": "ae8151a337cfb56c0293",
+      "message": "Function prepareRemoteBranch has NUM return statements which exceeds the limit of NUM.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/AgentDispatcher.kt",
+      "rule": "ReturnCount",
+      "shape": "IDIDID(ID:ID,ID:ID):ID{"
     },
     {
       "fingerprint": "376a3d51775f61210da2",
@@ -4901,22 +4693,6 @@
       "shape": "IDIDID(ID:ID<ID>,ID:ID):ID?{"
     },
     {
-      "fingerprint": "b7f513348675a084624a",
-      "message": "Function transientCopilotTokenEnvFile has NUM return statements which exceeds the limit of NUM.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
-      "rule": "ReturnCount",
-      "shape": "IDIDID(ID:ID):ID?{"
-    },
-    {
-      "fingerprint": "be5b506e6e7a250c7414",
-      "message": "Function codexHomeForRun has NUM return statements which exceeds the limit of NUM.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
-      "rule": "ReturnCount",
-      "shape": "IDIDID(ID:ID,ID:ID):ID?{"
-    },
-    {
       "fingerprint": "e6f25b52e0e3e20ba557",
       "message": "Function truncateToUtf8ByteBudget has NUM return statements which exceeds the limit of NUM.",
       "module": "softwarefactory",
@@ -4933,20 +4709,20 @@
       "shape": "IDIDID(ID:ID,ID:ID):ID{"
     },
     {
-      "fingerprint": "db12eec495d647d4881f",
-      "message": "Function writeFinalStoryAfterSummarizer has NUM return statements which exceeds the limit of NUM.",
+      "fingerprint": "9a697085a2409a18f937",
+      "message": "Function validateReadOnlyRuntimeRepository has NUM return statements which exceeds the limit of NUM.",
       "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
       "rule": "ReturnCount",
-      "shape": "IDIDID(ID:ID,ID:ID){"
+      "shape": "IDIDID("
     },
     {
-      "fingerprint": "df10236c841fec93e888",
-      "message": "Function screenshotFiles has NUM return statements which exceeds the limit of NUM.",
+      "fingerprint": "b63d0091cdad8cc79414",
+      "message": "Function syncRuntimeRepository has NUM return statements which exceeds the limit of NUM.",
       "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
       "rule": "ReturnCount",
-      "shape": "IDIDID(ID:ID?):ID<ID>{"
+      "shape": "IDIDID("
     },
     {
       "fingerprint": "e821a1d01067ca72e140",
@@ -4957,12 +4733,12 @@
       "shape": "IDIDID(ID:ID,ID:ID){"
     },
     {
-      "fingerprint": "8a29c30dc7bf1c226a07",
-      "message": "Function cleanup has NUM return statements which exceeds the limit of NUM.",
+      "fingerprint": "8977ab5d9f3c374df965",
+      "message": "Function reconcile has NUM return statements which exceeds the limit of NUM.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/workspaces/AgentWorkspaceCleaner.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeV2CompletionPoller.kt",
       "rule": "ReturnCount",
-      "shape": "IDIDID(ID:ID?,ID:ID):ID{"
+      "shape": "IDIDID(ID:ID,ID:ID){"
     },
     {
       "fingerprint": "7830f28a58a73d77af03",
@@ -5019,22 +4795,6 @@
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
       "rule": "ReturnCount",
       "shape": "IDIDID(ID:ID,ID:ID):ID{"
-    },
-    {
-      "fingerprint": "8a0c9725ec9a806a37a1",
-      "message": "Function tryNotifyMergeReady has NUM return statements which exceeds the limit of NUM.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
-      "rule": "ReturnCount",
-      "shape": "IDIDID(ID:ID,ID:ID,ID:ID):ID{"
-    },
-    {
-      "fingerprint": "a328aee77c660195fbb3",
-      "message": "Function classify has NUM return statements which exceeds the limit of NUM.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
-      "rule": "ReturnCount",
-      "shape": "IDIDID(ID:ID):ID?{"
     },
     {
       "fingerprint": "c7e578cffd5e3f38b2a5",
@@ -5101,22 +4861,6 @@
       "shape": "IDIDID(ID:ID):ID?{"
     },
     {
-      "fingerprint": "157673e37824e58d712b",
-      "message": "Function restart has NUM return statements which exceeds the limit of NUM.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/FactoryApiController.kt",
-      "rule": "ReturnCount",
-      "shape": "IDID(ID:ID):ID<ID>{"
-    },
-    {
-      "fingerprint": "58c0042252585094bf76",
-      "message": "Function authorize has NUM return statements which exceeds the limit of NUM.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/TrackerStoryApiController.kt",
-      "rule": "ReturnCount",
-      "shape": "IDIDID(ID:ID):ID<ID>?{"
-    },
-    {
       "fingerprint": "5bc96fe4941ed9c375e8",
       "message": "Function status has NUM return statements which exceeds the limit of NUM.",
       "module": "softwarefactory",
@@ -5157,20 +4901,28 @@
       "shape": "ID<ID>(*ID)"
     },
     {
+      "fingerprint": "6c9bfee3c3a051f1d35f",
+      "message": "In most cases using a spread operator causes a full copy of the array to be created before calling a method. This may result in a performance penalty.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/repositories/FactoryDashboardRepository.kt",
+      "rule": "SpreadOperator",
+      "shape": "ID.ID("
+    },
+    {
+      "fingerprint": "3fdf2580a2cd069db27d",
+      "message": "In most cases using a spread operator causes a full copy of the array to be created before calling a method. This may result in a performance penalty.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/maintenance/repositories/MaintenanceCleanupRunRepository.kt",
+      "rule": "SpreadOperator",
+      "shape": "IDID.ID("
+    },
+    {
       "fingerprint": "9870edbe75a8deca7a0d",
       "message": "In most cases using a spread operator causes a full copy of the array to be created before calling a method. This may result in a performance penalty.",
       "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/ManualCommandService.kt",
       "rule": "SpreadOperator",
       "shape": "IDID=ID(ID,*ID.ID())"
-    },
-    {
-      "fingerprint": "71b8e9552eb12ba9c8b6",
-      "message": "In most cases using a spread operator causes a full copy of the array to be created before calling a method. This may result in a performance penalty.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
-      "rule": "SpreadOperator",
-      "shape": "IDID(*ID.ID()).ID"
     },
     {
       "fingerprint": "3fdf2580a2cd069db27d",
@@ -5189,12 +4941,36 @@
       "shape": "ID.ID(ID.ID,ID.ID(*ID.ID()))"
     },
     {
+      "fingerprint": "15c62eeb3cd6608261f2",
+      "message": "In most cases using a spread operator causes a full copy of the array to be created before calling a method. This may result in a performance penalty.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/tracker/clients/PostgresTrackerClient.kt",
+      "rule": "SpreadOperator",
+      "shape": "ID(ID,*ID{ID.ID}.ID())"
+    },
+    {
       "fingerprint": "6c9bfee3c3a051f1d35f",
       "message": "In most cases using a spread operator causes a full copy of the array to be created before calling a method. This may result in a performance penalty.",
       "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/tracker/clients/PostgresTrackerClient.kt",
       "rule": "SpreadOperator",
       "shape": "ID.ID("
+    },
+    {
+      "fingerprint": "b48b626ebca2d45fa14f",
+      "message": "In most cases using a spread operator causes a full copy of the array to be created before calling a method. This may result in a performance penalty.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/tracker/clients/PostgresTrackerClient.kt",
+      "rule": "SpreadOperator",
+      "shape": "IDID.ID(ID,{ID,ID->ID(ID)},*ID.ID())"
+    },
+    {
+      "fingerprint": "b48b626ebca2d45fa14f",
+      "message": "In most cases using a spread operator causes a full copy of the array to be created before calling a method. This may result in a performance penalty.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/tracker/clients/PostgresTrackerClient.kt",
+      "rule": "SpreadOperator",
+      "shape": "IDID.ID(ID,{ID,ID->ID(ID)},*ID.ID())"
     },
     {
       "fingerprint": "b48b626ebca2d45fa14f",
@@ -5360,6 +5136,14 @@
       "fingerprint": "e40da7f964e064492963",
       "message": "Interface 'ID' with 'ID' functions detected. Defined threshold inside interfaces is set to 'ID'",
       "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/RunRepositories.kt",
+      "rule": "TooManyFunctions",
+      "shape": "IDID{"
+    },
+    {
+      "fingerprint": "e40da7f964e064492963",
+      "message": "Interface 'ID' with 'ID' functions detected. Defined threshold inside interfaces is set to 'ID'",
+      "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/DashboardApi.kt",
       "rule": "TooManyFunctions",
       "shape": "IDID{"
@@ -5377,6 +5161,14 @@
       "message": "Class 'ID' with 'ID' functions detected. Defined threshold inside classes is set to 'ID'",
       "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/repositories/FactoryDashboardRepository.kt",
+      "rule": "TooManyFunctions",
+      "shape": "IDID("
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "message": "Class 'ID' with 'ID' functions detected. Defined threshold inside classes is set to 'ID'",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/AuditGatewayAdapter.kt",
       "rule": "TooManyFunctions",
       "shape": "IDID("
     },
@@ -5440,6 +5232,14 @@
       "fingerprint": "45bbf935c5f856cb1404",
       "message": "Class 'ID' with 'ID' functions detected. Defined threshold inside classes is set to 'ID'",
       "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/repositories/RunRepositories.kt",
+      "rule": "TooManyFunctions",
+      "shape": "IDID("
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "message": "Class 'ID' with 'ID' functions detected. Defined threshold inside classes is set to 'ID'",
+      "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/ManualCommandService.kt",
       "rule": "TooManyFunctions",
       "shape": "IDID("
@@ -5488,14 +5288,6 @@
       "fingerprint": "45bbf935c5f856cb1404",
       "message": "Class 'ID' with 'ID' functions detected. Defined threshold inside classes is set to 'ID'",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
-      "rule": "TooManyFunctions",
-      "shape": "IDID("
-    },
-    {
-      "fingerprint": "45bbf935c5f856cb1404",
-      "message": "Class 'ID' with 'ID' functions detected. Defined threshold inside classes is set to 'ID'",
-      "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/repositories/CompletionInboxRepository.kt",
       "rule": "TooManyFunctions",
       "shape": "IDID("
@@ -5512,15 +5304,7 @@
       "fingerprint": "45bbf935c5f856cb1404",
       "message": "Class 'ID' with 'ID' functions detected. Defined threshold inside classes is set to 'ID'",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/workspaces/StoryWorkspaceService.kt",
-      "rule": "TooManyFunctions",
-      "shape": "IDID("
-    },
-    {
-      "fingerprint": "45bbf935c5f856cb1404",
-      "message": "Class 'ID' with 'ID' functions detected. Defined threshold inside classes is set to 'ID'",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/v2/AgentRuntimeV2Adapter.kt",
       "rule": "TooManyFunctions",
       "shape": "IDID("
     },
@@ -5549,12 +5333,12 @@
       "shape": "IDID("
     },
     {
-      "fingerprint": "4cdb3468c37f56a9e1eb",
+      "fingerprint": "e1024e14d04c6749f396",
       "message": "Function parameter 'ID' is unused.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/AiRouting.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
       "rule": "UnusedParameter",
-      "shape": "IDIDID(ID:ID,ID:ID):ID="
+      "shape": "IDIDID(ID:ID,ID:ID){"
     },
     {
       "fingerprint": "cef28dbba274c0b193eb",
@@ -5581,28 +5365,44 @@
       "shape": "IDIDID(ID:ID?){"
     },
     {
-      "fingerprint": "8c2f3fca85d82bbb0721",
+      "fingerprint": "21cecc033a0f0ee994cd",
       "message": "Private property 'ID' is unused.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/AuditGatewayAdapter.kt",
       "rule": "UnusedPrivateProperty",
-      "shape": "IDIDID:ID,"
+      "shape": "IDID=ID.ID("
     },
     {
       "fingerprint": "8c2f3fca85d82bbb0721",
       "message": "Private property 'ID' is unused.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardCommandService.kt",
       "rule": "UnusedPrivateProperty",
       "shape": "IDIDID:ID,"
     },
     {
-      "fingerprint": "8c2f3fca85d82bbb0721",
+      "fingerprint": "05ee0992e14adbbd2f93",
       "message": "Private property 'ID' is unused.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentEventRetentionPoller.kt",
       "rule": "UnusedPrivateProperty",
-      "shape": "IDIDID:ID,"
+      "shape": "ID(IDIDIDIDID.ID){"
+    },
+    {
+      "fingerprint": "05ee0992e14adbbd2f93",
+      "message": "Private property 'ID' is unused.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunRetentionPoller.kt",
+      "rule": "UnusedPrivateProperty",
+      "shape": "ID(IDIDIDIDID.ID){"
+    },
+    {
+      "fingerprint": "c15678a7d1ec966b4101",
+      "message": "Use require(ARGS) instead of throwing an IllegalArgumentException.",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "UseRequire",
+      "shape": "IDID(ID)"
     },
     {
       "fingerprint": "2314a2eabdbf248e2761",
@@ -5640,22 +5440,6 @@
       "fingerprint": "643490b456f38a342870",
       "message": "nl.vdzon.softwarefactory.runtime.types.* is a wildcard import. Replace it with fully qualified imports.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentResultFileCompletionPoller.kt",
-      "rule": "WildcardImport",
-      "shape": "IDID.ID.ID.ID.ID.*"
-    },
-    {
-      "fingerprint": "aa613ac83ad855fd0b2a",
-      "message": "nl.vdzon.softwarefactory.runtime.models.* is a wildcard import. Replace it with fully qualified imports.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentResultFileCompletionPoller.kt",
-      "rule": "WildcardImport",
-      "shape": "IDID.ID.ID.ID.ID.*"
-    },
-    {
-      "fingerprint": "643490b456f38a342870",
-      "message": "nl.vdzon.softwarefactory.runtime.types.* is a wildcard import. Replace it with fully qualified imports.",
-      "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
       "rule": "WildcardImport",
       "shape": "IDID.ID.ID.ID.ID.*"
@@ -5697,22 +5481,6 @@
       "message": "nl.vdzon.softwarefactory.runtime.models.* is a wildcard import. Replace it with fully qualified imports.",
       "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/SubtaskPlanMaterializer.kt",
-      "rule": "WildcardImport",
-      "shape": "IDID.ID.ID.ID.ID.*"
-    },
-    {
-      "fingerprint": "643490b456f38a342870",
-      "message": "nl.vdzon.softwarefactory.runtime.types.* is a wildcard import. Replace it with fully qualified imports.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/TesterVerificationEvidenceValidator.kt",
-      "rule": "WildcardImport",
-      "shape": "IDID.ID.ID.ID.ID.*"
-    },
-    {
-      "fingerprint": "aa613ac83ad855fd0b2a",
-      "message": "nl.vdzon.softwarefactory.runtime.models.* is a wildcard import. Replace it with fully qualified imports.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/TesterVerificationEvidenceValidator.kt",
       "rule": "WildcardImport",
       "shape": "IDID.ID.ID.ID.ID.*"
     },
@@ -5728,30 +5496,6 @@
       "fingerprint": "3cacc4362ff1cfb5957c",
       "message": "nl.vdzon.softwarefactory.telegram.models.* is a wildcard import. Replace it with fully qualified imports.",
       "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
-      "rule": "WildcardImport",
-      "shape": "IDID.ID.ID.ID.ID.*"
-    },
-    {
-      "fingerprint": "4e98a37fd5417c6ea561",
-      "message": "nl.vdzon.softwarefactory.telegram.repositories.* is a wildcard import. Replace it with fully qualified imports.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
-      "rule": "WildcardImport",
-      "shape": "IDID.ID.ID.ID.ID.*"
-    },
-    {
-      "fingerprint": "52bd9e0fd56556c1f6f6",
-      "message": "nl.vdzon.softwarefactory.telegram.services.* is a wildcard import. Replace it with fully qualified imports.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
-      "rule": "WildcardImport",
-      "shape": "IDID.ID.ID.ID.ID.*"
-    },
-    {
-      "fingerprint": "3cacc4362ff1cfb5957c",
-      "message": "nl.vdzon.softwarefactory.telegram.models.* is a wildcard import. Replace it with fully qualified imports.",
-      "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
       "rule": "WildcardImport",
       "shape": "IDID.ID.ID.ID.ID.*"
@@ -5841,30 +5585,6 @@
       "message": "nl.vdzon.softwarefactory.telegram.repositories.* is a wildcard import. Replace it with fully qualified imports.",
       "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/ActiveAssistantWorkspaceRegistry.kt",
-      "rule": "WildcardImport",
-      "shape": "IDID.ID.ID.ID.ID.*"
-    },
-    {
-      "fingerprint": "1b8b81f1de83161b33dd",
-      "message": "nl.vdzon.softwarefactory.telegram.clients.* is a wildcard import. Replace it with fully qualified imports.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/AssistantWorkspaceService.kt",
-      "rule": "WildcardImport",
-      "shape": "IDID.ID.ID.ID.ID.*"
-    },
-    {
-      "fingerprint": "3cacc4362ff1cfb5957c",
-      "message": "nl.vdzon.softwarefactory.telegram.models.* is a wildcard import. Replace it with fully qualified imports.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/AssistantWorkspaceService.kt",
-      "rule": "WildcardImport",
-      "shape": "IDID.ID.ID.ID.ID.*"
-    },
-    {
-      "fingerprint": "4e98a37fd5417c6ea561",
-      "message": "nl.vdzon.softwarefactory.telegram.repositories.* is a wildcard import. Replace it with fully qualified imports.",
-      "module": "softwarefactory",
-      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/AssistantWorkspaceService.kt",
       "rule": "WildcardImport",
       "shape": "IDID.ID.ID.ID.ID.*"
     },
@@ -5966,7 +5686,6 @@
     }
   ],
   "modules": [
-    "agentworker",
     "dashboard-backend",
     "factory-common",
     "factory-contracts",
@@ -5975,7 +5694,7 @@
   "schemaVersion": 2,
   "suppressions": [
     {
-      "line": 291,
+      "line": 367,
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
       "text": "@Suppress(\"unused\")"
     }

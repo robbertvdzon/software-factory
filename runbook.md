@@ -1,302 +1,178 @@
 # Runbook — Software Factory
 
-> Dit bestand is bedoeld voor de Telegram-assistent (en mensen): het beschrijft wat dit project is,
-> waar het draait, hoe je het lokaal draait/test, welke config & secrets er zijn, en hoe je
-> veelvoorkomende taken aanpakt. Houd het kort en actueel; verandert het systeem, pas dit aan.
+Dit runbook beschrijft de actuele uitvoering na de overstap naar Agent Runtime v2. Het
+OpenShift-doelbeeld en de latere rename staan apart in
+[`docs/software-factory-v2/topologie-naar-openshift.md`](docs/software-factory-v2/topologie-naar-openshift.md).
 
-## Wat is dit
+## Onderdelen en topologie
 
-De Software Factory stuurt AI-agents aan om software-stories te bouwen via een vaste keten:
-**refine → plan → develop → review → test → summary → documentation → manual-approve → merge → deploy**
-(de documentation-stap en de afsluitende merge/deploy worden altijd door de factory afgedwongen;
-de manual-approve-poort wordt toegevoegd bij goedkeuring=`alleen-manual-poort`/`elke-stap` en
-vervalt bij `automatisch`). Een story die bij het aanmaken op **Hotfix** is gezet (SF-1959) slaat
-die keten over: die krijgt alleen **hotfix → merge → deploy**, waarbij de hotfix-stap één
-developer-run is met de bestaande testpoort; zijn de tests rood, dan wordt er niets gemerged.
-Stories en hun fases worden in
-de **eigen tracker-database van de factory** beheerd (PostgreSQL, geen externe issue-tracker); per
-story bepaalt het `Repo`-veld voor welk project/repo gewerkt wordt
-(mapping staat in `projects.yaml`). Een story met een lege fase of leeg `Repo`-veld wordt **niet**
-opgepakt. Stories aanmaken/aanpassen/opvragen kan via de `sf-story`-tool (zie de Telegram-assistent)
-of het dashboard.
+- `softwarefactory`: Kotlin/Spring-orchestrator, tracker, pipeline, Telegram, audits, maintenance
+  en de integratie met Agent Runtime v2. In de huidige tussenfase draait dit proces nog lokaal.
+- `dashboard-backend`: remote API en WebSocketbridge, op OpenShift.
+- `dashboard-frontend`: Flutter-webinterface, op OpenShift.
+- PostgreSQL: duurzame factorydata en Flyway-migraties.
+- Agent Runtime v2: alle AI-uitvoering. De Runtime-worker mag op een MacBook draaien; Software
+  Factory heeft zelf geen worker, Docker-socket, providercredential of repositorycheckout meer.
 
-## Architectuur
+De lokale orchestrator maakt een uitgaande WebSocketverbinding naar `dashboard-backend`. Die bridge
+verdwijnt pas in het afzonderlijke topologieplan wanneer de orchestratorfunctionaliteit naar de
+backend op OpenShift verhuist.
 
-- **`factory-contracts`** (module) — gedeelde agent-result- en bridgewirecontracten.
-- **`factory-common`** (module) — gedeelde code tussen de modules (git/github, docs-skeleton,
-  preview, support en projectconfig).
-- **`softwarefactory`** (module) — de hoofd-app: orchestrator, tracker-integratie
-  (`tracker`-package, backend is Postgres), Telegram-integratie. Entrypoint:
-  `SoftwareFactoryApplication`. Kotlin + Spring Boot.
-- **`agentworker`** (module) — de CLI die *in een Docker-container* draait per agent-taak; leest
-  `/work/task.md`, roept de AI-CLI aan (claude/codex/copilot), schrijft `/work/agent-result.json`
-  en bewaart daarin voor Claude het laatste bruikbare rate-limit-event.
-- **`dashboard-backend`** + **`dashboard-frontend`** — de dashboard-UI (Flutter). Leest dezelfde
-  `projects.yaml` (of `SF_PROJECTS_FILE`) voor de repo-lijst; machine-lokale acties (workspace in
-  IntelliJ openen) vereisen `SF_DASHBOARD_LOCAL_MODE=true` (default uit, dus veilig in k8s).
-- **Agents draaien in Docker** (`agent:local` image, zie `Dockerfile.agent`), aangestuurd door
-  `DockerAgentRuntime` via `docker run`, met de werkmap gemount op `/work`.
-- **Orchestrator** gebruikt een vaste poll-interval met event-driven wake (`OrchestratorPoller`);
-  fase-velden in de tracker-database sturen
-  het werk (lege fase = niet starten, `start` = oppakken).
+## Story- en Git-flow
 
-## Waar draait het
+De normale keten is:
 
-- **De factory zelf:** lokaal, vanuit IntelliJ (`SoftwareFactoryApplication`). Niet in productie/cluster.
-- **PostgreSQL (incl. tracker-tabellen):** zie SF_DATABASE_URL uit secrets.env
+`refine → plan → develop → review → test → summary → document → approval → merge → deploy`
 
-## Overige infra
-- **OpenShift/OKD:** De software factory zelf gebruik openshift niet, maar hij deployed het daar soms wel via github actions, dat is te controleren in SF_KUBECONFIG.
+Software Factory reserveert per story één remote branch vanaf de geconfigureerde base branch en
+maakt na de eerste push precies één pull request. Iedere repositoryjob haalt diezelfde remote branch
+vers op. De Runtime-worker voert checkout, verificatie, commit en push uit. Het AI-proces wijzigt
+bestanden, maar maakt geen branch, commit, push of PR. Review- en testerbewijs is gekoppeld aan de
+daadwerkelijk uitgecheckte commit-SHA en vervalt als de branch daarna verandert.
 
-## Lokaal draaien & testen
+Projectverificatie komt uit `.factory/verification.yaml` (`version: 1`) in het targetproject. Bij
+muterende jobs draait Agent Runtime de commands na de AI-ronde, geeft rood bewijs terug aan dezelfde
+agent en probeert maximaal het geconfigureerde aantal herstelrondes. Alleen groen bewijs kan worden
+gepusht. `NO_CHANGES` is een geldige uitkomst; `BRANCH_CHANGED`, timeout en ontbrekend of ongeldig
+bewijs zijn geen succes.
 
-- **Build:** Maven vanaf de root: `mvn test` (snelle unit-run) of `mvn verify` (incl.
-  e2e/Testcontainers; Docker vereist). Eén module bouwen kan met `mvn -pl softwarefactory -am test`
-  (de `-am` bouwt `factory-common` mee).
-- **Draaien:** vanuit IntelliJ de `SoftwareFactoryApplication`-run, `mvn -pl softwarefactory
-  spring-boot:run`, of permanent via `factory-loop.sh` als macOS LaunchAgent (start
-  automatisch bij inloggen) — zie [docs/onboarding-senior-developer.md](docs/onboarding-senior-developer.md)
-  sectie 7 voor het plist-bestand en de start/stop/status-commando's.
-- **Webserver (interne endpoints):** standaard poort 8080 (niet expliciet gezet in `application.yml`).
-  Het Kotlin HTML-dashboard is verwijderd (SF-825); gebruik de Flutter-frontend (`dashboard-backend`/
-  `dashboard-frontend`) voor de UI.
-- **Afhankelijkheden om te draaien:** een bereikbare PostgreSQL (zie secrets), en Docker
-  (voor de agents). Flyway draait de DB-migraties automatisch bij opstart.
-- **Logs:** `logs/softwarefactory.log` (roterend).
+## Lokaal bouwen, testen en draaien
 
-### Testerbewijs en verification-config
-
-Iedere actieve target-repo moet op de actuele default branch een geldige
-`.factory/verification.yaml` (`version: 1`) hebben. De agentworker voert na een AI-claim `tested`
-de argv-commands zelf uit; de factory accepteert alleen complete `passed`/exit-0 evidence voor de
-ongewijzigde HEAD en exacte worktree-treehash. Missing/unknown config, tool-missing, timeout,
-non-zero, gemanipuleerd proza en revisionmismatch resetten de keten naar development.
-
-Valideer rollout met exact de productieparser:
+Vereisten: JDK 21, Maven, Flutter voor frontendwerk, en Docker alleen voor Testcontainers/lokale
+PostgreSQL. Docker wordt niet gebruikt om AI-agents uit te voeren.
 
 ```bash
-mvn -q -pl factory-common -DskipTests package dependency:build-classpath -Dmdep.outputFile=/tmp/factory-cp
-java -cp "factory-common/target/classes:$(tr -d '\n' </tmp/factory-cp)" \
-  nl.vdzon.softwarefactory.verification.VerificationConfigValidatorCli \
-  /pad/naar/repo [/pad/naar/volgende-repo]
-```
+# gerichte Maven-build
+mvn -B --no-transfer-progress -pl softwarefactory -am test
 
-Bij reject: lees de `[FACTORY VERIFICATION]`/`[FACTORY EVIDENCE REJECTED]`-diagnose. Herstel config,
-tooling, testfailure of revisionverschil; zet nooit tijdelijk fail-open en keur flaky/pre-existing
-of omgevingsfouten niet goed.
+# volledige reactor en integratietests
+mvn -B --no-transfer-progress verify
 
-## Config & secrets
-Geladen door `SecretsEnvLoader` in lagen (laagste eerst, env-vars winnen altijd):
-1. `properties.default.env` (committed, defaults) → 2. `properties.env` (lokaal) → 3. `secrets.env` (lokaal, geheim).
-Plus `projects.yaml` (naam → repo + Telegram-kanaal + verplichte `merge.requiredChecks`), naast
-`secrets.env`. De factory start niet wanneer een projectrepository geen niet-lege mergepolicy heeft.
+# frontend
+cd dashboard-frontend
+flutter analyze
+flutter test
 
-**Verplichte secrets** (`SF_GITHUB_TOKEN`, `SF_DATABASE_URL`, `SF_DATABASE_SCHEMA`). **Optioneel o.a.**:
-`SF_TRACKER_PROJECTS`, `SF_KUBECONFIG`, `SF_AI_OAUTH_TOKEN` (of `SF_AI_CREDENTIALS_DIR`),
-`SF_TELEGRAM_BOT_TOKEN`, `SF_TELEGRAM_CHAT_ID`, `SF_FACTORY_API_TOKEN` (nodig voor `/api/restart` en
-de `sf-story`-tool van de assistent).
-
-Voor het losse dashboard zijn daarnaast `SF_GOOGLE_CLIENT_ID`, `SF_ALLOWED_EMAILS`
-(niet-lege allowlist; geen default meer sinds SF-1551), `SF_DASHBOARD_REMEMBER_SECRET`
-en `SF_BRIDGE_TOKEN` verplicht. De lokale factory gebruikt
-`SF_BRIDGE_URLS=ws://localhost:9090/bridge`. Canonieke quickstart en teardown:
-
-```bash
+# lokale ondersteunende services en app
 ./factory local-services
 ./factory start
 ./factory local-services-stop
 ```
 
-`docker/smoke-local-quickstart.sh` controleert geïsoleerd health, unauthenticated `401`,
-authenticated `200` met `connected=true` en ruimt altijd op.
+De Spring-app luistert standaard op poort 8080. Flyway migreert het ingestelde schema bij start.
+Applicatielogs staan onder `logs/`.
 
-> Bestanden staan lokaal (gitignored). Voor de assistent worden ze read-only beschikbaar in
-> `/softwarefactory/private/`.
+`factory-loop.sh` is alleen de huidige lokale proceswrapper (`git pull` en opnieuw starten). Hij
+bouwt geen agentimages. De dashboardacties restart/stop sturen dit lokale proces aan; ze worden in
+het latere OpenShift-topologieplan vervangen.
 
-## Database
-- PostgreSQL; verbinding via `SF_DATABASE_URL`, schema `SF_DATABASE_SCHEMA`.
-- Migraties: Flyway, `softwarefactory/src/main/resources/db/migration` (`V1..Vn`).
-- Belangrijke tabellen: `issues` (incl. `retry_after` voor automatische Claude-quotawacht, sinds
-  V33 de `hotfix`-vlag per story en sinds V34 de concrete `notification_events`-array; V34
-  migreert iedere oude `notify_mode`-stand en verwijdert daarna die kolom),
-  `issue_comments`/`issue_attachments` (comments en bijlagen bij die issues),
-  `story_runs`, `agent_runs` (incl. Claude-rate-limitstatus/reset-timestamps), events;
-  `agent_knowledge` (herbruikbare agent-tips per repo/rol), `processed_comments` (al verwerkte
-  comments) en `system_state` (globale state zoals credits-pauzes); de Telegram-tabellen
-  (`telegram_notifications`, `telegram_pending_questions`, `telegram_state`,
-  `telegram_conversations`, `telegram_threads`);
-  en de audit-tabellen (`audit_settings`, `audit_run`, `audit_run_job`, `audit_report`,
-  `audit_project_settings` voor per-project starttijd/aantal en `audit_question` voor een
-  openstaande auditvraag); en `maintenance_cleanup_runs` (sinds SF-1913 in plaats van een
-  Telegram-melding, sinds SF-1921 de gedeelde opruim-log van álle opruimmechanismen, met een
-  `kind`-kolom, een nullable `project` voor factory-brede rondes en sinds SF-1929 een `trigger`
-  die `scheduled` van `manual` onderscheidt).
-  De oudere `nightly_settings`/`nightly_run`/`nightly_run_job`-tabellen zijn ongebruikte resten van
-  de vroegere nightly scheduler (module verwijderd, tabellen bewust niet gedropt).
+## Configuratie en secrets
 
-## Externe systemen
-- **Tracker-database** — bron van stories/subtaken + fases; PostgreSQL, via `PostgresTrackerClient`
-  (tracker-capabilities). Velden o.a. `Story Phase`, `Subtask Phase`, `Repo`, `AI-supplier`, de
-  story-eigen `NotificationEvents` en het optionele absolute `RetryAfter` (automatische
-  Claude-quotawacht, los van `Paused`). Subtaken gebruiken voor Telegram altijd de actuele
-  eventset van hun parent-story.
-- **GitHub** — PR's/merges van de agent-runs (`SF_GITHUB_TOKEN`). Automatische en handmatige merge
-  lopen door één projectpolicy; alleen groene check-runs op de actuele head worden gemerged met
-  `gh pr merge --squash --match-head-commit <sha>`.
-- **OpenShift** — `oc`/`kubectl` met `SF_KUBECONFIG`.
-- **Telegram** — meldingen + assistent (`SF_TELEGRAM_*`, kanalen per project in `projects.yaml`).
-  Alleen geselecteerde story-events worden gemeld; de concrete defaultset voor nieuwe stories is
-  `DEPLOYED`, `QUESTION`, `MANUAL_ACTION_REQUIRED`, `ERROR`, en een lege set onderdrukt alle
-  Telegram-meldingen zonder de workflow te wijzigen.
+`SecretsEnvLoader` laadt, van laag naar hoog:
 
-## Veelvoorkomende taken / troubleshooting
-- **"Waarom wordt story X niet opgepakt?"** Check: staat het `Repo`-veld gevuld (anders error)? Staat de
-  `Story Phase` op `start` (lege fase = niet oppakken)? Staat er een error op de story? Draait er al
-  een agent? Staat op de story of een subtaak `RetryAfter`, dan wacht de factory bewust op
-  Claude-quota; het dashboard toont het lokale hervattijdstip. Vóór dat tijdstip niet handmatig
-  herstarten. Op of erna dispatcht de factory dezelfde rol automatisch met een nieuw starttijdstip.
-- **Claude-quotawacht duurt onverwacht lang:** controleer `retry_after` op story én subtaken en zoek
-  in `logs/softwarefactory.log` naar `Claude quota wait scheduled`. Ontbreekt een geldige toekomstige
-  Claude-resettijd, dan plant de factory steeds een hercontrole na vijftien minuten. Gebruik alleen
-  bij bewust operatoringrijpen de bestaande reset/clear-error/re-implementatieactie; die wist de
-  wachtstatus. `Paused` aan/uit zetten is hiervoor niet het juiste mechanisme.
-- **Story handmatig starten:** zet `Story Phase` op `start`.
-- **Hotfix-story (SF-1959):** een story met de `hotfix`-vlag gaat vanuit `start` direct naar
-  `in-progress` en heeft precies drie subtaken: `hotfix`, `merge`, `deploy`. Zie je geen refiner-
-  of planner-run, dan is dat verwacht gedrag en geen vastloper. Een hotfix-subtaak die op
-  `development-rejected` blijft terugkomen, is de deterministische testpoort: de diagnose staat als
-  `[FACTORY VERIFICATION]`-comment bij de subtaak. Wordt de loopback-cap
-  (`AI Max Developer Loopbacks`) bereikt, dan gaat de subtaak in `Error` en worden merge en deploy
-  bewust nooit gestart. De vlag is niet achteraf te zetten of te wissen: maak zo nodig een nieuwe
-  story aan.
-- **Vastgelopen/erroring story:** bekijk de error op het issue + `logs/softwarefactory.log`.
-- **Audit staat op `asked`:** dat is een *eindtoestand* van die auditjob, geen vastloper — de
-  auditor kon niet verder zonder menselijke beslissing en eindigde met een vraag in plaats van een
-  rapport; bij díé job komt dus geen rapport meer. Dat is bewust: bleef de job niet-terminaal, dan
-  zou de run nooit sluiten en zouden alle audits van alle projecten stilvallen (`AuditPlanner`). De
-  vraag staat in `audit_question` en beantwoord je via het Audits-scherm in het dashboard
-  (`POST /api/v1/audits/questions/answer`) of met een reply op de Telegram-melding. Na het antwoord
-  plant de factory zelf een vervolgrun in die de audit afmaakt (binnen de volgende scheduler-tick,
-  ~30s); handmatig herstarten is niet nodig.
-- **Audit zonder score/vervolg-story, of deploymelding en changelog zonder samenvatting (SF-2292):**
-  dit is een *stille* uitval — er komt geen error op de story, geen warn in
-  `logs/softwarefactory.log` en de job/subtaak wordt gewoon afgerond. Tot SF-2292 was de meest
-  waarschijnlijke oorzaak dat de agent zijn `{"agent_tips_update":[...]}`-blok ná het JSON-besluit
-  zette: de parser pakte dan dat laatste blok en `score`, `scoreLabel`, de voorgestelde story,
-  `questions`, `descriptionSummary` en `shortDescriptionSummary` waren allemaal leeg. Sinds SF-2292
-  zoekt de parser sleutelbewust en valt die oorzaak af — draait er nog een oude agent-image, dan
-  verklaart hij het nog wel. Kijk daarna naar de agent-output zelf (agent-run in het dashboard, of
-  `agent_events`): stond er überhaupt een blok mét die sleutels in? Een leeg `AuditDecisionExtras()`/
-  `SummaryDecisionExtras()` betekent letterlijk "de agent heeft de velden niet opgeleverd" — dat is
-  een prompt-/agentkwestie, geen parsefout. Let op: `score` blijft ook `null` als de agent er een
-  niet-numerieke waarde in zet (bv. `"n.v.t."`); dat is bewust gedrag.
-- **Merge wacht:** queued/in-progress is normaal en wordt opnieuw gepolld. Missing/skipped/
-  cancelled/failed of een API-/parsefout is blocked; controleer de exacte checknaam onder
-  `merge.requiredChecks` en de check-runs op de actuele PR-head. Een nieuwe push na groen bewijs
-  veroorzaakt veilig een nieuwe beoordeling.
-- **Product Factory krijgt een foutcode van `/api/integrations/v1` (SF-2256):** de statuscode is de
-  triage. **400** = het verzoek zelf deugt niet (ontbrekende of niet-passende `Idempotency-Key`,
-  ongeldige productslug, lege titel/omschrijving/repo, ongeldige commit-SHA, verkeerde
-  `deliveryMode`; op de answers-route een leeg antwoord, een onbekende `targetType`, een `targetKey`
-  die niet bij het pad hoort of een fase buiten de toegestane antwoordfasen). Opnieuw sturen helpt
-  daar nooit — de melding staat in de foutbody en de client moet het verzoek aanpassen. **401** =
-  token; controleer `SF_PRODUCT_FACTORY_TOKEN` aan beide kanten (blanco op de backend weigert
-  fail-closed alles). **503** = de lokale factory hangt niet aan de bridge; dat is wél een zinnige
-  retry. **404/502** komen van de factory zelf via de bridge. Zie je een **500**, dan is dat sinds
-  deze story altijd een echte serverfout: zoek in de dashboard-backend-logs, niet in het verzoek.
-  Vóór SF-2256 gaf ongeldige invoer 500 en zag een machineclient dat aan voor "probeer opnieuw";
-  loopt er nog een oude release, dan verklaart dat een client die eindeloos hetzelfde foute verzoek
-  herhaalt.
-- **Fase-overzicht:** zie `StoryPhase` / `SubtaskPhase` in `core/`.
-- **Work-cleanup:** `WorkCleanupPoller` scant elk uur de vier beheerde `work/`-roots. Actieve
-  story-, agent- en assistantpaden zijn hard uitgesloten, ook als hun mtime ouder is dan
-  `SF_WORK_CLEANUP_RETENTION_DAYS` (default 7; exact op de grens mag alleen inactief weg).
-  Een fout bij het bepalen van actieve paden slaat de hele tick over. Entryfouten worden apart
-  gelogd en symlinks worden niet buiten de beheerde root gevolgd. Controleer bij twijfel
-  `logs/softwarefactory.log` op `Work cleanup skipped` of `Work cleanup failed`; zet de scheduler
-  tijdelijk uit met `SF_WORK_CLEANUP_ENABLED=false`, niet door handmatig actieve mappen te wissen.
-- **Agent-event-retentie:** `AgentEventRetentionPoller` verwijdert elk uur `agent_events` ouder dan
-  `SF_AGENT_EVENT_RETENTION_DAYS` (default 30), in batches van
-  `SF_AGENT_EVENT_RETENTION_BATCH_SIZE` en hoogstens `SF_AGENT_EVENT_RETENTION_MAX_BATCHES` per
-  ronde; de volgende tick gaat verder waar hij ophield. Dit is de logboekhistorie achter het
-  Agent-log-scherm: na de retentiegrens is een oude run niet meer na te lezen. Uitzetten met
-  `SF_AGENT_EVENT_RETENTION_ENABLED=false` — maar reken dan op onbeperkte groei; deze tabel was op
-  2026-07-29 met 436 MB de grootste van de database, ruim de helft van het totaal.
-- **Agent-run-retentie (SF-1921):** `AgentRunRetentionPoller` verwijdert elk uur `agent_runs` ouder
-  dan `SF_AGENT_RUN_RETENTION_DAYS` (default 90), in batches van
-  `SF_AGENT_RUN_RETENTION_BATCH_SIZE` (default 1000) en hoogstens
-  `SF_AGENT_RUN_RETENTION_MAX_BATCHES` (default 20) per ronde. Dit is de bovenlaag van het
-  Agent-log-scherm: na de grens is de run zelf weg, inclusief zijn events en completion-rijen (via
-  `ON DELETE CASCADE`). Een lopende run (`ended_at IS NULL`) en een run met een onafgeronde
-  completion (`PENDING`/`IN_PROGRESS`/`FAILED_RETRYABLE`) blijven altijd staan, ongeacht leeftijd —
-  zie je zulke runs "te lang" in het scherm, dan is dat werk dat nog niet af is, geen retentiefout.
-  Uitzetten met `SF_AGENT_RUN_RETENTION_ENABLED=false`.
-- **Maintenance-cleanup (releases/images):** `MaintenanceCleanupScheduler` draait 's nachts
-  (cron `sf.maintenance.cleanup-cron`, default `0 30 2 * * *` UTC) en ruimt per project met een
-  `releaseCleanup:`-blok in `projects.yaml` oude GitHub-Releases en ghcr.io-package-versions op.
-  Sinds SF-1913 gaat daar géén Telegram-bericht meer over: elke projectronde landt als rij in
-  `maintenance_cleanup_runs` en is zichtbaar op het Opruimen-scherm van de dashboard-app (onder
-  "Meer"). Staat er voor vannacht geen rij bij een project, dan heeft de ronde niet gedraaid;
-  een rij met 0 verwijderingen betekent dat er niets op te ruimen viel. Een mislukte ronde staat er
-  mét foutmelding in en blokkeert de overige projecten niet. Zet `sf.maintenance.dry-run=true` om
-  alleen te loggen/registreren wat verwijderd zóú worden. De historie zelf wordt aan het eind van
-  elke tick opgeruimd na `sf.maintenance.run-retention-days` (default 90).
-  Sinds SF-1938 werkt één ronde de volledige achterstand weg: de clients lopen alle pagina's van
-  `api.github.com` af (`per_page=100`) tot maximaal `sf.maintenance.github-page-limit` pagina's
-  (default 20 = 2000 items per lijst). Blijft er ondanks een geslaagde ronde veel staan, kijk dan in
-  de log naar de waarschuwing over de paginagrens en verhoog die property. Twee andere
-  waarschuwingen: faalt een vervolgpagina, dan ruimt de ronde op wat al opgehaald was (er blijft dus
-  wat over voor de volgende ronde); lukt het níét om de open pull requests van een project op te
-  halen, dan worden voor dát project deze ronde géén package-versions verwijderd en staat dat als
-  `error` op de logregel van die projectronde — de release-cleanup van dezelfde ronde loopt wel door.
-  Dat is bewust: een halve beschermingslijst zou images van een lopende preview kunnen verwijderen.
-- **Opruim-log (SF-1921):** `maintenance_cleanup_runs` is de gedeelde historie van álle
-  opruimmechanismen; het Opruimen-scherm toont sinds SF-1939 een blok per soort (`github-releases`,
-  `agent-events`, `agent-runs`, `completion-payloads`, `workspaces`) met de laatste ronde per soort,
-  en achter "Runs bekijken" de historie van alléén die soort. De vier
-  factory-brede opruimers schrijven bewust alléén een rij bij verwijderingen of bij een fout — géén
-  rij betekent daar dus "niets te doen", niet "niet gedraaid". Alleen de nachtelijke GitHub-cleanup
-  schrijft ook bij 0. Wegschrijven is overal fail-soft: een mislukte insert levert hoogstens een
-  warn-log op en laat de opruiming zelf gewoon slagen. De log valt zelf onder
-  `sf.maintenance.run-retention-days` (default 90).
-- **Nu draaien (SF-1929):** wil je niet op de cron of de poller wachten, gebruik dan de knop
-  "Nu draaien" in het blok van die soort op het Opruimen-scherm, of "Alles draaien" bovenin (sinds
-  SF-1939; daarvóór stonden alle knoppen in één balk bovenaan). De ronde loopt
-  op de achtergrond (het antwoord komt meteen, ook bij een lange GitHub-ronde) en verschijnt daarna
-  vanzelf in de lijst met een `handmatig`-badge — áltijd, ook bij 0 opgeruimde items en bij een
-  fout. Daar geldt de onderdrukkingsregel hierboven dus níét: bij `trigger = manual` betekent "geen
-  rij" dat de ronde niet is gestart. Blijft een knop uit of krijg je een melding, dan zegt de status
-  wat er aan de hand is: `draait al` (die soort loopt al, handmatig óf via het schema — er komt geen
-  tweede ronde bij, en de scheduler slaat andersom zijn tick over), `staat uit` (`SF_*_ENABLED` van
-  dat mechanisme staat op `false`) of een onbekende soort. `sf.maintenance.dry-run` geldt ook voor
-  een handmatige GitHub-ronde. De bewaking is in-memory per factory-JVM; draait de factory ooit met
-  meerdere instanties, dan is dat het punt om te herzien.
-- **Dashboard nog over http bereikbaar of HSTS-header ontbreekt (SF-2008):** het dashboard hoort
-  https-only te zijn. Cloudflare dwingt publiek HTTPS af. De OpenShift-route
-  (`deploy/base/softwarefactory-dashboard-frontend-route.yaml`) staat bewust op
-  `insecureEdgeTerminationPolicy: Allow`, omdat Cloudflare de origin intern via HTTP benadert;
-  `Redirect` veroorzaakt dan een lus naar dezelfde publieke URL en verbreekt ook `/bridge`.
-  (2) De `Strict-Transport-Security`-header zit in `dashboard-frontend/nginx.conf` en dus in het
-  frontend-image — die wordt pas actief ná de image-build én de tag-bump op
-  `deploy/base/kustomization.yaml`. Ontbreekt de header op de omgeving, controleer dus eerst of die
-  bump al door is. Geeft `curl -sSI http://dashboard.vdzonsoftware.nl/` een `200` in plaats van een
-  `301`/`302`, dan handelt Cloudflare http zelf af en bereikt het verzoek de route niet; de
-  afdwinging hoort dan in Cloudflare ("Always Use HTTPS") en niet in deze repo. Zie
-  `deploy/README.md` §HTTPS enforcement.
-- **Bridge-verbinding wordt gesloten met code 1008 (`POLICY_VIOLATION`, SF-2214):** sinds SF-2214
-  wordt de `hello` op `/bridge` afgedwongen, dus 1008 heeft nu drie mogelijke oorzaken. (1) Fout of
-  ontbrekend token — `SF_BRIDGE_TOKEN` verschilt tussen factory en backend, of hij is leeg op de
-  backend (dan wordt élke hello geweigerd). (2) Geen hello binnen de hello-time-out van 10 s: dat
-  wijst op iets anders dan de factory aan de andere kant (scanner, verdwaalde client, proxy die de
-  socket wel opent maar niets doorstuurt) — de factory zelf stuurt de hello synchroon direct na het
-  openen van de socket. (3) Een `response`- of `event`-frame vóór een geldige hello; dat frame wordt
-  níét verwerkt (geen wachtend request wordt voltooid, geen event-luisteraar draait) en de socket
-  gaat dicht. De backend logt alle drie op `warn` zónder frame-inhoud of tokenwaarde, dus de
-  logregel bevat geen geheim. Een lopende `sendRequest` loopt in geval (3) gewoon door tot zijn
-  eigen time-out — het dashboard toont dan de gebruikelijke offline-/time-outmelding, geen aparte
-  fout. Het sluiten van zo'n niet-geauthenticeerde sessie raakt de actieve factory-verbinding niet:
-  staat er een geauthenticeerde factory naast, dan blijft die gewoon verbonden.
+1. `properties.default.env` — committed defaults;
+2. `properties.env` — lokale, gitignored overrides;
+3. `secrets.env` — lokale, gitignored secrets;
+4. echte environmentvariabelen — hoogste prioriteit.
+
+`projects.yaml` koppelt projectnamen aan geregistreerde Runtime-repositoryaliassen, base branches,
+Telegramkanalen, previews en verplichte mergechecks.
+
+Belangrijkste secrets:
+
+- `SF_GITHUB_TOKEN`: branch-, PR-, merge- en releasehandelingen door Software Factory;
+- `SF_DATABASE_URL` en `SF_DATABASE_SCHEMA`: PostgreSQL;
+- `SF_AGENT_RUNTIME_TOKEN`: tenanttoken voor Agent Runtime v2;
+- `SF_TELEGRAM_BOT_TOKEN` en chat-id's: optionele Telegramintegratie;
+- `SF_FACTORY_API_TOKEN`: machinecalls op de lokale factory;
+- `SF_PRODUCT_FACTORY_TOKEN`: Product Factory-integratie;
+- `SF_KUBECONFIG`: alleen waar Software Factory previews/deployments of cleanup op OpenShift
+  bestuurt;
+- dashboardsecrets zoals Google client-id, e-mailallowlist, remember-secret en bridge-token.
+
+AI-providercredentials en Gitcredentials van de Runtime-worker horen niet in Software Factory.
+Het gitignored `secrets.env` van een targetproject wordt niet gelezen, gemount, gekopieerd,
+gesynchroniseerd of gewijzigd. Dat bestaande projectsecretmechanisme verandert niet.
+
+Zie [`docs/factory/secrets-local.md`](docs/factory/secrets-local.md) voor de volledige lijst.
+
+## Agent Runtime controleren
+
+- De actieve modelkeuze staat in `agent_role_execution_config`, globaal of per project/rol. De
+  eerstvolgende job gebruikt de nieuwe keuze; een lopende job houdt zijn bestaande uitvoering.
+- `agent_runs.runtime_job_id` correleert één logische agentstap met één Runtime-job.
+- Runtime-status, events, fouten, artifacts, usage en kosten worden via `/v2` opgehaald en in de
+  bestaande schermen geprojecteerd.
+- Een verloren create-response of procesrestart hoort dezelfde idempotente job te hervinden.
+- Quota/capaciteit wordt als zichtbare wachtstatus behandeld; een Runtime-attempt is niet hetzelfde
+  als een nieuwe domeinrun.
+
+Bij problemen: controleer eerst Runtime-jobstatus en `errorCode`, daarna de Software Factory-log en
+de story/subtaakstatus. Maak bij `BRANCH_CHANGED` nooit een force-push; laat de pipeline een nieuwe
+job op de actuele branch plannen.
+
+## Telegram
+
+Telegram levert configureerbare storymeldingen, vragen/antwoorden en een conversationele
+assistent. De assistent draait per beurt als `APPLICATION_WORK`/`STRUCTURED_GENERATION` op Runtime
+v2. Foto's gaan via het inputobjectprotocol. `/stop` annuleert de lopende Runtime-job.
+
+De assistent heeft bewust geen directe tracker-, repository-, cluster-, browser- of secrettoegang.
+Hij denkt mee en maakt voorstellen, maar claimt geen actuele status en voert geen actie uit.
+
+Als de melding “Sessie verlopen. Log opnieuw in.” verschijnt zonder inlogmogelijkheid, behandel dat
+als dashboard-authenticatieprobleem; het staat los van de Runtime-worker. Controleer cookie-,
+Google-login- en backendconfiguratie en of de frontend een 401 naar de loginroute afhandelt.
+
+## Product Factory-integratie
+
+`/api/integrations/v1` ondersteunt status, create, get/list, answers en cancel. Een
+`Idempotency-Key` hoort bij het bestaande Product Factory-HTTP-contract; de interne Runtime-job
+heeft daarnaast zijn eigen duurzame correlatie.
+
+- `400`: ongeldig verzoek; pas het verzoek aan, blind opnieuw sturen helpt niet.
+- `401`: controleer het gedeelde Product Factory-token.
+- `503`: de lokale factory is in de huidige topologie niet aan de bridge verbonden; retry kan
+  zinvol zijn.
+- `404`/`502`: factory- of bridgefout.
+- `500`: serverfout; inspecteer backend- en factorylogs.
+
+## Merge, preview en deploy
+
+De PR is de drager van GitHub-checks en preview-identiteit. Automatische en handmatige merge lopen
+door dezelfde projectpolicy en gebruiken de actuele PR-head. Een nieuwe push maakt eerder bewijs
+ongeldig. Previews en deployments blijven Software Factory-domeinlogica; Agent Runtime kent geen
+story-, approval-, merge- of deploysemantiek.
+
+## Audits en maintenance
+
+- Audits draaien read-only via Runtime op de base branch, schrijven een getypeerd rapport en
+  kunnen maximaal één vervolgstory voorstellen. Een auditstatus `asked` is terminaal voor die job;
+  na beantwoording plant de factory een vervolgrun.
+- `MaintenanceCleanupScheduler` ruimt volgens `projects.yaml` oude releases en packageversies op.
+- Agent-event-, agent-run- en completionretentie blijven databasehistorie opruimen.
+- `WorkCleanupPoller` is alleen een achtervang voor overige tijdelijke `work/`-bestanden; er zijn
+  geen actieve story- of agentworkspaces meer.
+
+## Veelvoorkomende storingen
+
+- **Story wordt niet opgepakt:** controleer `Repo`, storyfase, pauze/wachtstatus, fout en of al een
+  run actief is.
+- **Agent blijft wachten:** inspecteer Runtime-capaciteit/quota en de opgeslagen retrytijd; start
+  niet handmatig opnieuw vóór die tijd.
+- **Verificatie rood:** lees `verificationResult`; herstel test, tooling, timeout of config. Zet de
+  poort niet fail-open.
+- **Merge wacht:** controleer de exacte namen in `merge.requiredChecks` en checks op de actuele
+  PR-head.
+- **Preview/deploy faalt:** controleer de GitHub-pipeline, deploymenttargetconfig en zo nodig de
+  minimaal gescopeerde kubeconfig.
+- **Restart/cancel:** een herstart moet de bestaande `runtime_job_id` reconciliëren; een late
+  completion na cancel mag door fencing geen domeinsucces publiceren.
 
 ## Conventies
-- Taal in code/commentaar en commits: Nederlands.
-- Werk niet in iemands actieve werkmap; agents/checkouts zijn geïsoleerd.
+
+- Code, commentaar en commits zijn Nederlands.
+- Actuele gedragsdocumentatie beschrijft Runtime v2; oude ontwerpen horen expliciet als historisch
+  gemarkeerd te zijn.
+- Werk nooit in een blijvende gedeelde checkout. Repositoryoverdracht tussen jobs loopt uitsluitend
+  via de remote storybranch.

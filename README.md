@@ -17,8 +17,7 @@ It has been running since May 2026 and merges its work straight into real, live 
 
 ### From an idea to merged code, without you opening a pull request
 
-You write down what you want — in the dashboard, or just by telling the Telegram assistant. From
-there the factory takes over:
+You write down what you want in the dashboard. From there the factory takes over:
 
 1. A **refiner** sharpens the idea into a proper story: scope, acceptance criteria, assumptions.
 2. A **planner** decides the approach and cuts the work into subtasks.
@@ -59,9 +58,8 @@ with its score history. No separate browser tab per repository.
 
 ### A factory assistant in your pocket
 
-Telegram is a full channel, not just notifications. Ask for a story's status, create a new story,
-steer a running one, answer an agent's question — a real assistant with memory, not a fixed
-command list.
+Telegram carries notifications and questions, and includes a conversational assistant for
+brainstorming and concrete proposals. Tracker-changing actions stay behind the dashboard/API.
 
 ---
 
@@ -138,10 +136,9 @@ it checked it on.
 
 ![Telegram showing completed subtasks with a progress checklist and a test report](docs/images/telegram-progress.png)
 
-**And you can just ask it things.** Not from a menu of commands — ask a question about the code and
-it goes and reads it. Here: "how often are the RSS feeds actually fetched, and how does that work?"
-The answer names the scheduler class, the cron expression, the lock that stops two pods doing the
-same refresh, and the four steps of the pipeline.
+**And you can just ask it things.** The assistant remembers the current conversation and can inspect
+an attached image. It deliberately has no direct tracker-, repository-, cluster- or secret access:
+for changes it gives a proposal that still has to be confirmed and executed through the factory.
 
 ![Asking the assistant how a feature works, and getting an answer drawn from the actual code](docs/images/telegram-ask.png)
 
@@ -164,9 +161,11 @@ And the night shift, which generates work rather than consuming it:
   <img alt="Every night an audit reads the code, changes nothing, writes a scored report and proposes at most one small story, which enters the normal pipeline" src="docs/images/night-light.png">
 </picture>
 
-Every agent runs isolated in its own Docker container, with only the repository it is working on
-mounted. Agents never commit or push themselves and never touch a pull request — the factory does
-that, after the run, once the evidence checks out.
+Every agent task is submitted to Agent Runtime v2. Repository jobs receive a fresh temporary
+checkout of the one remote story branch. The Runtime worker owns checkout, verification, commit and
+push; the AI process itself performs no Git mutations. Software Factory creates the branch and the
+single pull request and later merges it after all gates pass. No repository checkout, provider
+credential or Docker socket is needed by Software Factory itself.
 
 The full phase model behind this (`Story Phase` and `Subtask Phase`, with every state and
 transition) is documented in [docs/technical/overview.md](docs/technical/overview.md).
@@ -175,8 +174,8 @@ transition) is documented in [docs/technical/overview.md](docs/technical/overvie
 
 ## Want to run it yourself?
 
-Everything you need — requirements, secrets, linking projects to repositories, Docker services,
-building the agent images and starting the factory — is in
+Everything you need — requirements, secrets, linking projects to repositories, local supporting
+services and starting the factory — is in
 **[docs/installation.md](docs/installation.md)**.
 
 ## For developers

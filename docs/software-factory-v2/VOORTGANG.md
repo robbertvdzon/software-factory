@@ -255,6 +255,27 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
   nieuwe `RuntimeAssistantClientTest` bewijst taaktype, modelkeuze, ontbrekende environmentkeys en
   mapping van tekst, tips en kosten.
 
+### 2026-09-11 — stap 4 afgerond: legacy-uitvoering en actuele documentatie opgeschoond
+
+- De losse lokale OpenHands/Ollama-stack en zijn Docker-socketmount zijn verwijderd. De repository
+  bevat geen Software Factory-agentimage of lokale AI-uitvoeringsroute meer; Docker is alleen nog
+  ontwikkelondersteuning voor Compose/Testcontainers en targetprojectpipelines kunnen uiteraard hun
+  eigen images blijven bouwen.
+- `README.md`, `runbook.md`, installatie/onboarding en de actuele documenten onder `docs/factory`
+  en `docs/technical` beschrijven nu uitsluitend Agent Runtime v2, één remote storybranch en de
+  huidige tijdelijke bridge-topologie. Het afzonderlijke OpenShift-/renameplan blijft buiten deze
+  refactor.
+- Twee achtergebleven repo-rootdetecties gebruikten het al verwijderde `agentworker`-pad; zij
+  herkennen de reactorroot nu aan de root-POM. Oude sourcecommentaren en docs-skeletonprompts zijn
+  eveneens bijgewerkt.
+- `runtime :: v2` is een expliciete publieke Modulith-interface voor de bestaande dashboard- en
+  Telegramconsumers; de al aanwezige pipeline→contract- en dashboard→GitHubrelaties zijn in de
+  dependencyallowlist vastgelegd. `ModulithArchitectureTest` en `ModuleApiConventionTest` zijn nu
+  volledig groen (9 tests; de eerdere 24 ratchetmeldingen zijn weg).
+- De Detekt-ratchet is na het bewust verwijderen van de vijfde Mavenmodule herijkt naar de vier
+  actuele modules. Het aantal blokkerende bevindingen bleef exact 185 en er kwam geen suppressie
+  bij; `./quality/run.sh` is groen.
+
 ### 2026-09-11 — AI-levelroutering verwijderd
 
 - Commit `8313d7a0` verwijdert `aiLevel`, de `LEVEL=`-commenttrigger en `AiRouting` uit productie,

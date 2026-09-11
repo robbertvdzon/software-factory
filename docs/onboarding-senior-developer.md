@@ -1,700 +1,159 @@
-# Onboarding — senior software developer
+# Onboarding voor senior developers
 
-Welkom. Dit document is bedoeld om je zelfstandig te maken op deze codebase: na het lezen moet
-je code kunnen aanpassen én reviews kunnen doen. Het legt daarom vooral het **waarom** van de
-ontwerpkeuzes vast; het "wat" staat elders en herhalen we hier niet:
+## Het mentale model
 
-- [../runbook.md](../runbook.md) — operatie: waar draait wat, config & secrets, troubleshooting.
-- [factory/functional-spec.md](factory/functional-spec.md) — wat de factory functioneel doet.
-- [factory/technical-spec.md](factory/technical-spec.md) — stack, modules, configuratie.
-- [factory/development.md](factory/development.md) — build/test-commando's en lokale setup.
-- [technical/](technical/README.md) — gegenereerde naslag (modules, endpoints, scheduled jobs, externe systemen).
-- [kwaliteitsanalyse.md](kwaliteitsanalyse.md) — de kwaliteitsanalyse en de refactor van juli 2026 (fase 1–5); veel keuzes hieronder zijn dáár gemotiveerd en uitgevoerd.
+Software Factory is een workflow-orchestrator, geen AI-runner. De hoofdapp bepaalt welk domeinwerk
+nodig is; Agent Runtime v2 voert één technische job uit.
 
-Klassen-verwijzingen hieronder zijn — tenzij anders vermeld — relatief aan
-`softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/`.
-
----
-
-## 1. Het mentale model (lees dit eerst)
-
-Drie zinnen die de hele architectuur dragen:
-
-1. **De eigen tracker-database (Postgres) is de bron van waarheid voor proces-state.** De
-   fase-velden op issues (`Story Phase`, `Subtask Phase`, plus `Subtask Type`, `Error`,
-   `Paused`, …) zíjn de state-machine. De factory leest die velden, beslist, en schrijft
-   nieuwe fasen terug. Er is geen proces-state in geheugen die de tracker-database
-   tegenspreekt.
-2. **De rest van Postgres is boekhouding.** `story_runs`, `agent_runs`, `agent_events`,
-   kosten/usage, Telegram-state en de nightly-tabellen registreren *wat er gebeurd is* —
-   niet *waar het proces staat*. (Eén nuance: caps zoals de developer-loopback- en
-   test-reset-teller tellen op `agent_runs` per story-run, dus die boekhouding heeft wél
-   procesgevolgen. Zie §3 en de waarschuwing in `SubtaskExecutionCoordinator.handleTestRejection`.)
-3. **De poller is de motor.** `orchestrator/schedulers/OrchestratorPoller.kt` draait als
-   daemon-thread en roept elke cyclus `OrchestratorService.pollOnce()` aan. Elke poll kijkt
-   opnieuw naar de tracker-velden en doet wat daar uit volgt.
-
-Waarom zo? **Herstartbaarheid en inspecteerbaarheid.** Je kunt de factory op elk moment
-killen en opnieuw starten: de eerstvolgende poll leest de fasen uit de tracker-database en
-gaat verder waar het proces was. En je kunt élke vraag ("waarom doet story X niets?")
-beantwoorden door naar het issue in de tracker-database te kijken — er is geen verborgen state.
-
-De consequentie waar je bij elke wijziging rekening mee moet houden: **alles wat per poll
-draait moet idempotent zijn.** Een terminale subtaak wordt elke poll opnieuw verwerkt; daarom
-staan er guards als "zet de volgende subtaak alleen op `start` als z'n fase nog leeg is"
-(`SubtaskExecutionCoordinator.advanceSubtaskChain`) — zonder die guard krijg je herstart-loops.
-Als jouw nieuwe code bij twee opeenvolgende polls twee keer effect heeft, is dat een bug.
-
-De poller is adaptief: snel interval zolang er actief werk is, traag bij idle, en hij wordt
-direct gewekt door een `FactoryStateChangedEvent` (bv. zodra een agent-afronding een fase heeft
-geschreven), zodat de keten zonder poll-vertraging doorschuift. Het interval is dan alleen nog
-het vangnet — zie de KDoc bovenin `OrchestratorPoller.kt`.
-
----
-
-## 2. De hoofdflow, stap voor stap
-
-```mermaid
-flowchart TD
-    P["OrchestratorPoller<br/>(daemon, adaptief)"] --> O["OrchestratorService.pollOnce()<br/>findWorkIssues + PR-monitor"]
-    O --> R["StoryPipelineService.process()<br/>commands + guards + router op Type"]
-    R -->|story| SRC["StoryRefinementCoordinator<br/>(Story Phase: refine → plan)"]
-    R -->|subtaak| SEC["SubtaskExecutionCoordinator<br/>(Subtask Phase per Subtask Type)"]
-    SRC --> D["AgentDispatcher.dispatch()"]
-    SEC --> D
-    D --> DK["DockerAgentRuntime<br/>docker run agent:local"]
-    DK --> AW["agentworker AgentCli (in container)<br/>leest /work/task.md, draait AI-CLI,<br/>schrijft /work/agent-result.json"]
-    AW --> CP["AgentResultFileCompletionPoller<br/>(@Scheduled: container klaar?)"]
-    CP --> C["AgentRunCompletionService.complete()<br/>commit/push, PR, fase-update, events"]
-    C -->|planner 'planned'| M["SubtaskPlanMaterializer<br/>subtaken + afgedwongen afsluiters"]
-    C -->|"wake-event"| P
-    SEC -->|"advanceSubtaskChain:<br/>volgende subtaak op start"| SEC
+```text
+tracker/state-change
+        ↓
+orchestrator + pipeline
+        ↓
+AgentDispatcher → AgentRuntimeV2Adapter
+        ↓
+Agent Runtime v2 job
+        ↓
+completion polling + validatie
+        ↓
+AgentRunCompletionService
+        ↓
+volgende fase / vraag / fout / merge / deploy
 ```
 
-1. **`orchestrator/schedulers/OrchestratorPoller.kt`** — de loop. Soft-failt op alles
-   (één mislukte poll mag de motor niet stoppen) en bepaalt op de poll-uitkomst of het
-   snelle of het idle-interval geldt.
-2. **`orchestrator/services/OrchestratorService.kt` → `pollOnce()`** — haalt via
-   `tracker/TrackerApi.kt` alle werk-issues op, checkt de credits-pauze, verwerkt elk
-   issue via de `core.StoryPipeline`-poort, en monitort daarna open PR's (gemerged →
-   story Done + run sluiten; nieuwe `@factory`-PR-comments → nieuwe development-subtaak).
-   De orchestrator kent de pipeline alléén als poort — zie §3.
-3. **`pipeline/service/StoryPipelineService.kt`** — dunne router, bewust zonder
-   state-machine-logica: eerst handmatige commando's toepassen (`core/ManualCommandProcessor`),
-   dan de generieke guards (paused / error / AI-supplier), dan routeren op het `Type`-veld.
-4. **`pipeline/service/StoryRefinementCoordinator.kt`** — de story-laag: één grote `when`
-   over `core/StoryPhase.kt` (refine → plan, vragen-loops, reject-loopbacks, auto-approve).
-   **`pipeline/service/SubtaskExecutionCoordinator.kt`** — de subtaak-laag: per
-   `core.SubtaskType` een `when` over `core/SubtaskPhase.kt`, plus keten-advance, recovery
-   van hangende fasen (hard timeout, settle-grace) en de test-reject-reset. Merge en deploy
-   hebben eigen handlers (`MergeSubtaskHandler.kt`, `DeploySubtaskHandler.kt`).
-   Deze `when`-blokken zijn de plek waar het toestandsdiagram in code staat — als je een
-   fase toevoegt, is dit je eerste stop.
-5. **`pipeline/service/AgentDispatcher.kt`** — de gedeelde "start een agent"-mechaniek:
-   repo resolven uit het `Repo`-veld (via `config/ProjectRepoResolver` uit factory-common),
-   budget- en loopback-caps, concurrency-caps, fase op de actieve waarde + `AgentStartedAt`
-   zetten, workspace prepareren en de agent starten. Subtaken draaien op de **gedeelde
-   parent-branch**: story-run en concurrency keyen op de parent, velden op de subtaak zelf.
-   `runtime/workspaces/StoryWorkspaceService.kt` maakt/hergebruikt de workspace en merget
-   vóór elke developer-run de laatste main in de story-branch (de agent lost conflicten op) —
-   dat voorkomt dat de reviewer tegen een verouderde main-diff aankijkt.
-6. **`runtime/docker/DockerAgentRuntime.kt`** — start de container (`agent:local`) via
-   `docker run`, met de werkmap op `/work` gemount en labels (`app=factory-agent`,
-   `story-key`, `role`) waarmee `isAnyAgentRunningForStory` e.d. via `docker ps` werken.
-   De container krijgt zijn configuratie via het `factory.env` uit de workspace: alle
-   `SF_`-variabelen van de factory mínus `AgentWorkspaceFactory.AGENT_ENV_DENYLIST` (de tien
-   secrets die geen agent nodig heeft — zie `docs/factory/secrets-local.md`). Die denylist is een
-   *deny*-lijst, dus een nieuwe secret lekt standaard mee tot iemand hem toevoegt; zet hem er
-   meteen op.
-7. **In de container: `agentworker/…/agentworker/cli/AgentCli.kt`** — leest `/work/task.md`
-   en de env, bereidt de target-repo voor, draait de gekozen AI-CLI (claude/codex/copilot/mock,
-   via `agent/AiClient.kt`) en schrijft het resultaat naar `/work/agent-result.json`.
-   De agent commit **niet** zelf (de worker faalt de run als dat toch gebeurt) — zie §3.
-8. **`runtime/services/AgentResultFileCompletionPoller.kt`** (`@Scheduled`, default 2s) —
-   ziet dat een container gestopt is, leest het gedeelde contract-DTO
-   `factory-contracts/…/contract/AgentResultFile.kt` en mapt het naar het interne
-   `AgentRunCompleteRequest`. Ontbreekt het bestand, dan wordt de run als error afgerond
-   mét de laatste Docker-logregels als diagnose.
-9. **`runtime/services/AgentRunCompletionService.kt` → `complete()`** — de afronding als
-   reeks benoemde stappen (~20 regels hoofdflow): persisteren, usage/kosten, repo-sync
-   (commit + push + PR openen/hergebruiken), events, screenshots, fase-update in de
-   tracker-database,
-   kennis-updates, comment-administratie, workspace-cleanup, poller wekken. Retourneert een
-   domein-`CompletionOutcome` (geen Spring-type — bewust, de module-API mag geen framework
-   lekken). Bij een planner-run die `planned` bereikt materialiseert
-   **`runtime/services/SubtaskPlanMaterializer.kt`** de subtaken (zie §3).
-10. **Keten-advance** — zodra een subtaak z'n terminale fase bereikt, zet
-    `advanceSubtaskChain` de volgende subtaak op `start`; is er geen volgende, dan gaat de
-    story naar Done. Het wake-event zorgt dat de volgende poll meteen komt.
-
-Recovery zit in dezelfde `when`-blokken: een subtaak die in een actieve fase hangt
-(`developing`, `reviewing`, …) zonder draaiende container wordt opnieuw gedispatcht — met
-een settle-grace na een net-geëindigde run (de completion schrijft `endedAt` in de DB vóór
-de fase in de tracker-database; in dat gat mag recovery niet toeslaan) en een harde timeout die de
-subtaak in `Error` zet. Lees `SubtaskExecutionCoordinator.recoverActiveSubtaskPhase` — de
-comments daar beschrijven precies dit race-venster.
-
----
-
-## 3. Architectuurprincipes — en waarom ze zo zijn
-
-### Modulaire monoliet, afgedwongen
-
-Eén Spring Boot-app, maar met échte modulegrenzen: elk package onder
-`nl.vdzon.softwarefactory` (`tracker`, `github`, `git`, `web`, `telegram`, …) heeft een
-`XxxApi`-interface in de package-root en implementaties in `services`/`clients` eronder.
-Dat is geen afspraak maar een test: `ModulithArchitectureTest.kt` (in de test-root) draait
-Spring Moduliths `ApplicationModules.verify()` en faalt op elke ongeoorloofde
-cross-module-import of package-cycle. **Waarom:** dit project wordt grotendeels door
-AI-agents doorontwikkeld; een conventie die niet faalt in de build bestaat dan effectief niet.
-Iedere module heeft bovendien een expliciete `allowedDependencies`-allowlist. Bekijk de actuele
-matrix en het gegenereerde diagram in `docs/technical/module-dependencies.md`; regenereer die met
-`tools/generate-module-dependencies` en controleer drift met dezelfde opdracht plus `--check`.
-
-### Core = domein + poorten; "hexagonaal-light"
-
-`core/` bevat het domeinmodel (`TrackerModels.kt`, `StoryPhase.kt`, `SubtaskPhase.kt`,
-`BoardState.kt`) en de poorten waarop de rest inverteert: `AgentRuntime` (impl:
-`DockerAgentRuntime`), `StoryPipeline` (impl: `StoryPipelineService`), `FactoryOperations`
-en `ChangeNotifier` (doorbreken de web↔telegram-cycle), `DeploymentStatusProbe` (kubectl
-achter een poort, adapter in `runtime`), en de repository-interfaces. Core importeert
-uitsluitend core.
-
-Bewust **niet** strikt hexagonaal: module-API's zoals `tracker/TrackerApi.kt`,
-`github/GitHubApi.kt` (factory-common) en `preview/PreviewApi.kt` (factory-common) leven in
-hun eigen module, niet in core. **Waarom:** die interfaces zíjn al de abstractie (tests faken
-ze probleemloos), en ze naar core verhuizen zou core volhangen met tracker-/GitHub-begrippen
-zonder dat er een tweede implementatie gepland is. Zie ook de kanttekening in
-[kwaliteitsanalyse.md](kwaliteitsanalyse.md) §2. Vuistregel bij reviews: een poort verhuist
-pas naar core als core-/orchestratorcode 'm nodig heeft (zoals bij `DeploymentStatusProbe`
-gebeurde), niet uit principe.
-
-### HumanActionPolicy: één beslisbron voor "wacht dit op een mens?"
-
-`core/HumanActionPolicy.kt` beantwoordt centraal: op welk soort gate wacht dit issue
-(QUESTION / APPROVAL / MANUAL), wacht het effectief op een mens, en geldt auto-approve?
-Telegram-meldingen én de uitvoering (`SubtaskExecutionCoordinator.autoApproveActive`) consumeren
-allemaal deze ene bron. Sinds SF-1261 leest die bron de goedkeuring-as (`approval_mode`:
-`automatisch`/`alleen-manual-poort`/`elke-stap`), niet meer de losse `Auto-approve`-boolean.
-
-**De les erachter (SF-164/SF-170):** dit waren voorheen drie handgesynchroniseerde kopieën,
-en die divergeerden — een subtaak las z'n éigen `Auto-approve`-veld terwijl de vlag op de
-parent-story staat, waardoor melding en uitvoering het oneens waren. Vandaar ook de
-signatuur: `autoApproveActive(issue, parentFieldsOf)` — de parent-lookup is verplicht
-onderdeel van de beslissing. **Reviewregel:** zie je nieuwe code die zelf op fase-strings
-bepaalt of iets "op de gebruiker wacht", of die de goedkeuring-/vragen-as zonder parent-resolve
-leest — afkeuren, `HumanActionPolicy` gebruiken.
-
-### factory-contracts, factory-common en het aparte agentworker-artefact
-
-`factory-common` bevat gedeelde tooling en projectconfig: git/github-clients, docs-skeleton,
-preview, support (`SecretRedactor`), `AgentRole`, `TrackerField` en `ProjectRepoResolver`.
-`factory-contracts` bevat de gedeelde agent-result- en bridgewiretypes. **Waarom:** vóór de refactor onderhield
-`agentworker` kopieën van deze bestanden, en die dreven uit elkaar — de gekopieerde
-git-client miste bugfixes die de hoofdmodule wél had (een latente productiebug). Elk gedeeld type
-op één canonieke plek maakt die drift structureel onmogelijk.
-
-Waarom is `agentworker` dan toch een aparte module en geen package in de hoofdapp? **Isolatie
-is het punt.** De worker draait in de Docker-container en mag de factory-internals (DB-toegang,
-orchestratorlogica) simpelweg niet aan boord hebben. De module-grens is hier
-een security-grens: wat niet in de jar zit, kan een (deels autonome) agent ook niet misbruiken.
-
-### Het result-file-contract
-
-`/work/agent-result.json` is hét koppelvlak tussen container en factory, en het is expliciet
-gemaakt: één gedeeld DTO `factory-contracts/…/contract/AgentResultFile.kt`, geschreven door
-`AgentCli`, gelezen door `AgentResultFileCompletionPoller`. De compatibiliteitsregels staan
-in de KDoc van het DTO: veldnamen nooit hernoemen (een oude container kan tegen een nieuwe
-factory draaien en andersom), nieuwe velden alleen met default, onbekende velden worden
-genegeerd. `factory-contracts/src/test/…/contract/AgentResultFileContractTest.kt` pint het
-wire-formaat vast — een contract-breuk faalt in de build, niet in productie. De optionele
-`rateLimit` is het voorbeeld voor supplierdiagnostiek: Claude vult het laatste bruikbare event met
-`status`, `resetsAt` en `overageResetsAt`; oude writers/readers blijven werken door de null/defaults.
-De runtime classificeert pas een *mislukte* run als quota. Een automatische `retryAfter`-wachtstand
-is een aparte levenscyclus-as en mag dus nooit via de handmatige `Paused`-vlag worden gemodelleerd.
-
-### Afgedwongen subtaken (de SF-154-les)
-
-`SubtaskPlanMaterializer` voegt aan élk plan in code `documentation`, `merge` en `deploy` toe.
-`manual-approve` komt daar uitsluitend bij als de story-goedkeuring op `alleen-manual-poort` of
-`elke-stap` staat. Door de planner meegestuurde merge/deploy/documentation-specs worden juist
-**genegeerd**. **Waarom:** toen dit aan de planner-prompt
-werd overgelaten, vergat die ze soms (SF-154) en bleef een story "af" zonder merge — de
-prompt is een onbetrouwbare plek voor invarianten, code niet. Let bij wijzigingen op de
-vaste subtaak-titels in de companion: de idempotentie (niet dubbel aanmaken bij re-plan)
-keyt op die titels. Bij re-plan geldt: het laatste plan is leidend — nog-niet-gestarte
-subtaken van het oude plan worden verwijderd, gestarte blijven staan (geen werk weggooien),
-en de uitvoervolgorde is issue-nummer-volgorde (daarom wordt vers-in-volgorde aangemaakt).
-
-Dit hele mechanisme geldt alleen voor het planner-pad. Een hotfix-story (SF-1959) komt er niet
-langs: die keten wordt in `StoryRefinementCoordinator` als exacte lijst `[hotfix, merge, deploy]`
-gematerialiseerd via `SubtaskMaterializationApi.materializeFromSpecs`, dat bewust *niets*
-auto-append't — daarom staan merge en deploy daar expliciet in de lijst.
-
-### Vier story-opties-assen (SF-1261 + SF-1959, voorheen Auto-approve/Silent/TelegramResultNotify)
-
-Onafhankelijke instellingen op de **parent-story** (nooit op de subtaak lezen — zie
-hierboven; subtaken erven via parent-lookup); de eerste drie kwamen bij SF-1261 in de plaats van de
-vroegere, elkaar overlappende `Auto-approve`/`Silent`/`TelegramResultNotify`-vlaggen:
-
-- **Vragen toestaan** (boolean, default aan): uit → elke `*-with-questions`-uitkomst wordt
-  direct een clarification-`Error` (zie `questionsOutcome` in beide coordinators) i.p.v. te
-  wachten op een mens (het vroegere `Silent`-vragenpad). Bij aan wacht de workflow; Telegram meldt
-  dit alleen wanneer `QUESTION` in de eventset staat.
-- **Goedkeuring** (`automatisch`/`alleen-manual-poort`/`elke-stap`, default `automatisch`):
-  `automatisch` laat de `*-ed → *-approved`-gates automatisch doorlopen **en** slaat de
-  `manual-approve`-poort altijd over (voorheen impliceerde alleen `Silent` dit; SF-192's "wacht
-  áltijd op een mens" geldt nu alleen nog bij `alleen-manual-poort`/`elke-stap`). `elke-stap` is
-  het oude "geen Auto-approve"-gedrag.
-- **Meldingen** (`NotificationEvents`): acht onafhankelijke events die ook als lege set mogen
-  worden opgeslagen. Het aanmaakscherm vertaalt de presets `Alleen als ik nodig ben`, `Als
-  deployed` (default) en `Na elke stap` naar een concrete set; story-detail toont de acht losse
-  checkboxes. De eventsetfallback `NotificationEvent.DEFAULT` en parent-resolutie via
-  `effectiveNotificationEvents(...)` blijven leidend.
-- **Hotfix** (boolean, default uit, SF-1959, kolom `hotfix` uit `V33`): aan → geen refiner/planner
-  en een kale keten `hotfix → merge → deploy` met één DEVELOPER-run. Anders dan de andere drie is
-  deze as **alleen bij het aanmaken** te zetten (dashboarddialoog, `sf-story create --hotfix`,
-  `POST /api/tracker/stories`, bridge-operatie `story.create`) en daarna niet meer te wijzigen;
-  bestaande stories en auditvoorstellen (`AuditGatewayAdapter.proposeStoryIfAny` geeft expliciet
-  `hotfix = false` mee) worden er nooit alsnog één. Binnen een hotfix wordt de goedkeuring-as
-  volledig genegeerd: `developed → hotfix-approved` gaat onvoorwaardelijk door en er komt nooit een
-  `manual-approve`-poort. De vragen-as werkt wél gewoon.
-
-Nightly-stories zetten alle drie hard: vragen=uit, goedkeuring=automatisch en een lege eventset
-(het equivalent van het oude `silent=true`).
-
-### Soft-fail op poll-grenzen — en waar juist niet
-
-De filosofie: **één falend issue of één falende integratie mag de poll-loop niet stoppen.**
-Vandaar `runCatching { … }.onFailure { logger.warn(…) }` op alle randen: per issue in de
-poll, per PR in de monitor, per notificatie, per cleanup. De volgende poll probeert het
-gewoon opnieuw.
-
-Maar soft-fail is géén universeel excuus. Waar het bewust NIET geldt:
-
-- **Repo-sync vóór fase-update**: als commit/push faalt, worden de tracker-updates
-  overgeslagen (`AgentRunCompletionService.complete`, zie de comment bij `repositorySynced`).
-  Anders schuift de fase door terwijl het werk niet gepusht is — dat is werk kwijtraken.
-- **Subtaak-aanmaak**: faalt het aanmaken van een afsluiter, dan gaat de story op `Error`
-  (`SubtaskPlanMaterializer.createSubtasks`) in plaats van stil onvolledig door te lopen.
-- **Opstart**: ontbrekende verplichte secrets zijn een harde fout
-  (`config/services/MissingRequiredSecretsException.kt`), geen warn.
-- **Parent-story lezen vóór dispatch en vóór deploy-approve** (SF-1560): mislukt
-  `getIssue(parentKey)`, dan wordt de subtaak overgeslagen — `warn`-log plus
-  `Skipped(key, "parent-unavailable")` in `SubtaskExecutionCoordinator.dispatchSubtask`
-  respectievelijk `Skipped(key, "deploy-parent-unavailable")` in
-  `DeploySubtaskHandler.process` — in plaats van `.getOrNull()` en dan doorlopen alsof er
-  geen parent is. Anders start er een betaalde agent langs de pauze- en foutpoort van de
-  story heen, of wordt een deploy zonder één echte actie op `deploy-approved` gezet en de
-  story als gedeployed gerapporteerd. Skippen is de hele oplossing: geen `Error`, geen
-  Telegram-melding, geen retry-teller — de orchestrator biedt de subtaak elke poll opnieuw
-  aan, dus een tijdelijke trackerstoring herstelt zichzelf; een structurele storing blijft
-  per poll zichtbaar als warn-regel. Let op het onderscheid met een subtaak *zonder*
-  `parentKey`: dat blijft `Errored` (dispatch) respectievelijk `Skipped(…,
-  "deploy-no-parent")`.
-
-Reviewregel: `runCatching` zonder log is verdacht; `runCatching` rond iets waarvan de
-uitkomst een vervolgbeslissing stuurt (zoals de sync) is fout.
-
-### Altijd auto-commit
-
-Na elke geslaagde agent-run commit en pusht de fáctory het werk (de agent zelf commit
-nooit). Er is bewust geen uitgestelde/optionele sync meer: de vroegere
-`SF_AUTO_SYNC_AFTER_AGENT`-variant heeft ooit developer-werk gewist (een latere stap ruimde
-een workspace op waarvan de wijzigingen nog niet veilig gepusht waren). De regel is nu
-simpel: werk dat de container verlaat staat op de remote branch, of de fase beweegt niet.
-
-### Waarom agents in Docker draaien
-
-De agents draaien met vergaande rechten ("skip permissions") en semi-autonoom. In een
-container is de blast-radius begrensd: alleen de gemounte `/work`-map, alleen de secrets
-die `DockerAgentRuntime` voor díe rol injecteert (zie de comment in `Dockerfile.agent`:
-de aanwezigheid van tools als `oc`/`kubectl` geeft geen rechten zonder gemount credential).
-Een native allowlist-aanpak is overwogen en afgewezen: te veel onderhoud en te lek
-vergeleken met een harde procesgrens. Bijkomend voordeel: de container pint de hele
-toolchain (node, AI-CLI's, gh, git) op vaste versies.
-
-Eén bewuste uitzondering op die begrenzing: de bouw/test-rollen (developer, reviewer,
-tester) krijgen `/var/run/docker.sock` gemount plus `--group-add` met de socket-groep,
-omdat Testcontainers-builds (bv. de PNF-backend-e2e-tests met een echte Postgres) een
-Docker-daemon nodig hebben. Socket-toegang is feitelijk root op de daemon — vandaar dat
-de overige rollen hem niet krijgen. De agent zelf blijft non-root (`runner`); de
-permissie komt van groepslidmaatschap, niet van een `chmod` op de host-socket. Zie de
-comment bij `DOCKER_SOCKET_ROLES` in `DockerAgentRuntime.kt` (daar staat ook waarom
-`TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal` wordt meegegeven).
-
-### De AI-supplier-abstractie: welk model draait er eigenlijk?
-
-De factory is niet aan één AI-leverancier gebonden. De keuze loopt in twee lagen:
-
-**Server-kant (routing).** Het `AI-supplier`-veld op de story (subtaken erven van hun
-parent) bepaalt de leverancier; `core/AiRouting.kt` vertaalt supplier + `AI Level` naar
-een model + reasoning-effort. Voor `claude` is dat momenteel altijd `claude-opus-5`
-(alleen de effort schaalt mee met het level); voor `copilot` kiest het level tussen
-haiku/sonnet/opus-varianten. Een expliciet `AI Model`-veld op de subtaak (planner-keuze)
-of story wint van de routing — zie `AgentDispatcher.dispatchRequest`:
-per-subtaak model → parent-model → `AiRouting`. Nieuwe modelversie toevoegen?
-`AiRouting.MODELS_BY_SUPPLIER` aanpassen — het dashboard-formulier leidt z'n lijst daarvan af —
-én `dashboard-frontend/lib/ai_catalog.dart`, want de Flutter-frontend heeft een eigen kopie.
-
-**Agent-kant (uitvoering).** De dispatcher geeft de keuze als env-vars mee aan de
-container (`SF_AI_SUPPLIER`, `SF_AI_MODEL`, `SF_AI_EFFORT`);
-`agentworker/.../agent/AiClient.kt` bevat de abstractie: interface `AiClient` met één
-methode `run(context): AgentOutcome`, en `AiClientFactory.create(env)` kiest de
-implementatie:
-
-| `SF_AI_SUPPLIER` | Implementatie | Wat het doet |
-|---|---|---|
-| `claude` | `ClaudeCodeAiClient` (`agent/ai/claude/`) | Spawnt de `claude`-CLI; stream-parsing, retry-met-contract-herinnering, vragen-fallback |
-| `openai` / `codex` | `CodexAiClient` (`agent/ai/codex/`) | Idem via de `codex`-CLI |
-| `copilot` / `github` | `CopilotAiClient` (`agent/ai/copilot/`) | Idem via de Copilot-CLI |
-| `mock` / `dummy` / `none` / leeg | `DummyAiClient` (`agent/ai/dummy/`) | Geen AI: canned uitkomsten per rol, stuurbaar via `SF_DUMMY_FORCE_OUTCOME` (bv. `questions`, `error`) |
-| al het andere | `NotImplementedAiClient` | Faalt netjes met een duidelijke outcome |
-
-Waarom dit zo is opgezet:
-
-- **Eén contract, drie leveranciers.** Elke client vertaalt z'n CLI-output naar hetzelfde
-  `AgentOutcome` (fase, comment, outcome, usage, events, subtasks) — de rest van de
-  factory weet niet welke leverancier er draaide. Leverancier wisselen is een veldje op de
-  story, geen codewijziging.
-- **De mock is een eersteklas burger.** `DummyAiClient` is geen test-restje: de hele
-  e2e-suite draait erop (`supplier=mock` op de test-stories) en je kunt er lokaal de
-  volledige pipeline mee doorlopen zonder één AI-call te betalen. `SF_DUMMY_FORCE_OUTCOME`
-  dwingt het pad af dat je wilt zien (vraag, fout, reject).
-- **Usage is expliciet.** `AgentOutcome.usage` default naar `AgentUsage.ZERO` — een client
-  die usage vergeet te rapporteren levert nul-cijfers, nooit verzonnen kosten (de mock zet
-  z'n gesimuleerde usage expliciet).
-- Bekende slordigheid (staat in [kwaliteitsanalyse fase 2](kwaliteitsanalyse.md)): de drie
-  echte clients dupliceren onderling het patroon runner + stream-parser + outcome-mapping;
-  een gedeelde basisklasse is er (nog) niet.
-
-### Het dashboard
-
-**`dashboard-backend` + `dashboard-frontend`** (Flutter) is de enige UI van de factory: een
-extern deploybare JSON-API + app. Machine-lokale acties (IntelliJ-openen) zitten achter
-`SF_DASHBOARD_LOCAL_MODE`. Het ingebouwde Kotlin HTML-dashboard (`FactoryDashboardController`,
-`web/views/`, `DashboardAuthConfig`) is verwijderd in SF-825.
-
-De `dashboard-backend` is een tweede lezer van dezelfde DB (gedeelde kennis zit in
-factory-common). Als je iets aan het datamodel wijzigt: beide lezers checken.
-
----
-
-## 4. Testen — de teststrategie is een feature
-
-### Fakes, geen mock-frameworks
-
-Er is bewust geen Mockito/MockK. Alle tests gebruiken handgeschreven fakes uit
-`softwarefactory/src/test/kotlin/nl/vdzon/softwarefactory/testsupport/`:
-`FakeTrackerApi`, `FakeAgentRuntime`, `FakeGitHubApi`, `InMemoryStoryRunRepository`,
-`InMemoryAgentRunRepository`, plus `OrchestratorTestHarness` die de standaard-bedrading
-levert. **Waarom:** fakes dwingen je te asserten op *gedrag* (welke fase staat er nu in de
-fake tracker?) in plaats van op *implementatie* (werd methode X aangeroepen met argument Y?).
-Mock-verifies spiegelen de implementatie na en breken bij elke refactor zonder dat er
-gedrag verandert; deze suite heeft de refactor van juli 2026 (drie god-classes gesplitst)
-juist dáárom vrijwel zonder testwijzigingen overleefd.
-
-### De e2e-harness
-
-`e2e/E2eTestBase.kt` + `e2e/E2eTestConfig.kt` booten de **echte** Spring-app en vervangen
-alleen de buitenranden door deterministische dubbels:
-
-- **`TrackerTestState`** — JDBC-backed en delegeert voor alles wat 1-op-1 bestaat naar een
-  echte `PostgresTrackerClient`-instantie tegen dezelfde Testcontainers-Postgres. Je test dus
-  ook de echte kolommapping/coercion van het productiepad, niet een losstaande mock.
-- **`TestAgentRuntime`** — scripted agent: geen Docker, maar per rol een gescript resultaat
-  (`AgentScript.kt`), inclusief het echte result-file-formaat.
-- **`LocalGitRemote`** — een échte lokale git-remote; de workspace-/branch-/commit-laag
-  draait onvervalst.
-- **`FakeGitHubApi`** — deelt PR-nummers uit en voert `mergePullRequest` uit als échte
-  lokale **squash-merge** op de `LocalGitRemote`. Daardoor draait de merge/deploy-keten
-  e2e door tot en met "main bevat de commit" (`FullRefineToDevelopE2eTest`) — precies het
-  stuk waar de productie-incidenten zaten. `changedFiles(...)` is overschreven met een vaste
-  padenlijst (`FakeGitHubApi.CHANGED_FILES`, SF-1971): de interface-default geeft `null` terug
-  en `DeploySubtaskHandler.matchedTargets` behandelt dat *fail-open* — zonder override zou elk
-  deploy-doel altijd meedoen en zou een `matchPaths`-test niets bewijzen (zie flake-les 5).
-- **Test-`DeploymentStatusProbe`** (`@Primary` in `E2eTestConfig`, SF-1971) — vervangt de
-  `kubectl`-adapter `KubectlDeploymentStatusProbe`, zodat een e2e-run nooit een extern proces
-  start. De dubbel rapporteert alleen voor het deployment van `DEPLOY_TARGET_MATCHED` een
-  niet-lege image (= "live" voor de image-heuristiek van `openshiftWatchReady`) en `null` voor
-  `DEPLOY_TARGET_UNMATCHED`; `argoApplicationStatus`/`runningPod` blijven op hun default `null`,
-  want de e2e-doelen hebben bewust geen ArgoCD-config.
-- **`RecordingTelegramClient`** — `@Primary`-dubbel voor `TelegramClient` die verstuurde
-  berichten (`messages`) en foto's (`photos`) in-memory vastlegt, zodat tests op het
-  daadwerkelijk verstuurde Telegram-verkeer kunnen asserten (bijv. "een lege eventset levert geen
-  enkel bericht op, ook niet bij een vraag"). `getUpdates` blokkeert kort en geeft dan een lege lijst
-  terug — zie flake-les 3 hieronder. `E2eTestBase.resetSharedState` roept `reset()` aan; beide
-  registraties zijn gedeelde JVM-state, dus assert altijd gescoped op je eigen story-key.
-- **Testcontainers-Postgres** — één `postgres:16`-container per test-JVM (static), echte
-  Flyway-migraties.
-
-De app-pollers draaien op 100ms; asserts gaan via Awaitility, nooit via sleeps.
-
-Elke e2e-klasse **erft van `E2eTestBase`**; zet er geen eigen `@SpringBootTest` +
-`@Import(E2eTestConfig::class)` op en schrijf geen eigen reset. De basisklasse levert
-`state`/`runtime`/`telegram`, de volledige `resetSharedState` (inclusief de Telegram-dubbel en
-de eenmalige opruiming van stale story-workspaces) en de helpers `loginUi()`, `awaiter(...)`,
-`dispatchCount`/`awaitDispatchCount` en `plannedChild(...)`. Een eigen kopie drijft af: die van
-`ManualApproveGateE2eTest` miste tot SF-1718 de Telegram-reset en de workspace-opruiming.
-Let op de defaults bij het overstappen: `awaiter(...)` en `awaitDispatchCount(...)` wachten
-standaard 60 s — gebruikte je klasse een langere timeout, geef die dan expliciet mee.
-
-Niet elke klasse in `e2e/` boot de Spring-app. `TrackerCapabilityPersistenceE2eTest` is een
-**round-trip-suite rechtstreeks op `PostgresTrackerClient`**: eigen Testcontainers-Postgres, eigen
-Flyway-run, geen Spring-context, `resetTables()` in `@BeforeEach` voor isolatie. Dat is de plek voor
-dekking op *SQL-gedrag* — bijvoorbeeld de vier clausules van `changelogFor` (SF-2102: projectfilter,
-subtaken uitgesloten, lege/ontbrekende samenvatting uitgesloten, nieuwste eerst), elk in een eigen
-`@Test` zodat ze afzonderlijk rood kunnen worden. Voor die suite geldt de klok-valkuil van
-flake-les 6: schrijfmethodes zetten zelf `updated_at = now()`, dus zet dat veld via `jdbc.update(...)`
-als je op volgorde asserteert.
-
-De harness kent twee logische projectnamen, allebei naar dezelfde `LocalGitRemote`:
-`sample` is de default van `createStory(...)` en heeft bewust **geen** deploy-doelen (de
-DEPLOY-subtaak volgt daar de skip-route), en `sample-deploy`
-(`E2eTestConfig.DEPLOY_PROJECT`, SF-1971) heeft twee `openshift-watch`-doelen met elkaar
-uitsluitende `matchPaths` (`backend/` vs `frontend/`). Wil je op dat tweede project draaien,
-geef dan `createStory(key, repo = E2eTestConfig.DEPLOY_PROJECT)` mee; dat zet het `Repo`-veld
-dat `DeploySubtaskHandler` uit de parent leest. Beide namen staan óók in `requiredChecks`:
-`ProjectAwarePullRequestMergeService` valideert in zijn `init` dat elk project een mergepolicy
-heeft, dus een projectnaam zonder policy laat de hele Spring-context omvallen.
-
-### De flake-lessen (belangrijk als je e2e-tests schrijft)
-
-1. **AwaitDsl is verbruik-gebaseerd** (`e2e/AwaitDsl.kt`): bij auto-approve schiet een fase
-   soms binnen één poll-venster door naar z'n opvolger (`planning-approved` → `in-progress`);
-   pollen op "is de fase nu X?" mist dat moment. Een Postgres-trigger op `issues` houdt daarom
-   **veld-historie** bij (`test_issue_field_history`) en `awaitStoryPhase`/`awaitSubtaskPhase`
-   wachten tot de waarde
-   *opnieuw geschreven* is sinds de vorige await — reject-loops die twee keer op `tested`
-   wachten eisen zo echt een tweede schrijf.
-2. **Dispatch-tellingen zijn story-gebonden** (`E2eTestBase.dispatchCount`): een vorige test
-   waarvan de pipeline nog naloopt kan ná de reset nog dispatches loggen; een globale telling
-   raakt besmet ("developer 3x i.p.v. 2x"). Tel dus altijd per story-key, en geef elke test
-   een unieke key.
-3. **Een dubbel van een long-pollende client moet ook echt blokkeren** (SF-1549): een
-   `getUpdates` die meteen leeg teruggeeft laat de `TelegramPoller`-daemonthread onafgebroken
-   rondjes draaien en zo de hele testrun lang `telegram_state`-queries op de
-   Testcontainers-Postgres afvuren — machinecapaciteit weg, suite instabieler, en de oorzaak
-   is onzichtbaar want geen enkele test faalt erop. `RecordingTelegramClient.getUpdates` doet
-   daarom een korte `poll` (200 ms) op een lege `BlockingQueue`; de `InterruptedException`
-   propageert bewust door, want daarop breekt `TelegramPoller.loop` af — precies het
-   `@PreDestroy`-shutdownpad. Overschrijf bij een nieuwe dubbel dus álle blokkerende methodes
-   van het origineel, niet alleen die je test nodig heeft.
-
-4. **Asserteer nooit op een vóór het wachten opgehaalde snapshot** (SF-1718):
-   `state.childrenOf(...)`/`plannedChild(...)`/`enforcedChild(...)` geven een *momentopname*
-   (`TrackerIssue`) terug via `PostgresTrackerClient.subtasksOf`. Bewaar zo'n object alleen voor
-   z'n onveranderlijke `key`; lees een veranderlijk veld erna altijd vers uit de state
-   (`state.issue(key)?.fields?.subtaskPhase`, die doet een live `getIssue`). Doe je dat niet, dan
-   asserteer je op de waarde van vóór de await — meestal `null` — en is de test *permanent groen*,
-   ook als het bewaakte gedrag wegvalt. Zo bewaakte de manual-approve-poorttest jarenlang niets.
-   Vuistregel: kan een herstelde assertie niet aantoonbaar rood worden (mutatietest: verwacht
-   tijdelijk de verkeerde waarde), dan test hij niets.
-
-5. **Een testdubbel die een interface-default erft, kan het bewaakte gedrag stilzwijgend
-   uitschakelen** (SF-1971): `GitHubApi.changedFiles(...)` heeft een default die `null`
-   teruggeeft, en `DeploySubtaskHandler.matchedTargets` behandelt een onbepaalbare diff
-   *fail-open* (álle doelen doen mee). Een deploy-doelentest op de ongewijzigde `FakeGitHubApi`
-   was dus vals-groen geweest: er werd niets gefilterd. Loop bij een nieuwe e2e-assertie de
-   poortmethodes na waar je gedrag van afhangt, en overschrijf de defaults expliciet. De
-   tegenproef hoort erbij: met `changedFiles` tijdelijk terug op `null` blijft
-   `DeployTargetsE2eTest` op de deploy-subtaak wachten en loopt hij in zijn await-timeout — dat
-   is het bewijs dat de test iets bewaakt.
-   Tweede geval, zelfde patroon (SF-2102): `TrackerCapabilities.changelogFor` heeft een default die
-   `emptyList()` teruggeeft en géén enkele testfake (`FakeTrackerApi`, `BridgeTestFixtures`)
-   overschrijft die. Dekking op de bridge-operatie `changelog.for` is dus onvoorwaardelijk groen en
-   bewijst niets over de query; die dekking hoort rechtstreeks op `PostgresTrackerClient` tegen de
-   echte database.
-
-6. **Bij een query met meerdere filterclausules moet je de andere clausules neutraliseren**
-   (SF-2102): wil je bewijzen dat `AND parent_key IS NULL` subtaken uit de changelog houdt, dan moet
-   de subtaak álle overige clausules passeren. `createSubtask` erft de `repo` van de parent niet
-   (blijft `NULL`), dus zonder een expliciete `jdbc.update(... SET repo = ...)` sluit `WHERE repo = ?`
-   de rij al uit en zou de test ook groen blijven met de parent-clausule verwijderd. Het
-   mutatiebewijs (clausule tijdelijk uit de query slopen → test rood) is de enige betrouwbare check.
-   Dezelfde suite kent de klok-variant: `ORDER BY updated_at DESC` testen op rijen die hun
-   `updated_at` van `now()` krijgen is een dobbelsteen zodra twee schrijfacties in dezelfde tik
-   vallen — zet de timestamps expliciet.
-
-Schrijf je een e2e-assert die één van deze patronen omzeilt, dan introduceer je
-vrijwel zeker een flake — of een vals-groene test — terug.
-
-### mvn test vs mvn verify
-
-- `mvn test` — snelle unit-run (surefire; de e2e-/Testcontainers-klassen zijn ge-exclude).
-- `mvn verify` — het volledige vangnet, inclusief e2e via failsafe (Docker vereist).
-  **Dit is de afrondingscheck vóór elke wijziging.**
-- Eén e2e-test: `mvn -f softwarefactory/pom.xml verify -Dit.test=PipelineFlowsE2eTest -Dsurefire.skip=true`
-
-Elke testklasse draait in een verse JVM (`reuseForks=false`) — niet uit voorzichtigheid maar
-uit noodzaak: gestapelde Spring-contexts + pollerthreads + embedded servers lieten de fork
-anders native omvallen (zie de comment in `softwarefactory/pom.xml`).
-
----
-
-## 5. Kookboekjes
-
-### a. Nieuw `SubtaskType` toevoegen
-
-1. `core/TrackerModels.kt` — waarde toevoegen aan de `SubtaskType`-enum (met trackerValue).
-2. Heeft de stap eigen fasen? `core/SubtaskPhase.kt` uitbreiden (volg het patroon
-   `start → *-ing → *-ed → *-approved`) en `core/HumanActionPolicy.gateFor` bijwerken als er
-   een wacht-/goedkeurmoment bij zit.
-3. `pipeline/service/SubtaskExecutionCoordinator.processSubtask` — een `when`-tak met een
-   eigen handler-functie (kopieer de vorm van `documentationSubtask` voor een AI-stap of
-   `manualSubtask` voor een niet-AI-stap).
-4. Is het een afgedwongen stap? `runtime/services/SubtaskPlanMaterializer.kt`: spec-functie
-   + vaste titel in de companion + filteren uit `plannedSpecs`. Zo niet: niets — de planner
-   mag 'm dan declareren. Derde smaak (sinds `hotfix`, SF-1959): een type dat de planner nooit
-   declareert en dat ook geen afsluiter is, hoort in een eigen exacte speclijst via
-   `SubtaskMaterializationApi.materializeFromSpecs` — die append't niets, dus zet ook `merge` en
-   `deploy` er zelf in. Een eigen terminale fase moet je bovendien in `SubtaskPhase.isTerminal`
-   zetten, anders zet `advanceSubtaskChain` de keten nooit door.
-5. AI-stap? Nieuwe `AgentRole` (factory-common `core/AgentRole.kt`), agent-instructies in
-   `docs/factory/agents/<rol>.md` én in de docs-skeleton (factory-common resources, die in
-   target-repos wordt geïnstalleerd).
-6. Tests: coordinator-unit-test + e2e (`ChainCompositionE2eTest` verifieert de
-   keten-samenstelling; niet-AI-stappen ook toevoegen aan `NON_AI_SUBTASK_TYPES` in
-   `e2e/AwaitDsl.kt`).
-
-### b. Nieuw tracker-veld
-
-1. `factory-common/…/core/TrackerField.kt` — enum-waarde met display-naam.
-2. `core/TrackerModels.kt` — property op `TrackerIssueFields` + tak in
-   `TrackerIssueFields.applying()`. Die `when` is **bewust exhaustief zonder `else`**: de
-   compiler dwingt je langs elke plek (dat verving een handmatig 20-case-blok dat stil
-   verouderde).
-3. `tracker/clients/PostgresTrackerClient.kt` — `columnFor`/`columnValue`/`mapRow` uitbreiden
-   met de nieuwe kolom (kies het juiste kolomtype in de Flyway-migratie:
-   enum-achtig als tekstkolom, integer/text/timestamp).
-4. Fakes: `testsupport/FakeTrackerApi.kt` en — voor e2e — `e2e/TrackerTestState.kt`
-   (die reconstrueert `customFields` on-the-fly in dezelfde vorm als het productiepad,
-   inclusief op gelinkte issues; zie de gotcha in
-   [kwaliteitsanalyse.md](kwaliteitsanalyse.md) fase 2).
-
-### c. Nieuw handmatig commando
-
-1. `core/TrackerModels.kt` — token toevoegen aan `FactoryCommand`.
-2. `orchestrator/services/ManualCommandService.kt` — `when`-tak met de uitvoering. Commando's
-   reizen als tracker-comment `@factory:command:<token>` (zie
-   `OrchestratorService.queueCommand`; parsing in `core/TrackerCommentParser.kt`) — daardoor
-   werken ze uniform vanuit de Flutter-UI, Telegram én rechtstreeks op het issue, en zijn ze
-   geordend/auditbaar als comments.
-3. Flutter-dashboard: actie toevoegen via `BridgeRequestHandler` (operatie `story.queueCommand`).
-4. Telegram: mapping van reply-tekst naar commando in `telegram/TelegramReplyService.kt`.
-
----
-
-## 6. Review-checklist voor deze codebase
-
-Naast de gebruikelijke dingen — dit zijn de codebase-specifieke vragen:
-
-- [ ] **Idempotent per poll?** Wordt deze code elke poll opnieuw geraakt, en zo ja, heeft
-      hij dan twee keer effect? (Guards zoals in `advanceSubtaskChain` zijn het patroon.)
-- [ ] **Fase-transities compleet?** Nieuwe fase → alle `when`-blokken langs
-      (`SubtaskExecutionCoordinator`/`StoryRefinementCoordinator`), plus recovery-tak,
-      plus `HumanActionPolicy.gateFor`, plus de schema-bootstrap-enumwaarden. Onthoud dat
-      fasen op twee plekken geschreven worden: de pipeline (dispatch/advance) én de
-      completion (`AgentRunCompletionService.updateTracker`).
-- [ ] **Beide kanten van het result-contract?** Wijziging aan `AgentResultFile` → schrijver
-      (`AgentCli`), lezer (`AgentResultFileCompletionPoller`), contract-test, en alleen
-      additief met default (oude container vs nieuwe factory!).
-- [ ] **`HumanActionPolicy` gebruikt** i.p.v. eigen wacht-/auto-approve-logica, en
-      auto-approve/silent altijd via de parent geresolved?
-- [ ] **Geen nieuwe `System.getenv` buiten `config/`** — env-toegang via `ConfigApi`
-      (er zijn nog een paar legacy-plekken; maak het er niet meer).
-- [ ] **Soft-fail correct toegepast**: `runCatching` alléén op poll-/integratiegrenzen, mét
-      log, en nooit rond iets waarvan de uitkomst een vervolgbeslissing stuurt (zie §3).
-- [ ] **e2e-asserts story-gebonden en verbruik-gebaseerd** (§4) — geen globale tellingen,
-      geen "is de fase nu X"-polls, unieke story-key per test.
-- [ ] **Nederlandstalig waarom-commentaar**: code, commentaar en commits zijn in het
-      Nederlands, en commentaar legt het *waarom* vast (vaak met het SF-nummer van het
-      incident erbij, zoals overal in `SubtaskExecutionCoordinator`). Een reviewer over een
-      half jaar — mens of agent — moet de beslissing kunnen reconstrueren zonder de
-      tracker-historie erbij te pakken.
-- [ ] **`mvn verify` gedraaid** (niet alleen `mvn test`) vóór afronden.
-
----
-
-## 7. Operatie in het kort
-
-Het volledige operatie-verhaal staat in [../runbook.md](../runbook.md); dit is de
-developer-samenvatting plus de gotchas die je een middag kunnen kosten.
-
-- **Draaien:** `./factory start` (of vanuit IntelliJ `SoftwareFactoryApplication`), of
-  `./factory-loop.sh` — de zelfherstellende lus: git pull → run → herstart bij exit, stopt
-  op het stop-signaal `work/.factory-stop` (Stop-knop in de UI), en zorgt zelf dat Docker
-  en de lokale Postgres-container draaien.
-- **Permanent draaien via een macOS LaunchAgent** — in plaats van `factory-loop.sh`
-  handmatig te starten: draait dan bij inloggen automatisch, en na een crash bij de
-  volgende login weer vanzelf op.
-  ```bash
-  mkdir -p ~/git/softwarefactory/work
-  cat > ~/Library/LaunchAgents/nl.vdzon.factory-loop.plist <<EOF
-  <?xml version="1.0" encoding="UTF-8"?>
-  <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-  <plist version="1.0">
-  <dict>
-    <key>Label</key><string>nl.vdzon.factory-loop</string>
-    <key>ProgramArguments</key>
-    <array><string>$HOME/git/softwarefactory/factory-loop.sh</string></array>
-    <key>WorkingDirectory</key><string>$HOME/git/softwarefactory</string>
-    <key>RunAtLoad</key><true/>
-    <key>KeepAlive</key>
-    <dict><key>SuccessfulExit</key><false/></dict>
-    <key>ThrottleInterval</key><integer>60</integer>
-    <key>StandardOutPath</key><string>$HOME/git/softwarefactory/work/factory-loop.log</string>
-    <key>StandardErrorPath</key><string>$HOME/git/softwarefactory/work/factory-loop.log</string>
-  </dict>
-  </plist>
-  EOF
-  launchctl load ~/Library/LaunchAgents/nl.vdzon.factory-loop.plist
-  ```
-  Bediening (`KeepAlive` met `SuccessfulExit=false`: launchd probeert het script alleen
-  opnieuw als het **faalde** — bv. Docker Desktop dat bij een reboot niet binnen 120s
-  opkwam, exit 1 — met max één poging per minuut. Bewust stoppen is exit 0 en blijft dus
-  gestopt; de eigen herstel-lus van `factory-loop.sh` regelt herstarts van de app zelf):
-  - **Status:** `launchctl list | grep factory-loop` (PID/exit-code), live output met
-    `tail -f work/factory-loop.log`.
-  - **(Her)starten:** `launchctl kickstart -k gui/$(id -u)/nl.vdzon.factory-loop` — werkt
-    zowel als 'ie stilstaat als wanneer 'ie al draait (killt dan eerst).
-  - **Netjes stoppen:** gewoon de Stop-knop in de UI, zoals altijd (schrijft
-    `work/.factory-stop`) — de LaunchAgent herstart 'm daarna niet vanzelf.
-  - **Hard stoppen via terminal:** `launchctl kill SIGTERM gui/$(id -u)/nl.vdzon.factory-loop`;
-    het script vangt zelf geen SIGTERM af (alleen Ctrl-C/SIGINT), dus controleer erna met
-    `pgrep -fl spring-boot:run` of het java-proces ook echt weg is.
-
-  Claude Code- en Codex-authenticatie werken hierin gewoon: die staan als bestanden in
-  `~/.claude` resp. `~/.codex` (geen macOS-Keychain-afhankelijkheid, geen actieve
-  interactieve sessie nodig) — een LaunchAgent draait als jouw ingelogde gebruiker en heeft
-  daar normale leestoegang toe.
-- **`./factory`-subcommando's:** `start`, `test`, `build-images` (bouwt `agent:local` en
-  `assistant:local` — in die volgorde, de assistant is FROM agent), `local-db`,
-  `local-db-stop`, `local-services`, `local-services-stop`.
-- **Config-lagen** (`config/services/SecretsEnvLoader.kt`): `properties.default.env`
-  (committed, documenteert elke knop) → `properties.env` (lokaal) → `secrets.env` (lokaal,
-  geheim); echte env-vars winnen altijd. Plus `projects.yaml`: projectnaam → repo,
-  Telegram-kanaal en deploy-gedrag per project.
-
-Gotchas:
-
-- **`work/` bevat gekloonde target-repos, niet deze codebase.** Zoek/refactor je met
-  IDE-brede search, sluit `work/` (en `qualityrun/`) uit — anders "vind" je code die van
-  een heel ander project is, en een `git status` daarbinnen gaat over die kloon.
-- **Wijzig je iets in `factory-contracts` of `factory-common`, herbouw dan het agent-image**
-  (`./factory build-images`): `Dockerfile.agent` bakt beide dependencies + agentworker in het
-  image, dus een draaiende factory met een oud image geeft agents die je wijziging niet hebben.
-  `./factory start` en `factory-loop.sh` installeren beide dependencies wél eerst in `~/.m2` voor
-  de host-kant.
-- **dashboard-backend in k8s heeft `projects.yaml` nodig**: mount het bestand of zet
-  `SF_PROJECTS_FILE`, anders blijft de repositories-tab leeg (de backend resolvet repo's
-  via dezelfde `ProjectRepoResolver`).
-- **Tracker-API via CLI/scripts**: `tools/sf-story` praat met de factory's eigen
-  `/api/tracker/*`-endpoint (Bearer `SF_FACTORY_API_TOKEN`), niet met een externe
-  issue-tracker — geen Cloudflare/browser-UA-gedoe meer nodig.
-- **Docs/deploy-only PR's bouwen geen preview-image**: de tester-preview pint dan een
-  niet-bestaande image-sha → ImagePullBackOff → 503 in de preview en een falende
-  tester-setup. Herken dit patroon vóór je in de preview-omgeving gaat graven.
-
-Veel plezier — en als je iets tegenkomt dat dit document tegenspreekt: de code wint, en
-werk dit document bij (dat is hier geen dode letter; de documentation-subtaak dwingt het af).
+Voor repositorywerk is de remote storybranch het enige gedeelde geheugen. Elke job krijgt een verse
+Runtime-checkout. Er is geen lokale `agentworker`, Docker-agentcontainer, resultbestand of gedeelde
+storyworkspace meer.
+
+## Waar begin je in de code?
+
+1. `orchestrator/schedulers/OrchestratorPoller.kt`: kiest werk en reageert op wake-events.
+2. `pipeline/service/StoryRefinementCoordinator.kt`: storyfasen refine/plan.
+3. `pipeline/service/SubtaskExecutionCoordinator.kt`: subtaskfasen en loopbacks.
+4. `pipeline/service/AgentDispatcher.kt`: maakt de duurzame agentrun en dispatchrequest.
+5. `runtime/v2/AgentRuntimeV2Adapter.kt`: vertaalt het domeinrequest naar Runtime v2.
+6. `runtime/v2/AgentRuntimeV2CompletionPoller.kt`: reconcilieert jobs.
+7. `runtime/services/AgentRunCompletionService.kt`: valideert/persisteert resultaat en beweegt de
+   workflow.
+8. `github/` en `merge/`: branch, PR, checks en merge.
+9. `dashboard/`, `bridge/`, `telegram/`, `audit/`, `maintenance/`: gebruikers- en beheercapabilities.
+
+## Domein versus Runtime
+
+Software Factory is eigenaar van:
+
+- story/subtaskfasen, vragen en approvals;
+- rol- en modelkeuze;
+- één branch/PR per story;
+- loopbackcaps, mergegates, preview en deploy;
+- Product Factory- en Telegramcontracten.
+
+Agent Runtime is eigenaar van:
+
+- workerselectie, lease, attempt en technische retry;
+- execution image en providercredential;
+- tijdelijke checkout en Gitpublicatie;
+- verificatierondes binnen de job;
+- events, transcript, artifacts, usage en kosten.
+
+Voeg geen storykennis aan Runtime toe en bouw geen uitvoeringsdetail terug in Software Factory.
+
+## Het repositoryprotocol
+
+1. Factory maakt idempotent een remote branch vanaf de project-basebranch.
+2. Een muterende job ontvangt alleen repositoryalias, bestaande branch en `COMMIT_AND_PUSH`.
+3. Runtime-worker checkt vers uit en geeft de worktree aan de AI-agent.
+4. De AI-agent wijzigt bestanden maar commit/pusht niet.
+5. Runtime controleert Gitmetadata, draait `.factory/verification.yaml`, laat maximaal de ingestelde
+   herstelrondes uitvoeren en pusht alleen bij groen.
+6. Factory verwerkt AI-resultaat, `repositoryResult` en `verificationResult` apart.
+7. Na de eerste push maakt Factory één PR. Volgende jobs pullen dezelfde remote branch.
+8. Read-only reviewer/testerbewijs bevat `checkoutCommitSha`; een latere push maakt het stale.
+
+SHA's zijn bewijs, niet het coördinatiemechanisme. Coördinatie gebeurt via alias + branch.
+
+## Idempotentie en herstel
+
+Een logische agentstap heeft één idempotentiesleutel en één opgeslagen `runtime_job_id`. Een timeout
+van de create-call betekent niet dat de create mislukt is. Reconcileer eerst. Hetzelfde geldt rond
+push en PR-aanmaak.
+
+Houd drie retrylagen uit elkaar:
+
+- Runtime-attempt: technische retry binnen dezelfde job;
+- verificatieherstelronde: dezelfde agent krijgt rood commandobewijs;
+- Software Factory-loopback: domeinbeslissing naar developer/reviewer/tester.
+
+Cancel, timeout en late completion moeten via leases/fencing veilig blijven.
+
+## Resultaatvalidatie
+
+Vertrouw nooit alleen het laatste agentbericht. Valideer:
+
+- terminale Runtime-status;
+- rolgebonden JSON-schema;
+- gedeclareerde artifacts, MIME, grootte en SHA;
+- repositoryalias, branch en publicatiemodus;
+- `repositoryResult` en commitbewijs;
+- `verificationResult` en `checkoutCommitSha`;
+- correlation/idempotency tegen de actieve domeinrun.
+
+Een ontbrekend of ambigu onderdeel is geen succes. Force-push is geen herstelpad.
+
+## Modelconfiguratie
+
+`agent_role_execution_config` bevat per rol een globale keuze en optioneel projectoverride voor
+`vendorId`, `model` en `mode`. De UI haalt geldige opties bij Runtime op. Een wijziging geldt vanaf
+de volgende job. Er is geen `aiLevel` of statische supplierroutering meer.
+
+## Telegram-assistent
+
+`TelegramAssistantService` beheert threads, `/stop`, inputfoto's en knowledge-tips.
+`RuntimeAssistantClient` maakt per beurt een structured-generationjob. De assistent heeft bewust
+geen tracker-, repository-, browser-, cluster- of secrettools en kan alleen adviseren. Wijzig dit
+niet impliciet: muterende chatcommands vereisen een apart productbesluit en autorisatiemodel.
+
+## Tests
+
+```bash
+mvn -B --no-transfer-progress test
+mvn -B --no-transfer-progress verify
+./quality/run.sh
+
+cd dashboard-frontend
+flutter analyze
+flutter test
+```
+
+`TestAgentRuntime` simuleert het v2-protocol. `LocalGitRemote` en `FakeGitHubApi` bewijzen de echte
+branch-/PR-/mergeflow zonder productierepository. Test minimaal succes, vraag/hervatting,
+NO_CHANGES, BRANCH_CHANGED, rode verificatie, stale bewijs, cancel, timeout en restart.
+
+## Configuratie en secrets
+
+Lees [`factory/secrets-local.md`](factory/secrets-local.md). Belangrijk:
+
+- Software Factory heeft een Runtime-tenanttoken, geen AI-providercredential;
+- Runtime-worker bezit Git- en providercredentials;
+- targetproject-`secrets.env` blijft lokaal bij de eigenaar en wordt nooit gemount of verstuurd;
+- `SF_GITHUB_TOKEN` blijft nodig voor Factory-eigen branch/PR/merge;
+- de WebSocketbridge is tijdelijk en verdwijnt pas met het OpenShift-topologieplan.
+
+## Reviewchecklist
+
+- [ ] Blijft domeinlogica in Factory en technische uitvoering in Runtime?
+- [ ] Is er precies één duurzame jobcorrelatie per logische stap?
+- [ ] Is repositoryoverdracht uitsluitend alias + remote branch?
+- [ ] Kan een stale SHA, verkeerde alias of verkeerde branch nooit publiceren?
+- [ ] Zijn AI-, repository- en verificatieresultaat apart gevalideerd?
+- [ ] Zijn secrets afwezig uit request, prompt, event, artifact, log en fixture?
+- [ ] Zijn cancel/restart/verloren-responsepaden getest?
+- [ ] Is een nieuwe moduledependency expliciet toegestaan en getest?
+- [ ] Beschrijft actuele documentatie alleen geïmplementeerd gedrag?
+
+## Topologiegrens
+
+De Runtime-refactor maakt Software Factory onafhankelijk van lokale AI-uitvoering, maar verplaatst
+de orchestrator nog niet. Volg voor de volledige OpenShift-verhuizing, het slopen van de bridge,
+Postgresmigratie en de rename uitsluitend
+[`software-factory-v2/topologie-naar-openshift.md`](software-factory-v2/topologie-naar-openshift.md).

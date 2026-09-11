@@ -69,11 +69,11 @@ class FactoryVersionService : FactoryVersionQuery {
             }
         }.getOrNull()
 
-    /** Repo-root, ook als de cwd de module-map is (mvn -pl). Lokaal i.v.m. module-grenzen. */
+    /** Repo-root, ook als Maven de app met de modulemap als cwd start. */
     private fun projectRoot(): Path {
         val cwd = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize()
         val parent = cwd.parent
-        return if (cwd.fileName?.toString() == "softwarefactory" && parent != null && Files.exists(parent.resolve("agentworker"))) {
+        return if (cwd.fileName?.toString() == "softwarefactory" && parent != null && Files.exists(parent.resolve("pom.xml"))) {
             parent
         } else {
             cwd

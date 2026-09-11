@@ -7,10 +7,8 @@ import nl.vdzon.softwarefactory.core.TrackerField
 
 import java.time.OffsetDateTime
 
-// AgentRole is verhuisd naar factory-common (core/AgentRole.kt): de agentworker heeft 'm ook
-// nodig en had er een eigen, gedivergeerde kopie van. Zelfde package, dus imports bleven gelijk.
-// TrackerField is om dezelfde reden verhuisd naar factory-common (core/TrackerField.kt):
-// dashboard-backend leest dezelfde tracker-velden en mag de namen niet zelf dupliceren.
+// AgentRole en TrackerField staan canoniek in factory-common zodat server en dashboard dezelfde
+// waarden gebruiken.
 
 /**
  * SF-335 — categorie van een gezette [TrackerField.ERROR]. Onderscheidt een inhoudelijke

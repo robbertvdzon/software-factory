@@ -1,27 +1,23 @@
-# Software Factory Repo Context
+# Factory-documentatie
 
-Deze repository bevat de lokale software-factory orchestrator en agent-runtime.
-De factory pollt haar eigen tracker-database (Postgres), start agent-containers via Docker, houdt
-state bij in Postgres en laat agents target-repo's refinen, ontwikkelen, reviewen, testen en
-samenvatten.
+De Software Factory beheert stories in PostgreSQL en stuurt de vaste refine-, plan-, develop-,
+review-, test-, summary-, document-, merge- en deployketen aan. Alle AI-uitvoering loopt via Agent
+Runtime v2; deze repository bevat geen eigen agentworker meer.
 
-Naast de `softwarefactory`-module (orchestrator, interne HTTP-adapters) en de
-`agentworker`-module kent de repo een lichte `factory-contracts`-module voor wiretypes, een
-gedeelde `factory-common`-module en een aparte `dashboard-backend` (Spring Boot JSON-API) met
-bijbehorende `dashboard-frontend` (Flutter web-app) als dashboard. Zie `development.md` voor
-de modulestructuur.
+Lees voor actueel gedrag:
 
-Belangrijke documentatie:
+- [`functional-spec.md`](functional-spec.md) — wat de factory functioneel doet;
+- [`technical-spec.md`](technical-spec.md) — architectuur en Runtime-/Git-protocol;
+- [`development.md`](development.md) — bouwen, testen en projectstructuur;
+- [`secrets-local.md`](secrets-local.md) — lokale configuratie en secretgrenzen;
+- [`../../runbook.md`](../../runbook.md) — bediening en storingen;
+- [`../software-factory-v2/VOORTGANG.md`](../software-factory-v2/VOORTGANG.md) — bewijs van de
+  Runtime-v2-migratie.
 
-- `development.md`: lokaal bouwen, testen en projectstructuur.
-- `technical-spec.md`: technische keuzes en conventies.
-- `functional-spec.md`: functionele scope van de factory.
-- `deployment.md`: runtime/deploy-informatie voor deze repo.
-- `secrets-local.md`: lokale secrets en env-vars.
-- `durable-completion.md`: completionprotocol, restart-recovery en handmatige requeue-runbook.
-- `agents/`: rol-specifieke aanwijzingen voor agents.
-- `ux/`: UX-specificatie en wireframes voor de webinterface.
+De agentinstructies onder [`agents/`](agents/) zijn bronmateriaal voor de prompts. Targetprojecten
+kunnen eigen factorydocumentatie en `.factory/verification.yaml` toevoegen.
 
-`specs/specs.md` is een historisch archief (deels verouderd model); de actuele
-specificatie is `functional-spec.md` in deze map. Deze `docs/factory/` map is de
-factory-ready context die agents bij toekomstige stories moeten gebruiken.
+De huidige app-/bridge-topologie is tijdelijk. De verhuizing van de orchestrator naar OpenShift en
+de rename staan in
+[`../software-factory-v2/topologie-naar-openshift.md`](../software-factory-v2/topologie-naar-openshift.md)
+en vallen buiten de Runtime-refactor.

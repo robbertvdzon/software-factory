@@ -8,8 +8,8 @@ class FactorySecrets(
     val factoryDatabaseSchema: String,
     val kubeconfig: String?,
     // Apart, minimaal gescopeerd kubeconfig (alleen get/list/delete op namespaces/projects) voor
-    // PreviewEnvironmentCleaner — bewust los van [kubeconfig] hierboven, dat gedeeld wordt met
-    // reguliere (read-only) story-agents. Valt terug op [kubeconfig] als niet gezet, zodat een
+    // PreviewEnvironmentCleaner — bewust los van [kubeconfig] hierboven, dat ook voor reguliere
+    // preview- en deploymentstatus wordt gebruikt. Valt terug op [kubeconfig] als niet gezet, zodat een
     // omgeving zonder deze apart-gescopeerde identity gewoon blijft werken (met het oude gedrag).
     val previewCleanupKubeconfig: String? = null,
     // Apart, minimaal gescopeerd PAT (read:packages + delete:packages) voor MaintenanceCleanupScheduler

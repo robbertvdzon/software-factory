@@ -1,370 +1,58 @@
-# Scheduled jobs
+# Scheduled jobs en achtergrondwerk
 
-De `@Scheduled` jobs (cost monitor, agent result completion, de nightly scheduler — die zelf twee
-`@Scheduled`-methodes heeft: de hoofd-tick en de AI-verrijking-tick —, de work-cleanup poller, de
-Telegram-resultaatmelding poller, de maintenance-cleanup scheduler en de twee agent-retentie
-pollers voor `agent_events` en `agent_runs`) staan aan via `@EnableScheduling` in `SoftwareFactoryApplication`. De orchestrator poller en de
-Telegram poller zijn geen `@Scheduled` jobs, maar eigen daemon-threads (zie hieronder).
+## Orchestrator
 
-## 1. Orchestrator poller
+De orchestrator pollt als veiligheidsnet op `SF_POLL_INTERVAL_MS` en wordt daarnaast direct gewekt
+door trackerwijzigingen. Hij kiest startbare stories/subtaken en respecteert rol- en totaalcaps.
 
-- Klasse: `orchestrator/schedulers/OrchestratorPoller.kt`
-- Methode: `loop()` / `runOnce()`
-- Schedule: geen `@Scheduled`, maar een daemon-thread (`orchestrator-poller`) die op
-  `ApplicationReadyEvent` start en slaapt met een wekbare sleep.
-- Cadans: vast interval (`SF_POLL_INTERVAL_MS`, default `60000` ms) als vangnet. Elke schrijf-
-  operatie in `PostgresTrackerClient` (`createStory`, `createSubtask`, `updateIssueFields`,
-  `updateIssueSummary`, `updateIssueDescription`, `transitionIssue`, `postComment`) publiceert
-  direct na de write een `FactoryStateChangedEvent` dat de wachtende sleep meteen wekt, zodat de
-  keten zonder vertraging doorzet; het vaste poll-interval is dan alleen nog het vangnet wanneer er
-  geen events binnenkomen.
-- Idempotentie-guard (SF-903/SF-904): `transitionIssue` en `updateIssueFields` slaan de `UPDATE`
-  (en dus het publiceren van het event en de `updated_at`-bump) over wanneer de opgegeven
-  waarde(n) al gelijk zijn aan de huidige rij (`... WHERE issue_key = ? AND (... IS DISTINCT
-  FROM ?)`). Zo blijft `updated_at` van een reeds afgeronde (terminale) subtask/story ongewijzigd
-  en valt die uit de `findAiIssues`-window, zodat ze zichzelf niet langer eeuwig opwekt via een
-  no-op transitie. `advanceSubtaskChain` (`SubtaskExecutionCoordinator`) roept `transitionIssue`
-  daarnaast alleen nog aan wanneer de subtask/parent-story niet al de doelstatus heeft.
-- Altijd actief zodra de applicatie draait.
+## Runtime completion
 
-Verantwoordelijkheid:
+`AgentRuntimeV2CompletionPoller` reconcilieert niet-terminale `runtime_job_id`'s op
+`SF_AGENT_RUNTIME_POLL_MS`. Hij haalt Runtime-status/events op en publiceert terminale resultaten
+via de durable completionlaag. Een herstart hervat dezelfde jobcorrelatie.
 
-- Zoekt werkbare tracker-issues (fase-gate: lege fase = niet starten, `start` = oppakken).
-  `PostgresTrackerClient.findAiIssues` combineert hiervoor de top-N op `updated_at DESC` met alle
-  issues in een niet-terminale `subtask_phase` (begrensd via `PENDING_SUBSET_LIMIT`, 500), zodat een
-  wachtende (sub)taak (bv. `manual-approve-needed`) niet buiten de LIMIT kan vallen en een geldig
-  `@factory:command:approve`-comment altijd bij de eerstvolgende poll wordt verwerkt. Een derde,
-  ongelimiteerde tak voegt alle issues met `retry_after` toe. Vóór dat tijdstip wordt zo'n
-  Claude-quota-issue vóór recovery/hard-timeout overgeslagen; op of erna wordt dezelfde actieve rol
-  met een nieuw starttijdstip gedispatcht.
-- Done-filter (SF-918): de top-N-tak sluit rijen met een afgeronde `status` uit
-  (`core.FinishedStatus` — `done`/`fixed`/`verified`/`closed`/`resolved`, lowercase-genormaliseerd;
-  dezelfde set als `StoryStatusPresenter.classifyStatus`), zodat een afgeronde story niet telkens
-  opnieuw wordt opgehaald zolang er geen event binnenkomt. De niet-terminale-`subtask_phase`-tak
-  filtert niet op `status`, dus een nog actieve subtaak van een al-op-Done-gezette story blijft
-  bereikbaar.
-- Past handmatige commands toe.
-- Controleert budget, pauzes, errors en concurrency.
-- Dispatcht de agent-rollen van het twee-laags model: refiner/planner op story-niveau,
-  developer/reviewer/tester/summarizer/documenter op subtaak-niveau; de merge- en
-  deploy-subtaken worden zonder agent afgehandeld.
-- Monitort actieve pull requests op merge-status en nieuwe `@factory` comments.
+De durable completioncoördinator gebruikt leases, retry/backoff en fencing. Hierdoor kan een late
+of dubbele callback geen tweede domeintransitie publiceren.
 
-## 1b. Telegram poller
+## Deployreconciliatie
 
-- Klasse: `telegram/TelegramPoller.kt`
-- Schedule: geen `@Scheduled`, maar een daemon-thread (`telegram-poller`) die op
-  `ApplicationReadyEvent` start; assistent-gesprekken draaien op een aparte thread-pool
-  (`telegram-assistant`).
-- Alleen actief met geconfigureerde Telegram-secrets.
+`StoryDeployReconciler` controleert actieve deploymenttargets en schuift een story pas door wanneer
+alle toepasselijke doelen gezond zijn. Preview/deploy is Factory-domeinlogica, geen Runtime-jobflow.
 
-Verantwoordelijkheid:
+## Audits
 
-- Leest updates van de Telegram Bot API (long polling) en vertaalt replies naar antwoorden op
-  vragen, `@factory`-commands en assistent-gesprekken.
+`AuditScheduler` plant read-only Runtime-jobs volgens globale en projectspecifieke instellingen.
+De minst recent uitgevoerde audit komt aan de beurt. Handmatig gestarte audits gebruiken dezelfde
+pipeline. Een job kan eindigen met rapport, vraag of fout.
 
-## 2. Cost monitor poller
+## Telegram
 
-- Klasse: `orchestrator/schedulers/CostMonitorPoller.kt`
-- Methode: `poll()`
-- Schedule: `@Scheduled(fixedDelayString = "#{@orchestratorSettings.costMonitorInterval.toMillis()}")`
-- Default interval: `SF_COST_MONITOR_INTERVAL_MS`, default `300000` ms
-- Altijd actief zodra de applicatie draait.
+De Telegram-poller verwerkt updates; `TelegramResultNotifyPoller` levert duurzame notificaties en
+herstelt na tijdelijke API-fouten. De conversationele assistent pollt alleen de eigen Runtime-job
+binnen de request/threadafhandeling en ondersteunt cancel via `/stop`.
 
-Verantwoordelijkheid:
+## Kosten en quota
 
-- Controleert alle actieve stories op token- en kostenbudget.
-- Werkt budgetvelden in de tracker-database bij.
-- Kan stories of het systeem pauzeren als budget- of creditsgrenzen geraakt worden.
+`CostMonitorPoller` bewaakt op `SF_COST_MONITOR_INTERVAL_MS` de ingestelde budget-/creditgrenzen.
+Runtimequota of ontbrekende capaciteit wordt op een zichtbare wachtstatus gemapt. De originele
+Runtime-job/attempt blijft van de domeinretry onderscheiden.
 
-## 3. Agent result file completion poller
+## Retentie en cleanup
 
-- Klasse: `runtime/services/AgentResultFileCompletionPoller.kt`
-- Methode: `poll()`
-- Schedule: `@Scheduled(fixedDelayString = "\${softwarefactory.agent-result-poll-ms:2000}")`
-- Default interval: `2000` ms
+- `AgentEventRetentionPoller`: oude `agent_events` in begrensde batches;
+- `AgentRunRetentionPoller`: oude terminale `agent_runs`; actieve/onafgeronde completion blijft;
+- completionpayloadcleanup: verwerkte inboxpayloads na retentie;
+- `WorkCleanupPoller`: achtervang voor overige tijdelijke bestanden onder `work/`; er zijn geen
+  actieve agent- of storyworkspaces meer;
+- `MaintenanceCleanupScheduler`: GitHubreleases en packageversies volgens `projects.yaml`;
+- `RecentCommitsPoller`: recente commitprojectie voor het dashboard.
 
-Verantwoordelijkheid:
+Cleanupresultaten worden fail-soft vastgelegd in `maintenance_cleanup_runs`. Een fout in logging mag
+de eigenlijke cleanup niet terugdraaien. Destructieve cleanup gebruikt waar mogelijk een apart,
+minimaal gescopeerd token of kubeconfig.
 
-- Zoekt actieve agent runs in PostgreSQL.
-- Wacht zolang de bijbehorende Docker-container nog draait.
-- Leest na container-exit `/work/agent-result.json` uit de workspace.
-- Roept `RuntimeApi.complete(...)` aan zodat usage, events, tracker-updates, PR metadata, knowledge
-  updates en de optionele Claude-rate-limitinformatie centraal worden verwerkt. Een quota-uitkomst
-  resulteert in `retry_after` in plaats van een `Error` of fase-overgang.
+## Operationele regel
 
-## 4. Audit scheduler
-
-Vervangt de vroegere nightly scheduler (`nightly/NightlyScheduler.kt`, met een eigen digest-tick):
-nightly jobs pasten zelf code aan (tot en met automerge/deploy); audits zijn read-only en stellen
-hoogstens 1 vervolg-story voor. De hele `nightly`-module (scheduler, planner, jobs-reader, gateway,
-digest, dashboardschermen/-bridge-operaties) is verwijderd.
-
-- Klasse: `audit/services/AuditScheduler.kt`
-- Methode: `tick()` (delegeert naar `runOnce()`)
-- Schedule: `@Scheduled(fixedDelayString = "\${sf.audit.tick-ms:30000}", initialDelayString = "\${sf.audit.initial-delay-ms:30000}")`
-- Default interval: `30000` ms
-
-Verantwoordelijkheid:
-
-- Leest elke tick de hele run-status uit de DB (geen in-memory state) en laat de pure `AuditPlanner`
-  de acties bepalen — zelfde restart-veilige opzet als de oude nightly scheduler.
-- Maakt één automatische (`SCHEDULED`) run per kalenderdag aan, zodra het eerste project z'n
-  starttijd bereikt heeft. De starttijd is **per project** instelbaar
-  (`audit_project_settings.start_time`, migratie `V24`); is er voor dat project geen rij of staat
-  daar geen tijd in, dan geldt de globale `audit_settings.start_time` (default 08:00). De run is een
-  lege container: elk project wordt pas geseed (`AuditAction.SeedProject`) zodra zíjn eigen
-  starttijd bereikt is, dus projecten kunnen op verschillende momenten van de dag instromen.
-- Bij het seeden kiest de scheduler per project de **N** enabled audits met de oudste
-  `audit_report.generated_at` (nooit gedraaid = oudste), waarbij N = `audit_project_settings.audit_count`
-  (default 1, zie `AuditProjectSettings.DEFAULT_AUDIT_COUNT`). Zo komen alle geconfigureerde audits
-  van dat project om beurten aan bod. `audit_count = 0` betekent: dit project wordt niet geseed (en
-  telt ook niet mee voor het aflopen van de run). Meerdere audits van hetzelfde project draaien
-  sequentieel, nooit tegelijk.
-- "Run now" in het dashboard (`audit.runNow` → `startManualAudit()`) zet één audit klaar, ook als er
-  al een run loopt: de job hangt dan als `kind = manual` (migratie V25) aan de lopende run en start
-  zodra dat project geen andere audit meer heeft draaien. Zo'n handmatige job telt níet als "dit
-  project is geseed" (`AuditSeeding.isSeeded`), zodat de geplande ronde van dat project die dag
-  gewoon doorgaat. Antwoord: `started` (geaccepteerd ja/nee) + `status` (`ManualAuditResult`:
-  `started`/`queued`/`already_queued`/`unknown_audit`).
-- Dispatcht per gekozen audit rechtstreeks een agent-container via `AgentRuntime` (`AuditGateway`/
-  `AuditGatewayAdapter`, in `dashboard/services/`) — **geen** tracker-story, **geen**
-  `AgentDispatcher`/Subtask-koppeling. Rol `AUDITOR` (zie `core.AgentRole`); prompt + JSON-
-  outputcontract in `agentworker` (`AgentPromptContracts.RolePrompts.auditorPrompt()`).
-- Het rapport zelf schrijft de auditor als markdown naar `/work/audit-report.md`; de agentworker
-  leest dat bestand terug en zet het als `auditReportMarkdown` in `agent-result.json`. De chatoutput
-  (`summaryText`) is expliciet **niet** de bron van het rapport: dat is het laatste agent-bericht en
-  bevat vaak alleen het JSON-besluit (leeg rapport) of JSON tússen de tekst. Ontbreekt het bestand
-  (oudere agentworker, andere supplier), dan valt `AuditGatewayAdapter.reportContent()` terug op
-  `summaryText` mét de JSON-strip.
-- `score`, `scoreLabel`, `proposedStory` en `questions` komen wél uit de chatoutput, via
-  `AgentOutcomeParser.extractAuditExtras`. Die pakt sinds SF-2292 het laatste JSON-blok dat minstens
-  één van die sleutels *bevat* (helper `lastNodeWithAnyKey`), niet simpelweg het laatste blok dat
-  parseert. Zet een agent zijn `{"agent_tips_update":[...]}`-blok als laatste — de prompt schrijft
-  het omgekeerde voor maar dwingt niets af — dan bleef de fase daarvóór wél herkend, maar waren alle
-  extras stil leeg: geen score, geen vervolg-story (`proposeStoryIfAny` viel op `?: return null`),
-  geen fout in de logs. `extractSummaryExtras` heeft dezelfde behandeling gekregen voor
-  `descriptionSummary`/`shortDescriptionSummary`.
-- **Vragen stellen (twee runs).** Een auditor die niet verder kan zonder menselijke beslissing
-  eindigt met `{"phase":"audit-questions","questions":[...]}` en zet z'n tussenstand in
-  `/work/audit-findings.md`. `AuditGatewayAdapter` schrijft vraag + bevindingen naar `audit_question`
-  (migratie `V26`) en levert `AuditOutcomeStatus.ASKED`; de planner markeert de job terminaal met
-  `AuditJobStatus.ASKED` en er komt géén rapport.
-  **Terminaal is hier essentieel:** de planner sluit een run pas als álle jobs terminaal zijn en
-  maakt alleen een nieuwe run aan als er geen loopt — een niet-terminale "wachtende" job zou dus
-  alle audits van alle projecten stilleggen zolang er één vraag openstond. De vraag leeft daarom los
-  van de run-levenscyclus.
-  `AuditScheduler.answerQuestion()` slaat het antwoord op en plant via `startManualAudit()` meteen
-  een vervolg-job in, zodat de eerstvolgende tick 'm binnen ~30s start i.p.v. pas de volgende nacht.
-  Die vervolgrun krijgt vraag, antwoord en bevindingen terug via `auditTaskContext()` en hoeft het
-  onderzoek dus niet over te doen; `consumed_at` voorkomt dat het daarna in élke run blijft plakken.
-  Draait de audit opnieuw terwijl de vraag nog openstaat, dan krijgt hij 'm ook terug — met de
-  instructie 'm niet nogmaals te stellen maar af te ronden op een expliciet benoemde aanname.
-  Zichtbaar/beantwoordbaar op twee plekken: op de audit-kaart in het Audits-scherm (met een
-  tel-badge op het nav-item, want een audit heeft geen story en valt dus buiten "My actions"), en in
-  Telegram. Die laatste loopt via de poort `AuditQuestionNotifier` (telegram-module) en, voor het
-  antwoord, `AuditQuestionAnswering` (`core :: contracts`) — telegram mag niet van `audit` afhangen.
-  De `telegram_pending_questions`-rij gebruikt `issue_level='AUDIT'`, `issue_key='AUDIT:<p>:<type>'`
-  en het vraag-id in `source_phase`.
-- Zodra de container stopt: leest `agent-result.json` (uitgebreid met `auditReportMarkdown`/
-  `auditQuestions`/`auditFindingsMarkdown`/
-  `auditScore`/`auditScoreLabel`/`proposedStoryTitle`/`proposedStoryDescription`), upsert eventuele
-  memory-tips via het bestaande `knowledge`-domein (rol `auditor`, category = audit-type — dus
-  automatisch weer meegenomen in `agent-tips.md` bij de volgende run, zonder extra code), maakt
-  desgevraagd de voorgestelde vervolg-story aan (`questionsAllowed=true`, fase `start-next` — zie
-  `StoryPhase.START_NEXT`) en persisteert het rapport in `audit_report`.
-- Geen digest-stap: rapporten staan meteen in het dashboard (Audits-tab, `audit_screen.dart`).
-
-Zie ook `.factory/nightly/README.md` voor het volledige audit-verhaal.
-
-## 5. Work cleanup poller (achtervang)
-
-- Klasse: `runtime/workspaces/WorkCleanupPoller.kt`
-- Methode: `poll()` (delegeert naar `cleanupOnce()`)
-- Schedule: `@Scheduled(fixedDelayString = "\${softwarefactory.work-cleanup-poll-ms:3600000}")`
-- Default interval: `3600000` ms (1 uur)
-- Uit te zetten via `SF_WORK_CLEANUP_ENABLED` (default `true`).
-
-Verantwoordelijkheid:
-
-- Scant elke tick de vier `work/`-subroots die de runtime zelf aanmaakt:
-  `work/agent-workspaces/<story>-<role>-<random>/`, `work/stories/<storyKey>/repo`,
-  `work/assistant-checkouts/<naam>/repo` en `work/assistant/<chatId>/<sessionId>/work/{in,out}`.
-- Verwijdert per top-level entry recursief zodra de meest recente mtime binnenin ouder is dan
-  `SF_WORK_CLEANUP_RETENTION_DAYS` (default `7` dagen). Exact op de grens geldt als verlopen.
-- Vraagt vóór iedere leeftijdsbepaling alle actieve paden op uit story-/agent-runs in Postgres en
-  het runtime-register van lopende assistantsessies. Een actief pad, zijn ancestors/top-level entry
-  en zijn descendants worden ongeacht mtime overgeslagen. Als een actieve bron faalt, wordt die
-  hele cleanup-tick fail-safe overgeslagen.
-- Entryfouten en verdwenen racekandidaten worden gelogd en isoleren de overige entries. Paden
-  worden genormaliseerd en recursieve verwijdering volgt geen symlinks buiten de beheerde root.
-- Is een achtervang bovenop de bestaande event-gedreven cleaners (`AgentWorkspaceCleaner`,
-  `StoryWorkspaceService.cleanup`), die alleen bij succesvolle run-completion of expliciete
-  purge/merge opruimen en dus weesmappen achterlaten na crashes of gekilde processen.
-- Logt elke verwijdering (pad + berekende leeftijd) voor traceerbaarheid, en schrijft de ronde
-  sinds SF-1921 ook weg in de gedeelde opruim-log (`kind = workspaces`) — alleen bij verwijderingen
-  of bij een fout, fail-soft.
-- Is sinds SF-1929 ook een `CleanupRunner`: `poll()` pakt eerst de `CleanupRunGuard` en slaat de tick
-  over als er al een `workspaces`-ronde loopt; de "Nu draaien"-knop komt op dezelfde `cleanupOnce()`
-  uit (zie §9). Interval en vlag zijn ongewijzigd.
-- Raakt `attachments/`, `logs/`, `qualityrun/` en `target/` niet aan — die worden niet door de
-  Kotlin-runtime als agent-workmap beheerd.
-
-Zie ook `docs/factory/technical-spec.md` (achtervang work-cleanup) en `docs/factory/secrets-local.md`
-voor de env-var-defaults.
-
-## 6. Telegram-resultaatmelding poller (SF-1134 / SF-1261)
-
-- Klasse: `telegram/services/TelegramResultNotifyPoller.kt`
-- Methode: `poll()`
-- Schedule: `@Scheduled(fixedDelayString = "\${softwarefactory.telegram-result-notify-poll-ms:60000}")`
-- Default interval: `60000` ms
-- Alleen actief met geconfigureerde Telegram-secrets (`telegramClient.enabled`).
-
-Verantwoordelijkheid:
-
-- Stuurt een aparte Telegram-melding zodra het eindresultaat van een story écht extern
-  zichtbaar/live is; dit `DEPLOYED`-event staat los van `WORKFLOW_COMPLETED` in
-  `TelegramNotificationService`.
-- "Alleen pollen wanneer nodig": stopt direct zonder cluster-/GitHub-calls zodra geen enkele story
-  `DEPLOYED` in `notification_events` heeft staan (vervangt de vroegere losse
-  `telegram_result_notify`-vlag).
-- Hergebruikt de bevestiging die `DeploySubtaskHandler` (`pipeline`) al doet zodra de DEPLOY-subtaak
-  `deploy-approved` bereikt, en voegt alleen de ontbrekende externe check toe: een HTTP-200 op het
-  optionele `deploy.liveUrl` (openshift-watch) of een nieuwe `.apk`-release na de deploy-referentietijd
-  (projecten zonder deploy-config, via de poort `ApkReleaseProbe`/adapter `GitHubApkReleaseProbe`).
-- Berichtopbouw (SF-1830, kop uitgebreid in SF-1858): kop `🚀 Story <KEY>: <TITEL> is deployed!`
-  (lege/whitespace-only titel: `🚀 Story <KEY> is deployed!`; titel langer dan `TITLE_LIMIT` = 120
-  tekens wordt afgekapt met `…`), daaronder een korte functionele
-  samenvatting, daaronder (indien aanwezig) de URL — lege regel tussen elk blok. De bevestigende zin
-  ("De live-URL is bereikbaar." e.d.) staat niet meer in het bericht; het interne `Confirmation`-model
-  draagt alleen nog de eventuele URL, de checks hierboven bepalen nog steeds ÓF, WANNEER en met welke
-  URL er gemeld wordt. Bron van de samenvatting is uitsluitend de kolom
-  `short_description_summary` op de story (migratie V36), door de SUMMARIZER geschreven ná
-  oplevering; is die leeg of afwezig, dan bestaat het bericht alleen uit de kop (+ eventuele URL).
-  De tekst wordt gestript via `ControlJsonStripper` en afgekapt op 1000 tekens.
-- Opgeef-timeout van 4 uur na de deploy-referentietijd: alleen een warn-logregel, geen Telegram-
-  bericht en geen foutmelding; de story wordt wel als afgehandeld gemarkeerd.
-- Idempotent via `TelegramStore` (DB-backed, signature `"result-notify"`), overleeft een herstart.
-
-Zie ook `docs/factory/technical-spec.md` §Telegram-resultaatmelding voor het volledige verhaal.
-
-## 7. Maintenance-cleanup scheduler
-
-- Klasse: `maintenance/services/MaintenanceCleanupScheduler.kt`
-- Methode: `tick()`
-- Schedule: `@Scheduled(cron = "\${sf.maintenance.cleanup-cron:0 30 2 * * *}", zone = "UTC")`
-- Default: elke nacht om 02:30 UTC.
-- Config: `sf.maintenance.dry-run` (default `false`), `sf.maintenance.run-retention-days`
-  (default `90`) en `sf.maintenance.github-page-limit` (default `20` pagina's van 100 items),
-  gebundeld in `MaintenanceCleanupSettings`.
-
-Verantwoordelijkheid:
-
-- Ruimt per project met een `releaseCleanup:`-blok in `projects.yaml` oude GitHub-Releases (incl.
-  hun git-tag) en ghcr.io-package-versions op. Welke weg mogen bepalen de pure
-  `ReleaseRetentionPlanner`/`PackageVersionRetentionPlanner`; tags die aan een beschermde manifest-SHA
-  hangen (`GitHubProtectedShaSource`) en `alwaysKeepTags` blijven staan. Dit algoritme is niet
-  gewijzigd in SF-1913.
-- Haalt sinds SF-1938 álle pagina's op (`GitHubPagination`, `per_page=100`, bovengrens
-  `sf.maintenance.github-page-limit`), zodat één ronde de volledige achterstand wegwerkt in plaats
-  van de eerste 100 items. Faalt een vervolgpagina, dan werkt de ronde verder met wat al is
-  opgehaald (waarschuwing in de log). Uitzondering: is de beschermingslijst met open-PR-head-sha's
-  onvolledig, dan wordt de package-cleanup voor dát project deze ronde overgeslagen en krijgt de
-  logregel een `error` — een halve veiligheidslijst zou beschermde images laten verwijderen.
-- Legt per project precies één rij vast in `maintenance_cleanup_runs` (migraties `V30`/`V31`, via
-  `maintenance/repositories/MaintenanceCleanupRunRepository`) met `kind = 'github-releases'` — óók bij 0 verwijderingen, bij een
-  dry-run (met de *geplande* aantallen; er wordt dan niets verwijderd) en bij een mislukte
-  projectronde (`error` gevuld). Zonder rij is "er viel niets op te ruimen" niet te onderscheiden
-  van "de opruimer heeft niet gedraaid". Een project zonder GitHub-slug wordt overgeslagen en levert
-  géén rij.
-- Fail-soft op drie niveaus: een individuele delete die faalt telt niet mee als verwijderd en zet
-  géén `error` op de run; een gefaalde projectronde wordt gelogd, vastgelegd en houdt de overige
-  projecten niet tegen; en het wegschrijven van de historie zelf kan falen zonder de opruiming om te
-  gooien (alleen een warn-log).
-- Sluit elke tick af met retentie op de eigen historie: rijen ouder dan
-  `sf.maintenance.run-retention-days` worden verwijderd (fail-soft, met een info-log over het
-  aantal) — sinds SF-1921 dus voor álle soorten in de gedeelde opruim-log. Er is bewust geen aparte
-  poller voor.
-- Stuurt sinds SF-1913 géén Telegram-bericht meer over een opruimronde; het Opruimen-scherm van
-  de dashboard-app leest de historie via `maintenance.cleanupsList`/`maintenance.cleanupDetail`.
-  Sinds SF-1939 leest dat scherm daarnaast het `summary`-veld van `maintenance.cleanupsList`: de
-  laatste ronde per soort, en voor `github-releases` per project, uit de eigen query
-  `MaintenanceCleanupRunRepository.latestPerKindAndProject()`. Voor deze scheduler verandert er
-  niets — hij schrijft dezelfde rijen; de samenvatting is puur een leesroute.
-- Sinds SF-1929 is dezelfde ronde ook handmatig te starten (zie §9). `tick()` doet daarvoor twee
-  dingen extra: hij pakt eerst de `CleanupRunGuard` (draait er al een `github-releases`-ronde, dan
-  slaat hij deze tick over met een info-log) en delegeert daarna naar
-  `runCleanupRoundLocked(trigger)` — precies de code die de knop ook aanroept, via de poort
-  `maintenance/MaintenanceCleanupApi`. De log-retentie blijft aan de cron hangen: dat is opruiming
-  van de historie zelf, geen opruimsoort in het scherm. De cron-expressie is ongewijzigd.
-
-Zie ook `docs/factory/technical-spec.md` §Opruimen en `runbook.md` voor de triage.
-
-## 8. Agent-retentie pollers (`agent_events` / `agent_runs`)
-
-- Klassen: `runtime/services/AgentEventRetentionPoller.kt` en (SF-1921)
-  `runtime/services/AgentRunRetentionPoller.kt`
-- Methode: `poll()` (delegeert naar `cleanupOnce()`, publiek als test-seam)
-- Schedule: `@Scheduled(fixedDelayString = "\${softwarefactory.agent-event-retention-poll-ms:3600000}")`
-  respectievelijk `"\${softwarefactory.agent-run-retention-poll-ms:3600000}"`, met eigen
-  `initialDelay`-properties (120000 / 180000 ms)
-- Default interval: `3600000` ms (1 uur)
-- Config: `SF_AGENT_EVENT_RETENTION_{ENABLED,DAYS,BATCH_SIZE,MAX_BATCHES}` (30 dagen, 5000, 20) en
-  `SF_AGENT_RUN_RETENTION_{ENABLED,DAYS,BATCH_SIZE,MAX_BATCHES}` (90 dagen, 1000, 20); alle waarden
-  worden geklemd.
-
-Verantwoordelijkheid:
-
-- `agent_events` (de agent-logregels) en `agent_runs` (de runs zelf, met hun kostenhistorie) hebben
-  bewust een eigen poller en eigen termijn: de runs mogen langer blijven staan dan de logregels
-  erbij, en moeten los aan/uit te zetten zijn. De event-retentie is per definitie een no-op zodra
-  een run verdwijnt — de events gaan dan mee via `ON DELETE CASCADE`.
-- Beide verwijderen batchgewijs (`BATCH_SIZE` rijen per delete, hoogstens `MAX_BATCHES` batches per
-  ronde) en stoppen zodra een deel-batch terugkomt; loopt een ronde tegen de bovengrens, dan gaat de
-  volgende tick verder.
-- De `agent_runs`-retentie laat een lopende run (`ended_at IS NULL`) en een run met een onafgeronde
-  durable completion (`PENDING`, `IN_PROGRESS`, `FAILED_RETRYABLE`) altijd staan, ongeacht leeftijd.
-  Er wordt alleen op `agent_runs` gedelete; `agent_events`, `agent_run_completions` en
-  `agent_run_completion_steps` volgen via de bestaande `ON DELETE CASCADE`.
-- Schrijven hun ronde weg in de gedeelde opruim-log (`maintenance_cleanup_runs`, `kind` =
-  `agent-events` / `agent-runs`) via `runtime/services/CleanupLogWriter` — alléén bij verwijderingen
-  of bij een fout, en fail-soft. Datzelfde geldt voor `WorkCleanupPoller` (`kind = workspaces`) en de
-  completion-payload-purge in `AgentRunCompletionService.reconcileDurableCompletions()`
-  (`kind = completion-payloads`).
-- Sinds SF-1929 zijn deze vier — de twee retentie-pollers, `WorkCleanupPoller` en de
-  completion-payload-purge (nu apart in `runtime/services/CompletionPayloadCleanup`) — ook
-  `CleanupRunner`-implementaties, zodat de "Nu draaien"-knop op exact dezelfde `cleanupOnce()`
-  uitkomt (zie §9). De `@Scheduled`-methodes pakken daarvoor eerst de `CleanupRunGuard` en slaan hun
-  tick over als er al een ronde van die soort loopt; intervallen en defaults zijn ongewijzigd.
-
-## 9. Handmatige opruimronde ("Nu draaien", SF-1929)
-
-- Poorten: `runtime/CleanupRunNowApi.kt` (de vier factory-brede opruimers + doorgeefluik naar
-  GitHub) en `maintenance/MaintenanceCleanupApi.kt` (de GitHub-cleanup zelf)
-- Implementatie: `runtime/services/CleanupRunNowService.kt`
-- Bridge-operatie: `maintenance.runNow` met parameter `kind` (een `CleanupKinds`-waarde of `all`);
-  HTTP-ingang `POST /api/v1/maintenance/run` op de dashboard-backend.
-- Er komt géén schedule bij: cron-expressies en poll-intervallen van alle vijf de mechanismen zijn
-  ongewijzigd.
-
-Verantwoordelijkheid:
-
-- Elke soort komt uit op exact dezelfde ronde als zijn scheduler — de `CleanupRunner`-implementaties
-  zijn de pollers zelf, de GitHub-ronde loopt via `MaintenanceCleanupApi`. Geen tweede implementatie.
-- `CleanupRunGuard` (in-memory, per JVM, in het root-package van `maintenance`) bewaakt dat er per
-  soort hooguit één ronde tegelijk loopt — handmatig én gepland. De bewaking wordt synchroon
-  gepakt en de ronde zelf loopt op een executor, zodat een tweede snelle klik `already_running`
-  krijgt en de 30s-timeout van de bridge een lange GitHub-ronde nooit afkapt.
-- Statussen (HTTP 200, net als `audit.runNow`): `started`, `already_running`, `disabled` (het
-  mechanisme staat uit via zijn `SF_*_ENABLED`-vlag) en `unknown_kind`. Bij `kind = all` start de
-  service de vrije soorten en meldt per soort wat er is overgeslagen.
-- Elke handmatige ronde levert áltijd een rij in `maintenance_cleanup_runs` op — ook bij 0
-  opgeruimde items en bij een fout (`error` gevuld) — met `trigger = 'manual'` (migratie `V32`).
-  Voor geplande rondes blijft de onderdrukkingsregel van `CleanupLogWriter` gelden.
-- `maintenance.cleanupsList` geeft naast `runs` ook `runningKinds` terug, zodat het scherm de
-  knoppen uit kan zetten en kan blijven pollen tot de ronde klaar is.
-- Sinds SF-1939 hangt de knop per opruimactie in zijn eigen blok op het Opruimen-scherm
-  (`Nu draaien`, `Key('run-now-<kind>')`) in plaats van in één knoppenbalk; `Alles draaien`
-  (`kind = all`) staat bovenaan. Het gedrag van deze poort is ongewijzigd: dezelfde statussen,
-  dezelfde bewaking en hetzelfde herlaad-/pollgedrag (3 s).
+Pollers mogen hetzelfde werk opnieuw zien. Daarom moeten jobcreate, branch/PR-aanmaak, completion en
+fasepublicatie idempotent of fenced zijn. Een scheduler mag nooit een nieuwe Runtime-job maken
+alleen omdat de vorige HTTP-response verloren ging.

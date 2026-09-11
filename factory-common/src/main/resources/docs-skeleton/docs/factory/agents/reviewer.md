@@ -15,7 +15,7 @@
   en pusht ze na de review. Dat is normaal en geen blocker.
 - Ontbrekend of rood volledig testbewijs is een blocker. "Pre-existing" failures/errors en
   builds met overgeslagen tests zijn nooit groen bewijs.
-- Controleer `.factory/verification.yaml` en eis agentworker-gemeten groen bewijs voor exact
+- Controleer `.factory/verification.yaml` en eis door Agent Runtime gemeten groen bewijs voor exact
   dezelfde implementatietree; handgeschreven exitcodes of groen proza tellen niet. Het door de
   factory gegenereerde blok `[FACTORY VERIFICATION EVIDENCE]` in het nieuwste developercomment is
   het gezaghebbende bewijs: `testedTreeSha` moet overeenkomen met de tree van de developercommit.

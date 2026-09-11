@@ -13,7 +13,7 @@
 
     <artifactId>factory-common</artifactId>
     <name>factory-common</name>
-    <description>Gedeelde code tussen de factory-server en de agentworker</description>
+    <description>Gedeelde domein-, configuratie- en integratiecode voor de Software Factory</description>
 
     <!--
       Dependencies bewust smal houden: alleen wat de gedeelde code zelf aanraakt. Geen starters —

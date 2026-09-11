@@ -66,15 +66,11 @@ class FactoryProcessService : FactoryProcessControl {
         }.start()
     }
 
-    /**
-     * Repo-root, ook als de app via `mvn -pl softwarefactory spring-boot:run` start (dan is de cwd de
-     * module-map). Spiegelt `AgentWorkspaceFactory.projectRoot()` bewust lokaal, om geen module-grens
-     * (web → runtime) te kruisen.
-     */
+    /** Repo-root, ook als Maven de app met de modulemap als cwd start. */
     private fun projectRoot(): Path {
         val cwd = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize()
         val parent = cwd.parent
-        return if (cwd.fileName?.toString() == "softwarefactory" && parent != null && Files.exists(parent.resolve("agentworker"))) {
+        return if (cwd.fileName?.toString() == "softwarefactory" && parent != null && Files.exists(parent.resolve("pom.xml"))) {
             parent
         } else {
             cwd

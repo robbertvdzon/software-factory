@@ -5,8 +5,7 @@ WORKDIR /build
 # dashboard-backend hangt sinds de bridge (docs/ontwerp-bridge-dashboard.md) af van
 # factory-contracts (de bridge-frame-DTO's), dus hier bouwen we een mini-reactor
 # (root-pom + factory-contracts + dashboard-backend) i.p.v. alleen de dashboard-backend-map.
-# Zelfde patroon als Dockerfile.agent. `-pl dashboard-backend -am` houdt de overige
-# modules (softwarefactory, agentworker) erbuiten.
+# `-pl dashboard-backend -am` houdt de overige modules erbuiten.
 COPY pom.xml .
 COPY docker/prepare-mini-reactor.sh /usr/local/bin/prepare-mini-reactor
 COPY factory-contracts/pom.xml factory-contracts/pom.xml

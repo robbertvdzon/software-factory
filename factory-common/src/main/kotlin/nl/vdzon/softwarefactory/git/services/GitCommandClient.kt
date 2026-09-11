@@ -59,11 +59,9 @@ class GitCommandClient(
         createIfMissing: Boolean,
         githubToken: String?,
     ) {
-        // De story-workspace wordt over alle stappen heen hergebruikt. Een eerdere (gecrashte) stap
-        // kan niet-gecommitte wijzigingen in de working tree hebben achtergelaten; dan breekt
-        // `git checkout` af met "local changes would be overwritten". Gooi die rommel daarom eerst
-        // weg — legitiem werk is op dit punt al door de agent gecommit. Best-effort: de cleanup mag
-        // zelf nooit de blokker worden (bv. op een vers-gekloonde repo zonder vuile tree).
+        // Deze generieke helper kan op een bestaande lokale checkout worden aangeroepen. Ruim een
+        // eventueel vuile tree best-effort op voordat van branch wordt gewisseld; Runtime-v2-jobs
+        // gebruiken zelf altijd een verse tijdelijke checkout en komen niet door dit pad.
         runGit(repoRoot, githubToken, "reset", "--hard")
         runGit(repoRoot, githubToken, "clean", "-fd")
 
