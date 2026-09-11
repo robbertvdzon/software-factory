@@ -65,9 +65,6 @@ class AgentRuntimeV2Adapter(
         )
     }
 
-    override fun isContainerRunning(containerName: String): Boolean =
-        runtimeJobId(containerName)?.let { !client.getJob(it).terminal } ?: false
-
     override fun isAgentRunning(storyKey: String, role: AgentRole): Boolean =
         activeRuns(storyKey).any { it.role == role }
 

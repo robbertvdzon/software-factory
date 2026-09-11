@@ -253,7 +253,6 @@ class AuditGatewayAdapterTest {
             return AgentDispatchResult(UUID.randomUUID().toString(), OffsetDateTime.now())
         }
 
-        override fun isContainerRunning(containerName: String) = false
         override fun isAgentRunning(storyKey: String, role: nl.vdzon.softwarefactory.core.AgentRole) = false
         override fun isAnyAgentRunningForStory(storyKey: String) = false
         override fun runningCount(role: nl.vdzon.softwarefactory.core.AgentRole?) = 0

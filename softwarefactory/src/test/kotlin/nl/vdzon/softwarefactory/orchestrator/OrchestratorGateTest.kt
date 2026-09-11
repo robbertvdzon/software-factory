@@ -62,7 +62,6 @@ class OrchestratorGateTest : OrchestratorTestHarness() {
         assertEquals(5, runtime.dispatches.single().aiLevel)
         assertEquals("claude-sonnet-5", runtime.dispatches.single().aiModel)
         assertEquals("medium", runtime.dispatches.single().aiEffort)
-        assertEquals(listOf("factory-KAN-3-refiner" to 1L), runtime.logCaptures)
         assertEquals(1, agentRuns.countForRole(1, AgentRole.REFINER))
     }
 

@@ -10,10 +10,6 @@ import java.time.OffsetDateTime
 interface AgentRuntime {
     fun dispatch(request: AgentDispatchRequest): AgentDispatchResult
 
-    fun captureLogs(containerName: String, agentRunId: Long) = Unit
-
-    fun isContainerRunning(containerName: String): Boolean
-
     fun isAgentRunning(storyKey: String, role: AgentRole): Boolean
 
     fun isAnyAgentRunningForStory(storyKey: String): Boolean
@@ -85,9 +81,6 @@ class NotConfiguredAgentRuntime : AgentRuntime {
         error("Agent runtime is not configured yet; Docker dispatch is implemented in KAN-004.")
 
     override fun isAgentRunning(storyKey: String, role: AgentRole): Boolean =
-        false
-
-    override fun isContainerRunning(containerName: String): Boolean =
         false
 
     override fun isAnyAgentRunningForStory(storyKey: String): Boolean =

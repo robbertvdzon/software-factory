@@ -16,7 +16,6 @@ class FakeAgentRuntime(
     private val runningStories: Set<String> = emptySet(),
 ) : AgentRuntime {
     val dispatches: MutableList<AgentDispatchRequest> = mutableListOf()
-    val logCaptures: MutableList<Pair<String, Long>> = mutableListOf()
     val runningByRole: MutableMap<AgentRole, Int> = mutableMapOf()
 
     override fun dispatch(request: AgentDispatchRequest): AgentDispatchResult {
@@ -27,14 +26,7 @@ class FakeAgentRuntime(
         )
     }
 
-    override fun captureLogs(containerName: String, agentRunId: Long) {
-        logCaptures += containerName to agentRunId
-    }
-
     override fun isAgentRunning(storyKey: String, role: AgentRole): Boolean =
-        false
-
-    override fun isContainerRunning(containerName: String): Boolean =
         false
 
     override fun isAnyAgentRunningForStory(storyKey: String): Boolean =

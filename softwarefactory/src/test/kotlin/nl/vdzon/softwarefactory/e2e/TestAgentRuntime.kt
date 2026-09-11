@@ -147,9 +147,6 @@ class TestAgentRuntime(
         )
     }
 
-    /** Container draait nooit echt → de poller verwerkt het result direct. */
-    override fun isContainerRunning(containerName: String): Boolean = false
-
     override fun isAgentRunning(storyKey: String, role: AgentRole): Boolean = false
 
     override fun isAnyAgentRunningForStory(storyKey: String): Boolean = false

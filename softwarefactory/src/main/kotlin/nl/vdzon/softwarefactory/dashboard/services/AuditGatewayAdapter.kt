@@ -112,7 +112,7 @@ class AuditGatewayAdapter(
         }.onFailure { logger.warn("Kon auditvraag niet afvinken voor {}/{}.", project, auditType, it) }
 
         // Audits gaan buiten AgentDispatcher om (geen Subtask), maar horen wel als lopende agent-run
-        // in het Agents-scherm te verschijnen — zelfde recordStarted+captureLogs-paar als daar.
+        // in het Agents-scherm te verschijnen.
         val agentRunId = agentRunRepository.recordStarted(
             AgentRunStart(
                 storyRunId = storyRun.id,
@@ -124,9 +124,6 @@ class AuditGatewayAdapter(
                 workspacePath = result.workspacePath,
             ),
         )
-        runCatching { agentRuntime.captureLogs(result.containerName, agentRunId) }
-            .onFailure { logger.warn("Audit-logcapture kon niet starten voor {}.", result.containerName, it) }
-
         return AuditDispatchHandle(
             containerName = result.containerName,
             workspacePath = result.workspacePath,

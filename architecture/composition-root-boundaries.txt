@@ -18,7 +18,6 @@ softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/Deploy
 softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/StoryDeployReconciler.kt|softwarefactory|http|Deploy rollout status feature adapter
 softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/commands/CommandRunner.kt|softwarefactory|process|Generic runtime command adapter
 softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/commands/KubectlDeploymentStatusProbe.kt|softwarefactory|process-doc|Documents command adapter ownership
-softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/logging/DockerLogFollower.kt|softwarefactory|process|Docker logging adapter
 softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt|softwarefactory|process-environment|Assistant container adapter and typed settings boundary
 softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt|softwarefactory|http|Telegram feature adapter
 softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramResultNotifyPoller.kt|softwarefactory|http|Telegram result notification feature adapter

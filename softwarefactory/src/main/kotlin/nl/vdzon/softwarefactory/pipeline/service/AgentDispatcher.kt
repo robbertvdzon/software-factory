@@ -197,11 +197,6 @@ class AgentDispatcher(
                 request.aiLevel ?: "<unset>",
                 request.aiModel?.takeIf { it.isNotBlank() } ?: "<default>",
             )
-            runCatching {
-                agentRuntime.captureLogs(dispatch.containerName, agentRunId)
-            }.onFailure { exception ->
-                logger.warn("Agent log capture could not be started for {}", dispatch.containerName, exception)
-            }
             IssueProcessResult.Dispatched(issue.key, role, dispatch.containerName)
         } catch (exception: Exception) {
             val message = "[ORCHESTRATOR] Agent dispatch voor ${role.markerKeyPart} faalde: ${exception.message}"
