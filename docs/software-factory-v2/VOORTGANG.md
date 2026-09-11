@@ -21,7 +21,7 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 |---:|---|---|---|
 | 0 | bezig | Productie-health is groen; execution options en repositoryaliases zijn op 2026-09-11 uitgelezen; een echte `STRUCTURED_GENERATION`-probe eindigde `SUCCEEDED` met job `3a2c4970-b6b3-426c-830a-488aa47ef8af`. | Mock- en repositoryprobes afronden. De allowlist bevat `test-repository`, maar er is nog geen online worker die die alias aanbiedt. |
 | 1 | afgerond | [`ontwerp-runtimevervanging.md`](ontwerp-runtimevervanging.md) legt vervanging, correlatie, prompts, Git-eigenaarschap, modelconfiguratie, quota en workspace-aannames vast. | Runtime-consumer bouwen. |
-| 2 | niet gestart | — | Stap 0 voldoende bewezen en migratie/consumer implementeren. |
+| 2 | bezig | Getypeerde `/v2`-contracten, HTTP-consumer, bearerconfiguratie en contracttests zijn toegevoegd. | Duurzame correlatie, uploads/resultaatprojectie en refiner/planner/summarizer aansluiten. |
 | 3 | niet gestart | — | Stap 2 groen. |
 | 4 | niet gestart | — | Stap 3 groen. |
 | 5 | niet gestart | — | Oude runner verwijderd en volledige reactor lokaal groen. |
@@ -68,3 +68,12 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
   geen artifacts.
 - Geen repositorybranch, PR of targetrepository is voor deze probe gewijzigd.
 
+### 2026-09-11 — begin stap 2
+
+- Toegevoegd: getypeerde requests en responses voor jobs, resultaten, repositorybewijs,
+  verificatiebewijs, events, execution options en aliases.
+- Toegevoegd: HTTP-consumer voor create, status, resultaat, events, annulering en catalogi.
+- Configuratie gebruikt `SF_AGENT_RUNTIME_URL` en het uitsluitend extern aangeleverde secret
+  `SF_AGENT_RUNTIME_TOKEN`; het bestaande secretmechanisme is niet gewijzigd.
+- Test: `mvn -B --no-transfer-progress -pl softwarefactory -am
+  -Dtest=AgentRuntimeV2HttpClientTest -Dsurefire.failIfNoSpecifiedTests=false test` — groen.
