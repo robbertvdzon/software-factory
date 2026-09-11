@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRecord
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
+import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.runtime.RuntimeApi
 import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
 import org.slf4j.LoggerFactory
@@ -44,6 +45,9 @@ class AgentRuntimeV2CompletionPoller(
             errorCode = job.errorCode,
             errorMessage = job.errorMessage,
         )
+        // Audits hebben geen trackerissue. AuditGatewayAdapter leest hetzelfde getypeerde
+        // Runtime-resultaat en publiceert rapport/vraag/vervolgstory via de audit-pipeline.
+        if (run.role == AgentRole.AUDITOR) return
         if (!job.terminal) return
         val story = storyRuns.get(run.storyRunId) ?: return
         val result = runCatching { client.getResult(jobId) }

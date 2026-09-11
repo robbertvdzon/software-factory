@@ -22,7 +22,7 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 | 0 | bezig | Productie-health is groen; execution options en repositoryaliases zijn op 2026-09-11 uitgelezen; een echte `STRUCTURED_GENERATION`-probe eindigde `SUCCEEDED` met job `3a2c4970-b6b3-426c-830a-488aa47ef8af`. | Mock- en repositoryprobes afronden. De allowlist bevat `test-repository`, maar er is nog geen online worker die die alias aanbiedt. |
 | 1 | afgerond | [`ontwerp-runtimevervanging.md`](ontwerp-runtimevervanging.md) legt vervanging, correlatie, prompts, Git-eigenaarschap, modelconfiguratie, quota en workspace-aannames vast. | Runtime-consumer bouwen. |
 | 2 | bezig | De v2-adapter maakt idempotente jobs, bouwt rolprompts/schema's, projecteert events/resultaten en gebruikt databasegestuurde modelkeuze. Refiner, planner en summarizer volgen hiermee het v2-pad. Het Settings-scherm beheert defaults en projectoverschrijvingen. | Hervatbare uploads, artifactvalidatie en expliciete status-/foutprojectie afronden. |
-| 3 | bezig | Storybranch, dispatch, repositorybewijs, verificatiebewijs en PR worden zonder lokale checkout verwerkt; projectmodelkeuze gebruikt de canonieke repositoryprojectnaam. | Promptpariteit, stale-weergave en de resterende repositoryscenario's automatiseren. |
+| 3 | bezig | Storybranch, dispatch, repositorybewijs, verificatiebewijs en PR worden zonder lokale checkout verwerkt; projectmodelkeuze gebruikt de canonieke repositoryprojectnaam. Ook audits gebruiken een read-only Runtime-checkout en getypeerd resultaat. | Promptpariteit, stale-weergave en de resterende repositoryscenario's automatiseren. |
 | 4 | niet gestart | — | Stap 3 groen. |
 | 5 | niet gestart | — | Oude runner verwijderd en volledige reactor lokaal groen. |
 
@@ -130,3 +130,18 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
   raakt die schermen niet.
 - Gerichte Kotlin-verificatie (`BridgeRequestHandlerTest`, `DashboardQueryServiceTest` en
   `BridgeApiControllerTest`) is groen: 165 tests, zonder failures.
+
+### 2026-09-11 — auditroute zonder workspace
+
+- `AuditGatewayAdapter` maakt geen storyworkspace of lokale repositorycheckout meer. De auditjob
+  krijgt de geregistreerde Runtime-alias en een read-only checkout van de basebranch (`main` als
+  bestaande default).
+- Auditresultaten komen uit het getypeerde Runtime-resultaat in plaats van `agent-result.json`.
+  Rapport, vragen, bevindingen, knowledge-updates, vervolgstory, usage en kosten blijven via de
+  bestaande auditpipeline lopen.
+- De Runtime-completionpoller projecteert voor auditors wel events en status, maar publiceert ze
+  niet naar de gewone trackercompletion: een synthetische auditkey is geen trackerissue.
+- Repositorybewijs van een audit is verplicht, moet publicatiemodus `NONE` hebben en exact bij de
+  verwachte alias, branch en actuele remote branch-head horen; anders faalt de audit zichtbaar.
+- Een tijdelijk onleesbaar resultaat van een geslaagde terminale job blijft polbaar. Gerichte tests
+  voor Runtime-resultaatmapping, workspacevrije auditdispatch en auditrapportpublicatie zijn groen.

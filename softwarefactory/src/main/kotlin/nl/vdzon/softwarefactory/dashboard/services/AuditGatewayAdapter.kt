@@ -1,7 +1,6 @@
 package nl.vdzon.softwarefactory.dashboard.services
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.readValue
 import nl.vdzon.softwarefactory.audit.AuditGateway
 import nl.vdzon.softwarefactory.audit.models.AuditDispatchHandle
 import nl.vdzon.softwarefactory.audit.models.AuditOutcome
@@ -15,6 +14,7 @@ import nl.vdzon.softwarefactory.audit.services.AuditJobsReader
 import nl.vdzon.softwarefactory.audit.types.AuditOutcomeStatus
 import nl.vdzon.softwarefactory.config.ProjectDashboardSettings
 import nl.vdzon.softwarefactory.contract.AgentResultFile
+import nl.vdzon.softwarefactory.contract.AgentResultKnowledgeUpdate
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.AgentDispatchRequest
 import nl.vdzon.softwarefactory.core.contracts.AgentRunCompletionRecord
@@ -26,22 +26,27 @@ import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
 import nl.vdzon.softwarefactory.core.contracts.AiRouting
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
-import nl.vdzon.softwarefactory.core.contracts.StoryWorkspaceApi
+import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
+import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.support.ControlJsonStripper
 import nl.vdzon.softwarefactory.telegram.AuditQuestionNotifier
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
+import nl.vdzon.softwarefactory.runtime.v2.AgentRuntimeV2HttpClient
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeJobResultView
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeJobStatus
+import nl.vdzon.softwarefactory.runtime.v2.RuntimePublicationStatus
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import java.nio.file.Path
+import java.math.BigDecimal
+import java.time.Duration
 import java.time.OffsetDateTime
-import kotlin.io.path.exists
-import kotlin.io.path.readText
+import java.util.UUID
 
 /**
  * Adapter die de [AuditGateway]-poort van de audit-module invult: dispatcht de auditor-agent
- * rechtstreeks via [AgentRuntime] (zelfde Docker-uitvoeringspad als een gewone subtaak, maar
+ * rechtstreeks via [AgentRuntime] (dezelfde Runtime-v2-uitvoering als een gewone subtaak, maar
  * buiten `AgentDispatcher`/de Subtask-koppeling om — een audit heeft geen tracker-story) en
  * verwerkt de uitkomst (rapport, memory-tips, evt. 1 voorgestelde vervolg-story).
  */
@@ -52,9 +57,10 @@ class AuditGatewayAdapter(
     private val auditReportRepository: AuditReportRepository,
     private val auditQuestionRepository: AuditQuestionRepository,
     private val agentRuntime: AgentRuntime,
+    private val runtimeClient: AgentRuntimeV2HttpClient,
+    private val github: GitHubApi,
     private val agentRunRepository: AgentRunRepository,
     private val storyRunRepository: StoryRunRepository,
-    private val storyWorkspaceService: StoryWorkspaceApi,
     private val tracker: TrackerCapabilities,
     private val knowledgeApi: KnowledgeApi,
     private val auditQuestionNotifier: AuditQuestionNotifier,
@@ -80,22 +86,18 @@ class AuditGatewayAdapter(
         val syntheticKey = "AUDIT:$project:$auditType"
         val storyRun = storyRunRepository.openOrCreate(syntheticKey, repo)
 
-        // Kloont/hergebruikt de repo-checkout op de base-branch (AUDITOR: read-only, geen eigen
-        // branch — zie StoryWorkspaceService.prepare) zodat de agentworker /work/repo gemount vindt;
-        // zonder deze stap dispatcht agentRuntime.dispatch() een lege workspace en faalt de auditor
-        // meteen op "Target repository is not mounted".
-        val workspace = storyWorkspaceService.prepare(storyRun, AgentRole.AUDITOR)
-
         val request = AgentDispatchRequest(
             storyKey = syntheticKey,
+            projectKey = project,
             targetRepo = repo,
             storyRunId = storyRun.id,
             role = AgentRole.AUDITOR,
             phase = "auditing",
+            baseBranch = storyRun.baseBranch?.takeIf(String::isNotBlank) ?: DEFAULT_BASE_BRANCH,
             aiSupplier = detail.job.aiSupplier,
             aiModel = model,
             trackerContext = auditTaskContext(project, auditType, detail.prompt),
-            workspacePath = workspace.workspacePath.toString(),
+            workspacePath = null,
         )
         val result = agentRuntime.dispatch(request)
         logger.info("Audit {}/{} gestart als container {}.", project, auditType, result.containerName)
@@ -196,37 +198,71 @@ class AuditGatewayAdapter(
     }
 
     override fun auditOutcome(handle: AuditDispatchHandle): AuditOutcome {
-        if (agentRuntime.isContainerRunning(handle.containerName)) {
+        val jobId = runCatching { UUID.fromString(handle.containerName) }.getOrNull()
+            ?: return failedAudit(handle, "Agent Runtime job-id is ongeldig: ${handle.containerName}")
+        val job = runCatching { runtimeClient.getJob(jobId) }.getOrElse {
+            return AuditOutcome(
+                status = AuditOutcomeStatus.RUNNING,
+                startedAt = null,
+                endedAt = null,
+                costUsd = 0.0,
+            )
+        }
+        if (!job.terminal) {
             return AuditOutcome(status = AuditOutcomeStatus.RUNNING, startedAt = null, endedAt = null, costUsd = 0.0)
         }
-
-        val resultFile = handle.workspacePath?.let { Path.of(it).resolve("agent-result.json") }
-        val result = resultFile?.takeIf { it.exists() }?.let {
-            runCatching { objectMapper.readValue<AgentResultFile>(it.readText()) }.getOrNull()
+        if (job.status != RuntimeJobStatus.SUCCEEDED) {
+            return failedAudit(
+                handle,
+                listOfNotNull(job.errorCode, job.errorMessage).joinToString(": ")
+                    .ifBlank { "Agent Runtime-audit eindigde als ${job.status}." },
+            )
         }
+        val runtimeResult = runCatching { runtimeClient.getResult(jobId) }.getOrElse {
+            logger.warn("Terminaal auditresultaat {} is tijdelijk niet leesbaar; volgende poll probeert opnieuw.", jobId, it)
+            return AuditOutcome(
+                status = AuditOutcomeStatus.RUNNING,
+                startedAt = job.createdAt,
+                endedAt = null,
+                costUsd = 0.0,
+            )
+        }
+        agentRunRepository.storeRuntimeJobResult(
+            runtimeJobId = jobId.toString(),
+            checkoutCommitSha = runtimeResult.repositoryResult?.checkoutCommitSha,
+            publishedCommitSha = runtimeResult.repositoryResult?.commitSha,
+            repositoryResultJson = runtimeResult.repositoryResult?.let(objectMapper::writeValueAsString),
+            verificationResultJson = runtimeResult.verificationResult?.let(objectMapper::writeValueAsString),
+        )
+        val storyRun = storyRunRepository.get(handle.storyRunId)
+            ?: return failedAudit(handle, "Audit story-run ${handle.storyRunId} ontbreekt.")
+        validateAuditRepositoryResult(storyRun, runtimeResult)?.let { error ->
+            return failedAudit(handle, error)
+        }
+        val result = runtimeAuditResult(storyRun.storyKey, handle, job.status, job.createdAt, runtimeResult)
         val now = OffsetDateTime.now()
-        storyRunRepository.close(handle.storyRunId, result?.outcome ?: "error", now)
+        storyRunRepository.close(handle.storyRunId, result.outcome, now)
 
         val completionRecord = AgentRunCompletionRecord(
-            outcome = result?.outcome ?: "error",
-            inputTokens = result?.inputTokens ?: 0,
-            outputTokens = result?.outputTokens ?: 0,
-            cacheReadInputTokens = result?.cacheReadInputTokens ?: 0,
-            cacheCreationInputTokens = result?.cacheCreationInputTokens ?: 0,
-            numTurns = result?.numTurns ?: 0,
-            durationMs = result?.durationMs ?: 0,
-            costUsdEst = result?.costUsdEst ?: 0.0,
-            summaryText = result?.summaryText,
-            rateLimit = result?.rateLimit?.let {
+            outcome = result.outcome,
+            inputTokens = result.inputTokens,
+            outputTokens = result.outputTokens,
+            cacheReadInputTokens = result.cacheReadInputTokens,
+            cacheCreationInputTokens = result.cacheCreationInputTokens,
+            numTurns = result.numTurns,
+            durationMs = result.durationMs,
+            costUsdEst = result.costUsdEst,
+            summaryText = result.summaryText,
+            rateLimit = result.rateLimit?.let {
                 AgentRunRateLimit(it.status, it.resetsAt, it.overageResetsAt)
             },
         )
         agentRunRepository.complete(handle.containerName, completionRecord, now)
         agentRunRepository.addUsageToStoryRun(handle.storyRunId, completionRecord)
 
-        if (result == null || result.exitCode != 0) {
-            val error = result?.summaryText?.take(2000)
-                ?: "Audit-container gestopt zonder agent-result.json te schrijven."
+        if (result.exitCode != 0) {
+            val error = result.summaryText?.take(2000)
+                ?: "Agent Runtime-audit is zonder bruikbaar resultaat gestopt."
             logger.warn("Audit-run {} mislukt: {}", handle.containerName, error)
             return AuditOutcome(status = AuditOutcomeStatus.FAILED, startedAt = null, endedAt = now, costUsd = 0.0, error = error)
         }
@@ -302,14 +338,104 @@ class AuditGatewayAdapter(
         )
     }
 
-    /**
-     * Het rapport komt uit het markdown-bestand dat de auditor schrijft (`/work/audit-report.md`,
-     * doorgegeven als [AgentResultFile.auditReportMarkdown]). Die route bestaat juist omdat
-     * `summaryText` — het laatste chatbericht van de agent — geen betrouwbaar rapport is: soms staat
-     * er alleen het JSON-besluit in (leeg rapport), soms JSON tússen de tekst. De fallback op
-     * `summaryText` blijft voor containers met een oudere agentworker en voor suppliers die het
-     * bestand niet schrijven.
-     */
+    private fun failedAudit(handle: AuditDispatchHandle, error: String): AuditOutcome {
+        val now = OffsetDateTime.now()
+        storyRunRepository.close(handle.storyRunId, "error", now)
+        agentRunRepository.complete(
+            handle.containerName,
+            AgentRunCompletionRecord(
+                outcome = "error",
+                inputTokens = 0,
+                outputTokens = 0,
+                cacheReadInputTokens = 0,
+                cacheCreationInputTokens = 0,
+                numTurns = 0,
+                durationMs = 0,
+                costUsdEst = 0.0,
+                summaryText = error,
+            ),
+            now,
+        )
+        logger.warn("Audit-run {} mislukt: {}", handle.containerName, error)
+        return AuditOutcome(
+            status = AuditOutcomeStatus.FAILED,
+            startedAt = null,
+            endedAt = now,
+            costUsd = 0.0,
+            error = error,
+        )
+    }
+
+    private fun runtimeAuditResult(
+        storyKey: String,
+        handle: AuditDispatchHandle,
+        status: RuntimeJobStatus,
+        startedAt: OffsetDateTime,
+        runtimeResult: RuntimeJobResultView,
+    ): AgentResultFile {
+        val payload = runtimeResult.result
+        return AgentResultFile(
+            storyKey = storyKey,
+            role = AgentRole.AUDITOR.markerKeyPart,
+            containerName = handle.containerName,
+            phase = payload.text("phase"),
+            outcome = payload.text("outcome") ?: status.name.lowercase(),
+            summaryText = payload.text("summaryText"),
+            exitCode = if (status == RuntimeJobStatus.SUCCEEDED) 0 else 1,
+            inputTokens = runtimeResult.usageSummary.metric("INPUT_TOKENS"),
+            outputTokens = runtimeResult.usageSummary.metric("OUTPUT_TOKENS"),
+            cacheReadInputTokens = runtimeResult.usageSummary.metric("CACHE_READ_INPUT_TOKENS"),
+            cacheCreationInputTokens = runtimeResult.usageSummary.metric("CACHE_CREATION_INPUT_TOKENS"),
+            numTurns = runtimeResult.usageSummary.attemptCount,
+            durationMs = Duration.between(startedAt, runtimeResult.completedAt).toMillis()
+                .coerceIn(0, Int.MAX_VALUE.toLong()).toInt(),
+            costUsdEst = runtimeResult.usageSummary.costs
+                .filter { it.currency == "USD" }
+                .fold(BigDecimal.ZERO) { total, cost -> total + cost.amount }
+                .toDouble(),
+            knowledgeUpdates = payload.path("knowledgeUpdates").mapNotNull { update ->
+                val category = update.text("category") ?: return@mapNotNull null
+                val key = update.text("key") ?: return@mapNotNull null
+                val content = update.text("content") ?: return@mapNotNull null
+                AgentResultKnowledgeUpdate(category, key, content)
+            },
+            auditScore = payload.path("auditScore").takeUnless { it.isMissingNode || it.isNull }?.asDouble(),
+            auditScoreLabel = payload.text("auditScoreLabel"),
+            auditReportMarkdown = payload.text("auditReportMarkdown"),
+            auditQuestions = payload.path("questions").mapNotNull { it.asText().takeIf(String::isNotBlank) },
+            auditFindingsMarkdown = payload.text("auditFindingsMarkdown"),
+            proposedStoryTitle = payload.text("proposedStoryTitle"),
+            proposedStoryDescription = payload.text("proposedStoryDescription"),
+        )
+    }
+
+    private fun validateAuditRepositoryResult(storyRun: StoryRunRecord, runtimeResult: RuntimeJobResultView): String? {
+        val repository = runtimeResult.repositoryResult
+            ?: return "Agent Runtime leverde geen repositoryResult voor de audit."
+        val expectedAlias = projects.runtimeAliasFor(storyRun.targetRepo)
+            ?: return "Geen Runtime-repositoryalias geconfigureerd voor ${storyRun.targetRepo}."
+        val expectedBranch = storyRun.baseBranch?.takeIf(String::isNotBlank) ?: DEFAULT_BASE_BRANCH
+        if (repository.alias != expectedAlias || repository.branch != expectedBranch) {
+            return "Auditbewijs hoort bij ${repository.alias}/${repository.branch}, verwacht $expectedAlias/$expectedBranch."
+        }
+        if (repository.publicationStatus != RuntimePublicationStatus.NONE || repository.commitSha != null) {
+            return "Read-only audit rapporteerde onverwachte Gitpublicatie."
+        }
+        val currentHead = github.latestCommitSha(storyRun.targetRepo, expectedBranch)
+            ?: return "Actuele branch-head voor auditbewijs kon niet worden bepaald."
+        if (!currentHead.equals(repository.checkoutCommitSha, ignoreCase = true)) {
+            return "Auditbewijs is verouderd: checkout ${repository.checkoutCommitSha}, actuele branch $currentHead."
+        }
+        return null
+    }
+
+    private fun nl.vdzon.softwarefactory.runtime.v2.RuntimeUsageSummary.metric(name: String): Int =
+        metrics.firstOrNull { it.metric == name }?.quantity?.toInt() ?: 0
+
+    private fun com.fasterxml.jackson.databind.JsonNode.text(name: String): String? =
+        path(name).takeUnless { it.isMissingNode || it.isNull }?.asText()?.takeIf(String::isNotBlank)
+
+    /** Het getypeerde Runtime-rapport is leidend; `summaryText` is alleen de begrensde fallback. */
     private fun reportContent(result: AgentResultFile): String =
         result.auditReportMarkdown?.trim()?.ifBlank { null }
             ?: result.summaryText?.let { ControlJsonStripper.stripTrailingControlJson(it) }?.ifBlank { null }
@@ -352,6 +478,7 @@ class AuditGatewayAdapter(
         /** Fase waarmee de auditor aangeeft dat hij een blokkerende vraag heeft i.p.v. een rapport. */
         const val AUDIT_QUESTIONS_PHASE = "audit-questions"
         const val DEFAULT_PROJECT_KEY = "SF"
+        const val DEFAULT_BASE_BRANCH = "main"
         const val AUDIT_TITLE_PREFIX = "[Audit] "
     }
 }
