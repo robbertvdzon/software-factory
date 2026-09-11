@@ -16,6 +16,21 @@ Show basic session information.
 - Optional app version/build.
 - Optional database mode summary without secrets.
 
+## AI-uitvoering per agentrol (SF-2410)
+
+`SettingsScreen` heeft een sectie "AI-uitvoering per agentrol" waarin een ingelogde gebruiker
+per rol de standaarduitvoering of een projectoverschrijving kiest. Elke keuze bestaat uit de
+Runtime-provider, het model en de mode en wordt per rol opgeslagen via
+`POST /api/v1/settings/agent-execution`.
+
+Boven de keuzen staan permanent, zonder uitklappen of andere aanvullende interactie, beide
+gevolgen van een wijziging:
+
+- "Wijzigingen gelden vanaf de eerstvolgende agentjob."
+- "Reeds lopende agentjobs behouden hun huidige provider, model en mode."
+
+Een instellingenwijziging herstart of wijzigt een reeds lopende agentjob dus niet.
+
 ## Audits per project (SF-350 vervangen door het audit-systeem)
 
 `SettingsScreen` (Flutter dashboard-frontend) heeft een sectie "Audits per project":
@@ -53,6 +68,7 @@ opent:
 
 ## Actions
 
+- AI-uitvoering per agentrol globaal of per project opslaan.
 - Audit-instellingen per project opslaan.
 - Grote letters aan/uit (direct toegepast + lokaal bewaard).
 - GitHub Actions-pagina openen (extern).
