@@ -225,3 +225,17 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
   review-/testfase niet door.
 - Gerichte completiontests bewijzen zowel aliasverwisseling als stale reviewerbewijs zonder lokale
   workspace.
+
+### 2026-09-11 — lokale worker-, Docker- en workspaceketen verwijderd
+
+- Commits `9bb534cc`, `1fac333a`, `e6a626ab` en `8135392a` verwijderen achtereenvolgens de losse
+  `agentworker`-module en agentimage, de lokale Docker-runtime, alle per-storyworkspaces en de
+  hostgebonden actie om zo'n workspace in IntelliJ te openen.
+- De Maven-reactor en CI bouwen geen lokale agentimage meer. Agentcompletion accepteert voor
+  repositoryrollen uitsluitend Runtime-v2-resultaten, artifacts en repositorybewijs; de Software
+  Factory clonet, commit en pusht niet meer zelf.
+- Purge, merge en re-implement beheren alleen nog remote branch/PR/preview en duurzame state. Oude
+  `workspace_path`-databasevelden blijven leesbaar voor bestaande data, maar sturen geen gedrag.
+- De vier-module-testcompilatie is groen. Alle 862 functionele unit-tests in `softwarefactory`
+  waren groen; alleen de al bekende Modulith-ratchet met de 24 eerder vastgelegde architectuurpunten
+  blijft rood en wordt als expliciete stap-5-gate hersteld/herijkt.
