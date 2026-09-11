@@ -22,7 +22,7 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 | 0 | bezig | Productie-health is groen; execution options en repositoryaliases zijn op 2026-09-11 uitgelezen; een echte `STRUCTURED_GENERATION`-probe eindigde `SUCCEEDED` met job `3a2c4970-b6b3-426c-830a-488aa47ef8af`. | Mock- en repositoryprobes afronden. De allowlist bevat `test-repository`, maar er is nog geen online worker die die alias aanbiedt. |
 | 1 | afgerond | [`ontwerp-runtimevervanging.md`](ontwerp-runtimevervanging.md) legt vervanging, correlatie, prompts, Git-eigenaarschap, modelconfiguratie, quota en workspace-aannames vast. | Runtime-consumer bouwen. |
 | 2 | afgerond | De v2-adapter maakt idempotente jobs, bouwt volledige rolprompts en begrensde schema's, projecteert events/resultaten/artifacts/usage/status/fouten en gebruikt databasegestuurde modelkeuze. Refiner, planner en summarizer volgen het v2-pad, inclusief vragen en hervatting. De lokale acceptatieroundtrip gebruikt uitsluitend `mock/mock/MOCK`. | Repositoryketen in stap 3 afronden. |
-| 3 | bezig | Storybranch, dispatch, repositorybewijs, verificatiebewijs en PR worden zonder lokale checkout verwerkt; projectmodelkeuze gebruikt de canonieke repositoryprojectnaam. Ook audits gebruiken een read-only Runtime-checkout en getypeerd resultaat. | Promptpariteit, stale-weergave en de resterende repositoryscenario's automatiseren. |
+| 3 | bezig | Storybranch, dispatch, repositorybewijs, verificatiebewijs en PR worden zonder lokale checkout verwerkt; projectmodelkeuze gebruikt de canonieke repositoryprojectnaam. Ook audits gebruiken een read-only Runtime-checkout en getypeerd resultaat. Alias, branch, publicatiemodus en actuele remote HEAD worden fail-closed getoetst; stale bewijs wordt zichtbaar geweigerd. | Lokale repositoryketenacceptatie afronden; live testrepositoryprobe wacht nog op worker-alias. |
 | 4 | niet gestart | — | Stap 3 groen. |
 | 5 | niet gestart | — | Oude runner verwijderd en volledige reactor lokaal groen. |
 
@@ -214,3 +214,14 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 - Een lokale consumeracceptatietest doorloopt jobaanmaak en getypeerd resultaat uitsluitend met
   `mock/mock/MOCK`, zonder repositorycheckout. Aanvullende tests bewijzen vragen, subtaken,
   samenvattingen en alle rol-specifieke promptankers.
+
+### 2026-09-11 — repositorybewijs en stale gate
+
+- Muterende en read-only resultaten worden naast branch en publicatiemodus ook tegen de voor het
+  targetproject geregistreerde Runtime-repositoryalias gecontroleerd. Een ontbrekende of afwijkende
+  alias kan geen trackerfase of PR publiceren.
+- Reviewer- en testerbewijs blijft gekoppeld aan `checkoutCommitSha`. Wanneer de actuele remote
+  storybranch inmiddels verder staat, schrijft de Software Factory een zichtbare fout en schuift de
+  review-/testfase niet door.
+- Gerichte completiontests bewijzen zowel aliasverwisseling als stale reviewerbewijs zonder lokale
+  workspace.

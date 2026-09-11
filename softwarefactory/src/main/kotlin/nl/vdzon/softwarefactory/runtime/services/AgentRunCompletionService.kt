@@ -5,6 +5,7 @@ import nl.vdzon.softwarefactory.runtime.types.*
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import nl.vdzon.softwarefactory.config.ConfigApi
+import nl.vdzon.softwarefactory.config.ProjectRepositoryCatalog
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.github.GitHubApi
@@ -77,6 +78,8 @@ class AgentRunCompletionService(
     private val completionPayloadCleanup: CompletionPayloadCleanup? = null,
     /** Runtime-artifacts zijn immutable objectrefs; de default houdt legacy/Docker-unittests geïsoleerd. */
     private val runtimeArtifactApi: RuntimeArtifactApi = RuntimeArtifactApi.none(),
+    /** Productie injecteert de catalogus; de default houdt bestaande handgebouwde legacy-tests compatibel. */
+    private val projectRepositoryCatalog: ProjectRepositoryCatalog? = null,
 ) : RuntimeApi {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -429,6 +432,9 @@ class AgentRunCompletionService(
             ?: return repositoryFailure(request, role, "Story-run ${completed.storyRunId} ontbreekt")
         val repository = request.runtimeRepositoryResult
             ?: return repositoryFailure(request, role, "Agent Runtime leverde geen repositoryResult")
+        if (!hasExpectedRuntimeAlias(storyRun.targetRepo, repository.alias)) {
+            return repositoryFailure(request, role, "Runtime rapporteerde onverwachte repositoryalias '${repository.alias}'")
+        }
         val expectedBranch = storyRun.branchName
             ?: return repositoryFailure(request, role, "Story-run heeft geen remote branch")
         if (repository.branch != expectedBranch) {
@@ -503,6 +509,9 @@ class AgentRunCompletionService(
             ?: return repositoryFailure(request, role, "Story-run ${completed.storyRunId} ontbreekt")
         val repository = request.runtimeRepositoryResult
             ?: return repositoryFailure(request, role, "Agent Runtime leverde geen repositoryResult")
+        if (!hasExpectedRuntimeAlias(storyRun.targetRepo, repository.alias)) {
+            return repositoryFailure(request, role, "Runtime rapporteerde onverwachte repositoryalias '${repository.alias}'")
+        }
         val expectedBranch = if (role == AgentRole.AUDITOR) {
             storyRun.baseBranch?.takeIf(String::isNotBlank) ?: "main"
         } else {
@@ -525,6 +534,11 @@ class AgentRunCompletionService(
             )
         }
         return true
+    }
+
+    private fun hasExpectedRuntimeAlias(targetRepo: String, actualAlias: String): Boolean {
+        val catalog = projectRepositoryCatalog ?: return true
+        return catalog.runtimeAliasFor(targetRepo) == actualAlias
     }
 
     private fun repositoryFailure(request: AgentRunCompleteRequest, role: AgentRole, detail: String): Boolean {

@@ -4,6 +4,7 @@ import nl.vdzon.softwarefactory.runtime.models.*
 import nl.vdzon.softwarefactory.runtime.types.*
 
 import nl.vdzon.softwarefactory.config.ConfigApi
+import nl.vdzon.softwarefactory.config.ProjectRepositoryCatalog
 import nl.vdzon.softwarefactory.runtime.commands.*
 import nl.vdzon.softwarefactory.runtime.docker.*
 import nl.vdzon.softwarefactory.runtime.logging.*
@@ -128,6 +129,70 @@ class AgentRunCompletionServiceTest {
         assertEquals(emptyList<AgentRole>(), workspace.syncedRoles)
         assertEquals(listOf(Triple("ai/KAN-69", "main", "KAN-69: Software Factory changes")), pullRequests.remotePrRequests)
         assertEquals(42, storyRuns.pullRequests.single().prNumber)
+    }
+
+    @Test
+    fun `runtime repository evidence with wrong alias is rejected before tracker phase advances`() {
+        val issueTracker = FakeTrackerApi()
+        val service = runtimeCompletionService(
+            runs = FakeAgentRunRepository(workspacePath = null),
+            issueTracker = issueTracker,
+            projectCatalog = FakeProjectCatalog("sample-build-project"),
+        )
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "developer",
+                containerName = "11111111-1111-1111-1111-111111111111",
+                outcome = "developed",
+                phase = "developed",
+                runtimeRepositoryResult = RuntimeRepositoryResult(
+                    alias = "other-project",
+                    branch = "ai/KAN-69",
+                    checkoutCommitSha = "a".repeat(40),
+                    publicationStatus = RuntimePublicationStatus.PUSHED,
+                    commitSha = "b".repeat(40),
+                ),
+                runtimeVerificationResult = RuntimeVerificationResult(
+                    status = RuntimeVerificationStatus.PASSED,
+                    agentRounds = 1,
+                ),
+            ),
+        )
+
+        assertTrue(issueTracker.updates.single().values[TrackerField.ERROR].toString().contains("repositoryalias"))
+        assertFalse(issueTracker.updates.any { TrackerField.SUBTASK_PHASE in it.values || TrackerField.AI_PHASE in it.values })
+    }
+
+    @Test
+    fun `stale runtime reviewer evidence is rejected visibly before tracker phase advances`() {
+        val issueTracker = FakeTrackerApi()
+        val service = runtimeCompletionService(
+            runs = FakeAgentRunRepository(workspacePath = null),
+            issueTracker = issueTracker,
+            pullRequests = FakeGitHubApi(latestSha = "b".repeat(40)),
+            projectCatalog = FakeProjectCatalog("sample-build-project"),
+        )
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "reviewer",
+                containerName = "11111111-1111-1111-1111-111111111111",
+                outcome = "reviewed",
+                phase = "reviewed",
+                runtimeRepositoryResult = RuntimeRepositoryResult(
+                    alias = "sample-build-project",
+                    branch = "ai/KAN-69",
+                    checkoutCommitSha = "a".repeat(40),
+                    publicationStatus = RuntimePublicationStatus.NONE,
+                ),
+            ),
+        )
+
+        assertTrue(issueTracker.updates.single().values[TrackerField.ERROR].toString().contains("verouderd"))
+        assertFalse(issueTracker.updates.any { TrackerField.SUBTASK_PHASE in it.values || TrackerField.AI_PHASE in it.values })
     }
 
     @Test
@@ -1209,6 +1274,29 @@ class AgentRunCompletionServiceTest {
         objectMapper = jacksonObjectMapper(),
     )
 
+    private fun runtimeCompletionService(
+        runs: FakeAgentRunRepository,
+        issueTracker: FakeTrackerApi,
+        pullRequests: FakeGitHubApi = FakeGitHubApi(),
+        projectCatalog: ProjectRepositoryCatalog,
+    ) = AgentRunCompletionService(
+        agentRunRepository = runs,
+        storyRunRepository = FakeStoryRunRepository(),
+        agentEventRepository = FakeAgentEventRepository(),
+        issueTrackerClient = issueTracker,
+        processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
+        pullRequestClient = pullRequests,
+        knowledgeApi = FakeKnowledgeApi(),
+        agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
+        costMonitor = FakeCostMonitor(),
+        creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+        factoryEnvironmentProvider = testConfig(),
+        subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
+        clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
+        objectMapper = jacksonObjectMapper(),
+        projectRepositoryCatalog = projectCatalog,
+    )
+
     private fun runRecord(
         id: Long,
         outcome: String,
@@ -1505,12 +1593,13 @@ class AgentRunCompletionServiceTest {
 
     private class FakeGitHubApi(
         private val claimedComments: List<PullRequestComment> = emptyList(),
+        private val latestSha: String = "a".repeat(40),
     ) : GitHubApi {
         val doneComments = mutableListOf<Long>()
         val failedComments = mutableListOf<Long>()
         val remotePrRequests = mutableListOf<Triple<String, String, String>>()
 
-        override fun latestCommitSha(targetRepo: String, branch: String): String? = "a".repeat(40)
+        override fun latestCommitSha(targetRepo: String, branch: String): String? = latestSha
 
         override fun ensurePullRequest(
             targetRepo: String,
@@ -1554,6 +1643,14 @@ class AgentRunCompletionServiceTest {
         override fun deleteBranch(targetRepo: String, branchName: String) = Unit
 
         override fun mergePullRequest(targetRepo: String, prNumber: Int, expectedHeadSha: String) = Unit
+    }
+
+    private class FakeProjectCatalog(private val runtimeAlias: String) : ProjectRepositoryCatalog {
+        override fun repoFor(projectName: String?): String? = null
+        override fun resolve(repoOrName: String?): String? = repoOrName
+        override fun projectNames(): List<String> = listOf("sample")
+        override fun projectNameFor(repoOrName: String?): String? = "sample"
+        override fun runtimeAliasFor(repoOrName: String?): String = runtimeAlias
     }
 
     private class FakeStoryWorkspaceApi : StoryWorkspaceApi {
