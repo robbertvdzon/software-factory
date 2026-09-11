@@ -439,15 +439,6 @@ class BridgeApiController(
         return respond(hub.dispatch("story.startDeveloping", paramsOf("storyKey" to storyKey)))
     }
 
-    @PostMapping("/api/v1/stories/{storyKey}/open-workspace")
-    fun openWorkspace(
-        @RequestHeader("Authorization", required = false) authorization: String?,
-        @PathVariable storyKey: String,
-    ): ResponseEntity<Any> {
-        authService.requireAuthorization(authorization)
-        return respond(hub.dispatch("workspace.openInIde", paramsOf("storyKey" to storyKey)))
-    }
-
     @GetMapping("/api/v1/audits/reports")
     fun auditReportsList(
         @RequestHeader("Authorization", required = false) authorization: String?,

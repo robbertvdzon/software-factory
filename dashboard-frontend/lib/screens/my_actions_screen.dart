@@ -20,16 +20,6 @@ class MyActionsScreen extends StatefulWidget {
 class _MyActionsScreenState extends State<MyActionsScreen> {
   final _dataScreenKey = GlobalKey<DataScreenState>();
 
-  Future<void> _openWorkspace(String storyKey) async {
-    try {
-      await widget.state.api.postJson('/api/v1/stories/$storyKey/open-workspace');
-      if (!mounted) return;
-      showActionResult(context, success: true, message: 'Workspace geopend in IntelliJ.');
-    } catch (e) {
-      if (mounted) showActionResult(context, success: false, message: e.toString());
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return DataScreen(
@@ -50,7 +40,6 @@ class _MyActionsScreenState extends State<MyActionsScreen> {
               _StoryGroupCard(
                 state: widget.state,
                 group: group,
-                onOpenWorkspace: () => _openWorkspace(text(group['storyKey'])),
                 onDone: () => _dataScreenKey.currentState?.reload(),
               ),
           ],
@@ -63,9 +52,12 @@ class _MyActionsScreenState extends State<MyActionsScreen> {
 class _StoryGroupCard extends StatelessWidget {
   final AppState state;
   final Map<String, dynamic> group;
-  final VoidCallback onOpenWorkspace;
   final VoidCallback onDone;
-  const _StoryGroupCard({required this.state, required this.group, required this.onOpenWorkspace, required this.onDone});
+  const _StoryGroupCard({
+    required this.state,
+    required this.group,
+    required this.onDone,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -79,7 +71,10 @@ class _StoryGroupCard extends StatelessWidget {
             InkWell(
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => StoryDetailScreen(state: state, storyKey: text(group['storyKey'])),
+                  builder: (_) => StoryDetailScreen(
+                    state: state,
+                    storyKey: text(group['storyKey']),
+                  ),
                 ),
               ),
               child: Row(
@@ -88,22 +83,29 @@ class _StoryGroupCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(text(group['storyKey']), style: const TextStyle(fontWeight: FontWeight.w800)),
-                        Text(text(group['storySummary']), style: const TextStyle(color: Colors.black54)),
+                        Text(
+                          text(group['storyKey']),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        Text(
+                          text(group['storySummary']),
+                          style: const TextStyle(color: Colors.black54),
+                        ),
                       ],
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.code),
-                    tooltip: 'Open in IntelliJ',
-                    onPressed: onOpenWorkspace,
                   ),
                   const Icon(Icons.chevron_right),
                 ],
               ),
             ),
             const Divider(height: 20),
-            for (final item in items) _ActionItemTile(state: state, item: item, storyKey: text(group['storyKey']), onDone: onDone),
+            for (final item in items)
+              _ActionItemTile(
+                state: state,
+                item: item,
+                storyKey: text(group['storyKey']),
+                onDone: onDone,
+              ),
           ],
         ),
       ),
@@ -116,7 +118,12 @@ class _ActionItemTile extends StatelessWidget {
   final Map<String, dynamic> item;
   final String storyKey;
   final VoidCallback onDone;
-  const _ActionItemTile({required this.state, required this.item, required this.storyKey, required this.onDone});
+  const _ActionItemTile({
+    required this.state,
+    required this.item,
+    required this.storyKey,
+    required this.onDone,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -126,7 +133,11 @@ class _ActionItemTile extends StatelessWidget {
     final phase = text(isStory ? fields['storyPhase'] : fields['subtaskPhase']);
     final question = text(item['question']);
     final issueKey = text(issue['key']);
-    final action = pendingActionFor(isStory: isStory, phase: phase, subtaskType: text(fields['subtaskType']));
+    final action = pendingActionFor(
+      isStory: isStory,
+      phase: phase,
+      subtaskType: text(fields['subtaskType']),
+    );
     if (action == null) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),

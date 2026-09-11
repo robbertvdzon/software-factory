@@ -160,7 +160,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       context,
       title: 'Story purgen',
       message:
-          'Dit verwijdert ${widget.storyKey} volledig (issue, subtaken, branch en workspace). Dit kan niet ongedaan gemaakt worden.',
+          'Dit verwijdert ${widget.storyKey} volledig (issue, subtaken en branch). Dit kan niet ongedaan gemaakt worden.',
       confirmLabel: 'Purge',
     );
     if (!confirmed) return;
@@ -170,15 +170,6 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       successMessage: '${widget.storyKey} gepurged.',
     );
     if (mounted) Navigator.of(context).pop();
-  }
-
-  Future<void> _openWorkspace() async {
-    await _runAction(
-      () => widget.state.api.postJson(
-        '/api/v1/stories/${widget.storyKey}/open-workspace',
-      ),
-      successMessage: 'Workspace geopend in IntelliJ.',
-    );
   }
 
   Future<void> _toggleQuestionsAllowed(bool enabled) async {
@@ -522,7 +513,6 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             _ActionsMenuButton(
               busy: _busy,
               onCommand: _command,
-              onOpenWorkspace: _busy ? null : _openWorkspace,
               onPurge: _busy ? null : _purge,
               onOpenBriefing: () => Navigator.of(context).push(
                 MaterialPageRoute(
@@ -752,7 +742,6 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
 class _ActionsMenuButton extends StatelessWidget {
   final bool busy;
   final void Function(String command, bool destructive) onCommand;
-  final VoidCallback? onOpenWorkspace;
   final VoidCallback? onPurge;
   final VoidCallback onOpenBriefing;
   final VoidCallback onOpenScreenshots;
@@ -764,7 +753,6 @@ class _ActionsMenuButton extends StatelessWidget {
   const _ActionsMenuButton({
     required this.busy,
     required this.onCommand,
-    required this.onOpenWorkspace,
     required this.onPurge,
     required this.onOpenBriefing,
     required this.onOpenScreenshots,
@@ -785,8 +773,6 @@ class _ActionsMenuButton extends StatelessWidget {
         onCommand(command, destructive);
       } else {
         switch (value) {
-          case 'workspace':
-            onOpenWorkspace?.call();
           case 'briefing':
             onOpenBriefing();
           case 'screenshots':
@@ -808,11 +794,6 @@ class _ActionsMenuButton extends StatelessWidget {
         PopupMenuItem(value: 'cmd:$command', child: Text(label)),
       const PopupMenuDivider(),
       const _GroupLabel('Links'),
-      PopupMenuItem(
-        value: 'workspace',
-        enabled: onOpenWorkspace != null,
-        child: const Text('Open in IntelliJ'),
-      ),
       const PopupMenuItem(value: 'briefing', child: Text('Briefing')),
       const PopupMenuItem(value: 'screenshots', child: Text('Screenshots')),
       PopupMenuItem(

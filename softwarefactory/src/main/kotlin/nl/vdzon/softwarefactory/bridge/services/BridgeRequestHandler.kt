@@ -274,7 +274,6 @@ class BridgeRequestHandler(
                     Ack
                 }
                 "maintenance.runNow" -> cleanupRunNowBody(dashboardCommands.runCleanupNow(params.require("kind")))
-                "workspace.openInIde" -> OpenWorkspaceBody(dashboardCommands.openWorkspaceInIntellij(params.require("storyKey")))
                 "factory.restart" -> {
                     processService.requestRestart()
                     Ack
@@ -374,7 +373,6 @@ class BridgeRequestHandler(
     private data class ScreenshotListBody(val screenshots: List<ScreenshotInfo>)
     private data class ScreenshotBody(val id: String, val name: String, val mimeType: String?, val base64: String)
     private data class AttachmentBody(val id: String, val name: String, val mimeType: String?, val base64: String)
-    private data class OpenWorkspaceBody(val path: String)
     /**
      * [started] betekent "verzoek geaccepteerd" (gestart óf in de wachtrij) en blijft zo staan voor
      * oudere frontends; [status] onderscheidt "gestart", "in de wachtrij" en de weigeringsredenen

@@ -1232,7 +1232,6 @@ class DashboardQueryServiceTest {
             previewApi = FakePreviewApi(),
         )
         val deployClient = ProjectDeployClient()
-        val workspaceLauncher = WorkspaceDesktopLauncher()
         val queries = DashboardQueryService(
             issueTrackerClient = issueTracker,
             repository = repository,
@@ -1273,7 +1272,7 @@ class DashboardQueryServiceTest {
         )
         val commands = DashboardCommandService(
             issueTracker, secrets, projectResolver,
-            FakeOrchestratorApi(), deployClient, repository, workspaceLauncher,
+            FakeOrchestratorApi(), deployClient, repository,
             InMemoryStoryRunRepository(), NoopKnowledgeApi, Clock.fixed(Instant.parse("2026-01-01T10:00:00Z"), ZoneOffset.UTC),
             auditScheduler,
             nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettingsRepository(StubJdbcTemplate(), secrets),

@@ -44,7 +44,6 @@ import nl.vdzon.softwarefactory.dashboard.services.GitHubActionsClient
 import nl.vdzon.softwarefactory.dashboard.services.GitHubReleaseClient
 import nl.vdzon.softwarefactory.dashboard.services.RecentCommitsPoller
 import nl.vdzon.softwarefactory.dashboard.services.ProjectDeployClient
-import nl.vdzon.softwarefactory.dashboard.services.WorkspaceDesktopLauncher
 import nl.vdzon.softwarefactory.testsupport.InMemoryStoryRunRepository
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.springframework.jdbc.core.JdbcTemplate
@@ -138,7 +137,6 @@ internal object BridgeTestFixtures {
         )
         val projectResolver = ProjectConfiguration(emptyMap())
         val deployClient = ProjectDeployClient()
-        val workspaceLauncher = WorkspaceDesktopLauncher()
         val auditReportRepository = nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository(stubJdbc, secrets)
         val auditGateway = nl.vdzon.softwarefactory.testsupport.FakeAuditGateway()
         val auditProjectSettingsRepository = nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettingsRepository(stubJdbc, secrets)
@@ -182,7 +180,7 @@ internal object BridgeTestFixtures {
         )
         val commands = DashboardCommandService(
             tracker, secrets, projectResolver,
-            orchestrator, deployClient, repository, workspaceLauncher,
+            orchestrator, deployClient, repository,
             InMemoryStoryRunRepository(), NoopKnowledgeApi,
             Clock.fixed(java.time.Instant.parse("2026-01-01T10:00:00Z"), java.time.ZoneOffset.UTC),
             auditScheduler,

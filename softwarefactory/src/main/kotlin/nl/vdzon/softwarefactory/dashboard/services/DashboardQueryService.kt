@@ -111,9 +111,9 @@ import java.nio.file.Path
 
 /**
  * Page-data-assembler voor de dashboard-views. De [nl.vdzon.softwarefactory.core.contracts.FactoryOperations]-
- * poort-implementatie (voor o.a. `telegram`) leeft apart in [FactoryOperationsService]; het
- * host-specifieke IntelliJ-openen in [WorkspaceDesktopLauncher] en de deploy-REST-calls in
- * [ProjectDeployClient]. Deze service assembleert alleen nog paginadata en dashboard-acties.
+ * poort-implementatie (voor o.a. `telegram`) leeft apart in [FactoryOperationsService]; de
+ * deploy-REST-calls zitten in [ProjectDeployClient]. Deze service assembleert alleen nog
+ * paginadata en dashboard-acties.
  */
 @Service
 class DashboardQueryService(

@@ -10,7 +10,6 @@ softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/Fact
 softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/GitHubActionsClient.kt|softwarefactory|http|GitHub Actions feature adapter
 softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/GitHubReleaseClient.kt|softwarefactory|http|GitHub releases feature adapter
 softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/ProjectDeployClient.kt|softwarefactory|http|Project deploy feature adapter
-softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/WorkspaceDesktopLauncher.kt|softwarefactory|process|Desktop integration adapter
 softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/maintenance/services/GitHubPackageCleanupClient.kt|softwarefactory|http|GitHub package cleanup feature adapter
 softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/maintenance/services/GitHubProtectedShaSource.kt|softwarefactory|http|GitHub protected-SHA feature adapter
 softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/maintenance/services/GitHubReleaseCleanupClient.kt|softwarefactory|http|GitHub release cleanup feature adapter

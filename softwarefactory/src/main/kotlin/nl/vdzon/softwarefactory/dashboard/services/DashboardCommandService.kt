@@ -37,8 +37,6 @@ import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import org.springframework.stereotype.Service
-import java.nio.file.Files
-import java.nio.file.Path
 import java.time.Clock
 import java.time.OffsetDateTime
 
@@ -51,7 +49,6 @@ class DashboardCommandService(
     private val orchestrator: OrchestratorApi,
     private val deployClient: ProjectDeployClient,
     private val repository: FactoryDashboardRepository,
-    private val workspaceLauncher: WorkspaceDesktopLauncher,
     private val storyRunRepository: StoryRunRepository,
     private val knowledgeApi: KnowledgeApi,
     private val clock: Clock,
@@ -255,16 +252,6 @@ class DashboardCommandService(
             ),
         )
         tracker.updateIssueFields(storyKey, TrackerFieldUpdate.of(TrackerField.STORY_PHASE to StoryPhase.IN_PROGRESS.trackerValue))
-    }
-
-    override fun openWorkspaceInIntellij(storyKey: String): String {
-        val root = repository.latestStoryRun(storyKey)?.workspacePath?.takeIf(String::isNotBlank)
-            ?.let { Path.of(it).toAbsolutePath().normalize() }
-            ?: error("Geen workspace-pad gevonden voor $storyKey")
-        val repo = root.resolve("repo").normalize()
-        require(repo.startsWith(root) && Files.isDirectory(repo)) { "Repo folder bestaat niet voor $storyKey: $repo" }
-        workspaceLauncher.openInIntellij(repo)
-        return repo.toString()
     }
 
     private fun projectKey(explicit: String?): String = explicit?.takeIf(String::isNotBlank)

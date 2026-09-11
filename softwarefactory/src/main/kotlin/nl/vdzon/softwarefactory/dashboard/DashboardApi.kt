@@ -59,7 +59,6 @@ interface DashboardCommands {
         throw UnsupportedOperationException("Agent execution configuration is not available")
     }
     fun startDeveloping(storyKey: String)
-    fun openWorkspaceInIntellij(storyKey: String): String
 }
 
 interface FactoryProcessControl { fun requestRestart(); fun requestStop() }
