@@ -76,6 +76,11 @@ data class UiAgentRun(
     val summaryText: String?,
     val workspacePath: String?,
     val subtaskKey: String? = null,
+    val runtimeJobId: String? = null,
+    val runtimeStatus: String? = null,
+    val runtimePhase: String? = null,
+    val runtimeErrorCode: String? = null,
+    val runtimeErrorMessage: String? = null,
 ) {
     val totalTokens: Long =
         inputTokens + outputTokens + cacheReadInputTokens + cacheCreationInputTokens

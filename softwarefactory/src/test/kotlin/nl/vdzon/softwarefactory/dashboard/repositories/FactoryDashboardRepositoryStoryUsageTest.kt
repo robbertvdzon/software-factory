@@ -26,6 +26,7 @@ class FactoryDashboardRepositoryStoryUsageTest {
     private lateinit var postgres: PostgreSQLContainer<*>
     private lateinit var dataSource: HikariDataSource
     private lateinit var repository: FactoryDashboardRepository
+    private lateinit var jdbcTemplate: JdbcTemplate
 
     @BeforeAll
     fun setUp() {
@@ -49,7 +50,7 @@ class FactoryDashboardRepositoryStoryUsageTest {
             .load()
             .migrate()
 
-        val jdbcTemplate = JdbcTemplate(dataSource)
+        jdbcTemplate = JdbcTemplate(dataSource)
         val secrets = FactorySecrets(
             trackerProjects = emptyList(),
             githubToken = "github-token",
@@ -66,9 +67,19 @@ class FactoryDashboardRepositoryStoryUsageTest {
         // merge-run met één agent — de vorm die het overzicht op nul liet staan.
         val codeRun = insertStoryRun(jdbcTemplate, "SF-1", endedMinutesAgo = 20)
         val mergeRun = insertStoryRun(jdbcTemplate, "SF-1", endedMinutesAgo = null)
-        insertAgentRun(jdbcTemplate, codeRun, "developer", model = "claude-opus-4-8", durationMs = 120_000, input = 100, cacheRead = 1_000, cacheCreation = 200, output = 50)
+        val developerRun = insertAgentRun(jdbcTemplate, codeRun, "developer", model = "claude-opus-4-8", durationMs = 120_000, input = 100, cacheRead = 1_000, cacheCreation = 200, output = 50)
         insertAgentRun(jdbcTemplate, codeRun, "reviewer", model = "claude-opus-4-8", durationMs = 60_000, input = 10, cacheRead = 2_000, cacheCreation = 300, output = 25)
         insertAgentRun(jdbcTemplate, mergeRun, "documenter", model = "claude-haiku-4-5", durationMs = 30_000, input = 5, cacheRead = 500, cacheCreation = 0, output = 5)
+        jdbcTemplate.update(
+            """
+            INSERT INTO $schema.agent_runtime_jobs
+                (agent_run_id, runtime_job_id, idempotency_key, runtime_status, runtime_phase,
+                 last_error_code, last_error_message)
+            VALUES (?, '11111111-1111-1111-1111-111111111111', 'sf-1-developer-1',
+                    'FAILED', 'COMPLETED', 'AGENT_FAILED', 'Agent stopte')
+            """.trimIndent(),
+            developerRun,
+        )
 
         // SF-2 heeft alleen een run zonder agents — mag niet in de uitkomst opduiken.
         insertStoryRun(jdbcTemplate, "SF-2", endedMinutesAgo = 5)
@@ -107,6 +118,17 @@ class FactoryDashboardRepositoryStoryUsageTest {
         assertNull(repository.storyUsage("SF-2"))
     }
 
+    @Test
+    fun `agentoverzicht projecteert gekoppelde Runtime-status en fout`() {
+        val run = repository.recentAgentRuns().single { it.role == "developer" }
+
+        assertEquals("11111111-1111-1111-1111-111111111111", run.runtimeJobId)
+        assertEquals("FAILED", run.runtimeStatus)
+        assertEquals("COMPLETED", run.runtimePhase)
+        assertEquals("AGENT_FAILED", run.runtimeErrorCode)
+        assertEquals("Agent stopte", run.runtimeErrorMessage)
+    }
+
     private fun insertStoryRun(jdbc: JdbcTemplate, storyKey: String, endedMinutesAgo: Int?): Long =
         jdbc.queryForObject(
             """
@@ -130,16 +152,17 @@ class FactoryDashboardRepositoryStoryUsageTest {
         cacheCreation: Long,
         output: Long,
         costUsd: Double = 0.25,
-    ) {
-        jdbc.update(
+    ): Long =
+        jdbc.queryForObject(
             """
             INSERT INTO $schema.agent_runs
                 (story_run_id, role, container_name, model, started_at, ended_at, duration_ms,
                  input_tokens, cache_read_input_tokens, cache_creation_input_tokens, output_tokens,
                  cost_usd_est)
             VALUES (?, ?, ?, ?, now() - interval '1 hour', now() - interval '30 minutes', ?, ?, ?, ?, ?, ?)
+            RETURNING id
             """.trimIndent(),
+            Long::class.java,
             storyRunId, role, "test-$role", model, durationMs, input, cacheRead, cacheCreation, output, costUsd,
-        )
-    }
+        )!!
 }

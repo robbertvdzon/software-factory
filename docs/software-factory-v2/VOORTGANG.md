@@ -21,7 +21,7 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 |---:|---|---|---|
 | 0 | bezig | Productie-health is groen; execution options en repositoryaliases zijn op 2026-09-11 uitgelezen; een echte `STRUCTURED_GENERATION`-probe eindigde `SUCCEEDED` met job `3a2c4970-b6b3-426c-830a-488aa47ef8af`. | Mock- en repositoryprobes afronden. De allowlist bevat `test-repository`, maar er is nog geen online worker die die alias aanbiedt. |
 | 1 | afgerond | [`ontwerp-runtimevervanging.md`](ontwerp-runtimevervanging.md) legt vervanging, correlatie, prompts, Git-eigenaarschap, modelconfiguratie, quota en workspace-aannames vast. | Runtime-consumer bouwen. |
-| 2 | bezig | De v2-adapter maakt idempotente jobs, bouwt rolprompts/schema's, projecteert events/resultaten en gebruikt databasegestuurde modelkeuze. Refiner, planner en summarizer volgen hiermee het v2-pad. Het Settings-scherm beheert defaults en projectoverschrijvingen. Prompt en attachments gebruiken waar nodig hervatbare inputuploads. Runtime-outputartifacts worden vóór domeinpublicatie op declaratie, MIME, grootte, status, bytes en SHA-256 gevalideerd. | Expliciete status-/foutprojectie afronden. |
+| 2 | bezig | De v2-adapter maakt idempotente jobs, bouwt rolprompts/schema's, projecteert events/resultaten en gebruikt databasegestuurde modelkeuze. Refiner, planner en summarizer volgen hiermee het v2-pad. Het Settings-scherm beheert defaults en projectoverschrijvingen. Prompt en attachments gebruiken waar nodig hervatbare inputuploads. Runtime-outputartifacts worden vóór domeinpublicatie op declaratie, MIME, grootte, status, bytes en SHA-256 gevalideerd. Runtime-status, fase en fouten staan in de bestaande agentsweergave en alle terminale statussen ronden deterministisch af. | Mockacceptatie en prompt-/vraagpariteit bewijzen. |
 | 3 | bezig | Storybranch, dispatch, repositorybewijs, verificatiebewijs en PR worden zonder lokale checkout verwerkt; projectmodelkeuze gebruikt de canonieke repositoryprojectnaam. Ook audits gebruiken een read-only Runtime-checkout en getypeerd resultaat. | Promptpariteit, stale-weergave en de resterende repositoryscenario's automatiseren. |
 | 4 | niet gestart | — | Stap 3 groen. |
 | 5 | niet gestart | — | Oude runner verwijderd en volledige reactor lokaal groen. |
@@ -187,3 +187,16 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 - Gerichte tests voor artifactvalidatie/extractie, resultaatmapping, legacy testerbewijs,
   workspacevrije Runtime-testers en blokkeren vóór domeinpublicatie zijn groen: 39 tests, geen
   failures.
+
+### 2026-09-11 — expliciete Runtime-status- en foutprojectie
+
+- De bestaande Agents-pagina leest per run ook Runtime-job-ID, status, fase, foutcode en foutmelding
+  uit `agent_runtime_jobs`. Actieve en recente runs tonen deze informatie zonder nieuw scherm of
+  tweede frontend.
+- `SUCCEEDED` blijft wachten wanneer het resultaat tijdelijk niet leesbaar is. `FAILED` gebruikt
+  een aanwezig getypeerd resultaat voor blijvend rode verificatie, maar projecteert
+  `RESULT_NOT_READY` als de terminale Runtimefout. `CANCELLED` en `TIMED_OUT` vragen geen resultaat
+  op dat volgens het contract niet bestaat en worden direct zichtbaar afgerond.
+- De badgekleuren onderscheiden geslaagd, actief, wachtend en terminale fout/cancel/timeout.
+- Vier pollertests, vier Agents-widgettests en de PostgreSQL-repositorytest zijn groen, inclusief
+  transient-resultretry, verificatiefout met resultaat, databaseprojectie en foutweergave.

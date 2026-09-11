@@ -76,8 +76,17 @@ class StatusBadge extends StatelessWidget {
   factory StatusBadge.fromPhase(String? phase) {
     final value = (phase ?? '').toLowerCase();
     if (value.contains('with-questions')) return StatusBadge(phase!, BadgeTone.warn);
-    if (value.contains('rejected') || value.contains('failed') || value.contains('not-approved')) {
+    if (value.contains('rejected') ||
+        value.contains('failed') ||
+        value.contains('cancelled') ||
+        value.contains('canceled') ||
+        value.contains('timed_out') ||
+        value.contains('timeout') ||
+        value.contains('not-approved')) {
       return StatusBadge(phase!, BadgeTone.bad);
+    }
+    if (value.contains('waiting') || value.contains('retry_wait')) {
+      return StatusBadge(phase!, BadgeTone.warn);
     }
     if (value.contains('approved') || value.contains('done') || value.endsWith('ed')) {
       return StatusBadge(phase == null || phase.isEmpty ? '-' : phase, BadgeTone.good);

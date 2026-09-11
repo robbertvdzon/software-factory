@@ -233,9 +233,15 @@ class FactoryDashboardRepository(
                    ar.cost_usd_est,
                    ar.summary_text,
                    ar.workspace_path,
-                   ar.subtask_key
+                   ar.subtask_key,
+                   arj.runtime_job_id,
+                   arj.runtime_status,
+                   arj.runtime_phase,
+                   arj.last_error_code,
+                   arj.last_error_message
             FROM ${schema}.agent_runs ar
             JOIN ${schema}.story_runs sr ON sr.id = ar.story_run_id
+            LEFT JOIN ${schema}.agent_runtime_jobs arj ON arj.agent_run_id = ar.id
             WHERE $where
             ORDER BY $orderBy
             LIMIT ?
@@ -338,6 +344,11 @@ class FactoryDashboardRepository(
             summaryText = getString("summary_text"),
             workspacePath = getString("workspace_path"),
             subtaskKey = getString("subtask_key"),
+            runtimeJobId = getString("runtime_job_id"),
+            runtimeStatus = getString("runtime_status"),
+            runtimePhase = getString("runtime_phase"),
+            runtimeErrorCode = getString("last_error_code"),
+            runtimeErrorMessage = getString("last_error_message"),
         )
 
     private fun ResultSet.toAgentEvent(): UiAgentEvent =

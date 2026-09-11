@@ -50,13 +50,30 @@ class AgentRuntimeV2CompletionPoller(
         if (run.role == AgentRole.AUDITOR) return
         if (!job.terminal) return
         val story = storyRuns.get(run.storyRunId) ?: return
-        val result = runCatching { client.getResult(jobId) }
-            .getOrElse {
-                // Ook na een terminale status kan de result-response kortstondig ontbreken of de
-                // verbinding wegvallen. Niet als domeinfout publiceren: de volgende poll herstelt.
-                logger.warn("Terminal Runtime-resultaat voor {} is nog niet leesbaar; retry volgt", jobId, it)
-                return
-            }
+        val result = terminalResult(job)
+        val completion = if (result == null) {
+            mapper.failed(story.storyKey, run.role, job)
+        } else {
+            storeResult(jobId, result)
+            mapper.completed(story.storyKey, run.role, jobId.toString(), job, result)
+        }
+        runtimeApi.complete(completion)
+    }
+
+    private fun terminalResult(job: RuntimeJobView): RuntimeJobResultView? = when (job.status) {
+        RuntimeJobStatus.SUCCEEDED -> client.getResult(job.id)
+        RuntimeJobStatus.FAILED -> try {
+            // Een blijvend rode repositoryverificatie eindigt FAILED mét een getypeerd resultaat.
+            // Een infrastructuur-/agentfout heeft juist geen resultaat en geeft RESULT_NOT_READY.
+            client.getResult(job.id)
+        } catch (exception: AgentRuntimeV2Exception) {
+            if (exception.hasErrorCode("RESULT_NOT_READY")) null else throw exception
+        }
+        RuntimeJobStatus.CANCELLED, RuntimeJobStatus.TIMED_OUT -> null
+        else -> error("Niet-terminale Runtime-status ${job.status} in terminalResult")
+    }
+
+    private fun storeResult(jobId: UUID, result: RuntimeJobResultView) {
         agentRuns.storeRuntimeJobResult(
             runtimeJobId = jobId.toString(),
             checkoutCommitSha = result.repositoryResult?.checkoutCommitSha,
@@ -64,8 +81,6 @@ class AgentRuntimeV2CompletionPoller(
             repositoryResultJson = result.repositoryResult?.let(objectMapper::writeValueAsString),
             verificationResultJson = result.verificationResult?.let(objectMapper::writeValueAsString),
         )
-        val completion = mapper.completed(story.storyKey, run.role, jobId.toString(), job, result)
-        runtimeApi.complete(completion)
     }
 
     private fun mirrorEvents(agentRunId: Long, jobId: UUID) {

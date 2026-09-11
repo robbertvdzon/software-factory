@@ -71,7 +71,9 @@ class _AgentsScreenState extends State<AgentsScreen> {
               if (recent.isEmpty)
                 const EmptyState('Geen recente runs.')
               else
-                ...recent.map((run) => _AgentTile(state: widget.state, run: run)),
+                ...recent.map(
+                  (run) => _AgentTile(state: widget.state, run: run),
+                ),
             ],
           ],
         );
@@ -127,6 +129,21 @@ class _AgentTileState extends State<_AgentTile> {
     return formatDuration(number(widget.run['durationMs']) ~/ 1000);
   }
 
+  String get _runtimeText {
+    final status = text(widget.run['runtimeStatus']);
+    if (status == '-') return '';
+    final phase = text(widget.run['runtimePhase']);
+    return phase == '-' || phase == status
+        ? 'Runtime $status'
+        : 'Runtime $status · $phase';
+  }
+
+  String get _runtimeError {
+    final code = text(widget.run['runtimeErrorCode']);
+    final message = text(widget.run['runtimeErrorMessage']);
+    return [code, message].where((part) => part != '-').join(': ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final run = widget.run;
@@ -175,7 +192,12 @@ class _AgentTileState extends State<_AgentTile> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                StatusBadge.fromPhase(text(run['outcome'], fallback: 'running')),
+                StatusBadge.fromPhase(
+                  text(
+                    run['runtimeStatus'],
+                    fallback: text(run['outcome'], fallback: 'running'),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 4),
@@ -183,6 +205,19 @@ class _AgentTileState extends State<_AgentTile> {
               'Gestart ${formatTimestamp(run['startedAt'])}  ·  looptijd $_durationText',
               style: const TextStyle(color: Colors.black54, fontSize: 12),
             ),
+            if (_runtimeText.isNotEmpty)
+              Text(
+                _runtimeText,
+                style: const TextStyle(color: Colors.black54, fontSize: 12),
+              ),
+            if (_runtimeError.isNotEmpty)
+              Text(
+                _runtimeError,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 12,
+                ),
+              ),
           ],
         ),
       ),
