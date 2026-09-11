@@ -126,15 +126,15 @@ class DashboardCommandService(
     }
     override fun createStory(command: CreateStoryCommand): TrackerIssue {
         require(command.title.isNotBlank()) { "Titel is verplicht." }
-        val supplier = command.aiSupplier?.takeIf(String::isNotBlank)
-        val model = command.aiModel?.takeIf(String::isNotBlank)
         val story = tracker.createStory(
             projectKey = projectKey(command.projectKey),
             title = command.title,
             description = command.description?.takeIf(String::isNotBlank),
             repo = resolveRepoField(command.repo),
-            aiSupplier = supplier,
-            aiModel = model,
+            // Legacy trackerfields blijven leesbaar voor bestaande stories, maar nieuwe stories
+            // kiezen hun uitvoering uitsluitend via agent_role_execution_config.
+            aiSupplier = null,
+            aiModel = null,
             startPhase = if (command.start) StoryPhase.START else null,
             questionsAllowed = command.questionsAllowed,
             approvalMode = command.approvalMode,

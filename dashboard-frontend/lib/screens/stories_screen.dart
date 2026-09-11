@@ -447,7 +447,7 @@ class _StoryTile extends StatelessWidget {
                     ),
                     if (retryAfter.isNotEmpty)
                       Text(
-                        'Gepauzeerd wegens Claude-quota tot ${formatTimestamp(retryAfter)} (lokale tijd)',
+                        'Gepauzeerd door Agent Runtime tot ${formatTimestamp(retryAfter)} (lokale tijd)',
                         style: const TextStyle(
                           color: Color(0xff9a7b4a),
                           fontSize: 12,

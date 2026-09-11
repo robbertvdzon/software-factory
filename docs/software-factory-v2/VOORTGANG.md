@@ -13,7 +13,8 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
   `repositoryResult`, aliasselectie en publicatiemodi.
 - Verificatie binnen de job: **beschikbaar**. Het verificatiedocument meldt volledige implementatie
   en productiecontrole; het productiecontract bevat `JobVerification` en `VerificationResult`.
-- Software Factory-refactor: **gestart op `main`**.
+- Software Factory-refactor: **lokaal volledig geïmplementeerd op `main`**; CI/CD en live
+  acceptatie uit stap 5 worden met de eerstvolgende commit geactiveerd.
 
 ## Stapstatus
 
@@ -22,9 +23,9 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 | 0 | bezig | Productie-health is groen; execution options en repositoryaliases zijn op 2026-09-11 uitgelezen; een echte `STRUCTURED_GENERATION`-probe eindigde `SUCCEEDED` met job `3a2c4970-b6b3-426c-830a-488aa47ef8af`. | Mock- en repositoryprobes afronden. De allowlist bevat `test-repository`, maar er is nog geen online worker die die alias aanbiedt. |
 | 1 | afgerond | [`ontwerp-runtimevervanging.md`](ontwerp-runtimevervanging.md) legt vervanging, correlatie, prompts, Git-eigenaarschap, modelconfiguratie, quota en workspace-aannames vast. | Runtime-consumer bouwen. |
 | 2 | afgerond | De v2-adapter maakt idempotente jobs, bouwt volledige rolprompts en begrensde schema's, projecteert events/resultaten/artifacts/usage/status/fouten en gebruikt databasegestuurde modelkeuze. Refiner, planner en summarizer volgen het v2-pad, inclusief vragen en hervatting. De lokale acceptatieroundtrip gebruikt uitsluitend `mock/mock/MOCK`. | Repositoryketen in stap 3 afronden. |
-| 3 | bezig | Storybranch, dispatch, repositorybewijs, verificatiebewijs en PR worden zonder lokale checkout verwerkt; projectmodelkeuze gebruikt de canonieke repositoryprojectnaam. Ook audits gebruiken een read-only Runtime-checkout en getypeerd resultaat. Alias, branch, publicatiemodus en actuele remote HEAD worden fail-closed getoetst; stale bewijs wordt zichtbaar geweigerd. De volledige lokale E2E-harness gebruikt inmiddels hetzelfde branch-/completionprotocol. | Live testrepositoryprobe wacht nog op worker-alias. |
-| 4 | bezig | Agentworker, lokale Docker-runtime, storyworkspaces en AI-level zijn verwijderd; de E2E-harness gebruikt geen resultbestand of gedeelde checkout meer. | Resterende resultbestandcontracten, credentials/configuratie en oude documentatie opruimen. |
-| 5 | niet gestart | — | Oude runner verwijderd en volledige reactor lokaal groen. |
+| 3 | lokaal afgerond | Storybranch, dispatch, repositorybewijs, verificatiebewijs en PR worden zonder lokale checkout verwerkt; projectmodelkeuze gebruikt de canonieke repositoryprojectnaam. Ook audits gebruiken een read-only Runtime-checkout en getypeerd resultaat. Alias, branch, publicatiemodus en actuele remote HEAD worden fail-closed getoetst; stale bewijs wordt zichtbaar geweigerd. De volledige lokale E2E-harness gebruikt hetzelfde branch-/completionprotocol. | Live story-, hotfix- en auditacceptatie in stap 5. |
+| 4 | afgerond | Agentworker, lokale Docker-runtime, storyworkspaces, resultbestandcontracten, lokale AI-routes, providercredentials en AI-level zijn verwijderd. Actuele documentatie beschrijft Runtime v2. | — |
+| 5 | bezig | Kwaliteitsratchet, volledige Maven-reactor en volledige Flutter-suite zijn lokaal groen. | Normale pipeline activeren, images/deployment volgen en live acceptatiescenario's uitvoeren. |
 
 ## Contractcontrole
 
@@ -324,3 +325,21 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
   in plaats van containerworkspaces en resultbestanden.
 - Drie gerichte backendtestsuites inclusief PostgreSQL/Flyway en alle 21 widgettests van het
   onderhoudsscherm zijn groen.
+
+### 2026-09-11 — lokale opleveringsgates stap 5 groen
+
+- Nieuwe stories bewaren geen legacy trackerkeuze voor AI-leverancier of model meer. De
+  databasegestuurde configuratie per Runtime-rol/project is de enige uitvoeringsbron; bestaande
+  velden blijven uitsluitend voor historische compatibiliteit leesbaar.
+- Quota-/wachtstatussen in het dashboard zijn providerneutraal gemaakt en spreken over Agent
+  Runtime. De bijbehorende tests gebruiken een blijvend toekomstige datum en zijn daardoor niet
+  meer afhankelijk van de kalenderdatum waarop de suite draait.
+- `./quality/run.sh` is groen: vier Kotlin-mainmodules, 709 bevindingen geregistreerd, geen nieuwe
+  bevindingen, geen hernoemde bevindingen en geen nieuwe suppressies.
+- `flutter analyze` meldt geen issues en alle 172 Flutter-tests zijn groen.
+- `mvn -B --no-transfer-progress clean verify` is groen voor de volledige reactor: contracts,
+  common, de Software Factory met unit- en E2E-tests, en dashboard-backend. Alle 39 Flyway-
+  migraties zijn daarbij ook vanaf een lege PostgreSQL-database uitgevoerd.
+- De volgende commit bevat bewust geen `[skip ci]` en start daarmee de normale verificatie- en
+  imageketen. Pipeline-, image-, deployment- en live-acceptatiebewijs worden daarna hier
+  toegevoegd.

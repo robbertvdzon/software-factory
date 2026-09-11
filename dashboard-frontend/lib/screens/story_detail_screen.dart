@@ -70,7 +70,7 @@ bool _hasError(
       ).isNotEmpty,
     );
 
-/// Read-only presentatiestatus voor de storyheader: een subtaak met Claude-quota pauzeert de
+/// Read-only presentatiestatus voor de storyheader: een subtaak met een Runtime-wachtstatus pauzeert de
 /// zichtbare story, maar mag het persistente retryAfter van de parent niet zetten (dat veld stuurt
 /// de storycoordinator aan). Bij meerdere wachtende stappen bepaalt de laatste hervatting wanneer
 /// de story als geheel weer vrij is.
@@ -689,7 +689,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                   _KeyValueList({
                     'State': text(issue['status'], fallback: '-'),
                     'Paused': boolValue(fields['paused']) ? 'Ja' : 'Nee',
-                    'Claude-quota tot': retryAfter.isEmpty
+                    'Agent Runtime-wacht tot': retryAfter.isEmpty
                         ? '-'
                         : '${formatTimestamp(retryAfter)} (lokale tijd)',
                     if (isStory)
@@ -982,7 +982,7 @@ class _SubtasksPanel extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(left: 60, bottom: 8),
             child: Text(
-              'Gepauzeerd wegens Claude-quota tot ${formatTimestamp(retryAfter)} (lokale tijd)',
+              'Gepauzeerd door Agent Runtime tot ${formatTimestamp(retryAfter)} (lokale tijd)',
               style: const TextStyle(
                 color: SfColors.amber,
                 fontSize: 12,
@@ -1030,7 +1030,7 @@ class _QuotaWaitBanner extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
     ),
     child: Text(
-      'Gepauzeerd wegens Claude-quota tot ${formatTimestamp(retryAfter)} (lokale tijd)',
+      'Gepauzeerd door Agent Runtime tot ${formatTimestamp(retryAfter)} (lokale tijd)',
       style: const TextStyle(
         color: SfColors.amber,
         fontWeight: FontWeight.w700,

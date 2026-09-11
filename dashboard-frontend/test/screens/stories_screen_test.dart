@@ -195,7 +195,7 @@ void main() {
         'runsByStory': <String, dynamic>{},
         'usageByStory': <String, dynamic>{},
         'mergedStoryKeys': <String>[],
-        'quotaRetryAfterByStory': {'SF-1': '2026-08-02T12:30:00Z'},
+        'quotaRetryAfterByStory': {'SF-1': '2099-08-02T12:30:00Z'},
       };
       final client = MockClient(
         (request) async => http.Response(jsonEncode(payload), 200),
@@ -211,7 +211,7 @@ void main() {
       expect(find.text('quota-wacht'), findsOneWidget);
       expect(
         find.textContaining(
-          'Gepauzeerd wegens Claude-quota tot 2026-08-02 12:30',
+          'Gepauzeerd door Agent Runtime tot 2099-08-02',
         ),
         findsOneWidget,
       );

@@ -126,7 +126,7 @@ void main() {
   );
 
   testWidgets(
-    'Claude-quota wachtstatus staat op story en getroffen subtaak zonder foutbadge',
+    'Runtime-wachtstatus staat op story en getroffen subtaak zonder foutbadge',
     (tester) async {
       SharedPreferences.setMockInitialValues({});
       final state = AppState(ApiClient());
@@ -142,7 +142,7 @@ void main() {
           'fields': {
             'subtaskPhase': 'developing',
             'subtaskType': 'development',
-            'retryAfter': '2026-08-02T12:30:00Z',
+            'retryAfter': '2099-08-02T12:30:00Z',
             'error': null,
           },
         },
@@ -162,7 +162,7 @@ void main() {
 
       expect(
         find.textContaining(
-          'Gepauzeerd wegens Claude-quota tot 2026-08-02 12:30',
+          'Gepauzeerd door Agent Runtime tot 2099-08-02',
         ),
         findsNWidgets(2),
       );

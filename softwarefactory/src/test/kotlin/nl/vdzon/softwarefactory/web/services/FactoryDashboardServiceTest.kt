@@ -451,11 +451,9 @@ class DashboardQueryServiceTest {
     }
 
     @Test
-    fun `createStory fills in the resolved default AI model when left blank`() {
-        // Zonder gekozen model moet het echte default-model meteen worden vastgelegd i.p.v. leeg
-        // te blijven tot de eerste agent-dispatch — anders toont de storydetail-pagina nooit welk
-        // model gebruikt gaat worden voor een story zonder expliciete keuze. AI-supplier "claude" is
-        // hier expliciet gezet zoals het dashboard-formulier ook al standaard doet (selected optie).
+    fun `createStory laat het verouderde storymodel leeg wanneer alleen een supplier is opgegeven`() {
+        // Modelkeuze gebeurt per rol/project via agent_role_execution_config. Het legacy storyveld
+        // mag daarom niet meer met een statische supplier-default worden gevuld.
         val issueTracker = FakeTrackerApi()
         val service = createService(issueTracker)
 
@@ -469,11 +467,11 @@ class DashboardQueryServiceTest {
             start = false,
         )
 
-        assertEquals("claude-sonnet-5", issueTracker.lastCreatedAiModel)
+        assertEquals(null, issueTracker.lastCreatedAiModel)
     }
 
     @Test
-    fun `createStory falls back to the dummy model when AI supplier is also left blank`() {
+    fun `createStory laat het verouderde storymodel leeg zonder supplier of model`() {
         val issueTracker = FakeTrackerApi()
         val service = createService(issueTracker)
 
@@ -487,11 +485,11 @@ class DashboardQueryServiceTest {
             start = false,
         )
 
-        assertEquals("dummy-ai-client", issueTracker.lastCreatedAiModel)
+        assertEquals(null, issueTracker.lastCreatedAiModel)
     }
 
     @Test
-    fun `createStory keeps an explicitly chosen AI model`() {
+    fun `createStory negeert een verouderde expliciete modelkeuze`() {
         val issueTracker = FakeTrackerApi()
         val service = createService(issueTracker)
 
@@ -505,7 +503,7 @@ class DashboardQueryServiceTest {
             start = false,
         )
 
-        assertEquals("claude-opus-4-8", issueTracker.lastCreatedAiModel)
+        assertEquals(null, issueTracker.lastCreatedAiModel)
     }
 
     @Test
