@@ -563,6 +563,24 @@ class BridgeApiController(
         return respond(hub.dispatch("audit.settings.save", params))
     }
 
+    @PostMapping("/api/v1/settings/agent-execution")
+    fun saveAgentExecutionConfig(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestBody body: AgentExecutionConfigSaveRequest,
+    ): ResponseEntity<Any> {
+        val email = authService.requireAuthorization(authorization)
+        val params = objectMapper.createObjectNode()
+            .put("role", body.role)
+            .put("vendorId", body.vendorId)
+            .put("model", body.model)
+            .put("mode", body.mode)
+            .put("updatedBy", email)
+        body.projectKey?.takeIf(String::isNotBlank)?.let { params.put("projectKey", it) }
+        return respond(
+            hub.dispatch("agent.execution.save", params),
+        )
+    }
+
     @PostMapping("/api/v1/audit-memory/update")
     fun auditMemoryUpdate(
         @RequestHeader("Authorization", required = false) authorization: String?,
@@ -702,6 +720,13 @@ data class MaintenanceRunNowRequest(val kind: String)
 data class AuditAnswerRequest(val questionId: Long, val answer: String)
 data class AuditProjectSettingsSaveRequest(val project: String, val startTime: String, val auditCount: Int)
 data class AuditSettingsSaveRequest(val enabled: Boolean, val projects: List<AuditProjectSettingsSaveRequest>)
+data class AgentExecutionConfigSaveRequest(
+    val role: String,
+    val projectKey: String? = null,
+    val vendorId: String,
+    val model: String,
+    val mode: String,
+)
 
 /** Vertaalt een offline hub naar dezelfde `ok=false`/`FACTORY_OFFLINE`-vorm als een echte response. */
 private fun BridgeHub.dispatch(operation: String, params: JsonNode? = null): BridgeResponse =

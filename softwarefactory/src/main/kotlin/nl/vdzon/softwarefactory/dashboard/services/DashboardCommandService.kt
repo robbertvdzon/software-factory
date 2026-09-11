@@ -21,6 +21,7 @@ import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.dashboard.models.AuditProjectSettingsSaveInput
 import nl.vdzon.softwarefactory.dashboard.models.AuditRunNowResult
+import nl.vdzon.softwarefactory.dashboard.models.AgentExecutionConfigSaveInput
 import nl.vdzon.softwarefactory.dashboard.models.CleanupRunNowResult
 import nl.vdzon.softwarefactory.dashboard.models.CreateStoryCommand
 import nl.vdzon.softwarefactory.dashboard.DashboardCommands
@@ -28,6 +29,10 @@ import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepositor
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.maintenance.types.CleanupRunStatus
 import nl.vdzon.softwarefactory.runtime.CleanupRunNowApi
+import nl.vdzon.softwarefactory.runtime.v2.AgentRoleExecutionConfig
+import nl.vdzon.softwarefactory.runtime.v2.AgentRoleExecutionConfigService
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeExecution
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeExecutionMode
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
@@ -58,7 +63,28 @@ class DashboardCommandService(
      * bestaande, handmatig geconstrueerde testfixtures blijven werken; Spring vult 'm gewoon.
      */
     private val cleanupRunNowApi: CleanupRunNowApi? = null,
+    private val agentExecutionConfigService: AgentRoleExecutionConfigService? = null,
 ) : DashboardCommands {
+    override fun saveAgentExecutionConfig(input: AgentExecutionConfigSaveInput) {
+        val service = requireNotNull(agentExecutionConfigService) {
+            "Agent Runtime-modelconfiguratie is niet beschikbaar."
+        }
+        val role = AgentRole.entries.firstOrNull { it.markerKeyPart == input.role }
+            ?: throw IllegalArgumentException("Onbekende agentrol: ${input.role}")
+        service.save(
+            AgentRoleExecutionConfig(
+                role = role,
+                projectKey = input.projectKey?.trim()?.takeIf(String::isNotEmpty),
+                execution = RuntimeExecution(
+                    vendorId = input.vendorId.trim(),
+                    model = input.model.trim(),
+                    mode = runCatching { RuntimeExecutionMode.valueOf(input.mode.trim().uppercase()) }
+                        .getOrElse { throw IllegalArgumentException("Onbekende execution mode: ${input.mode}") },
+                ),
+                updatedBy = input.updatedBy,
+            ),
+        )
+    }
     override fun updateAuditMemoryNote(project: String, auditType: String, key: String, content: String) {
         val repo = projects.repoFor(project) ?: error("Onbekend project: $project")
         knowledgeApi.upsert(

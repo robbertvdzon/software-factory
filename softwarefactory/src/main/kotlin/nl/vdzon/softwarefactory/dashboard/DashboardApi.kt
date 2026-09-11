@@ -55,6 +55,9 @@ interface DashboardCommands {
     /** Beantwoordt een auditvraag en plant meteen de vervolgrun in; false als 'ie al beantwoord was. */
     fun answerAuditQuestion(questionId: Long, answer: String): Boolean
     fun saveAuditSettings(enabled: Boolean, projects: List<AuditProjectSettingsSaveInput>)
+    fun saveAgentExecutionConfig(input: AgentExecutionConfigSaveInput) {
+        throw UnsupportedOperationException("Agent execution configuration is not available")
+    }
     fun startDeveloping(storyKey: String)
     fun openWorkspaceInIntellij(storyKey: String): String
 }

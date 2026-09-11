@@ -84,6 +84,10 @@ import nl.vdzon.softwarefactory.dashboard.models.ProductFactoryStoryStatusView
 import nl.vdzon.softwarefactory.dashboard.models.ProductFactoryAttachmentView
 import nl.vdzon.softwarefactory.dashboard.models.RepoBuildsView
 import nl.vdzon.softwarefactory.dashboard.models.SettingsPageData
+import nl.vdzon.softwarefactory.dashboard.models.AgentExecutionConfigView
+import nl.vdzon.softwarefactory.dashboard.models.AgentExecutionOptionView
+import nl.vdzon.softwarefactory.runtime.v2.AgentRoleExecutionConfigService
+import nl.vdzon.softwarefactory.runtime.v2.JdbcAgentRoleExecutionConfigRepository
 import nl.vdzon.softwarefactory.dashboard.models.StoriesPageData
 import nl.vdzon.softwarefactory.dashboard.models.StoryDetailPageData
 import nl.vdzon.softwarefactory.dashboard.models.UiAgentRun
@@ -142,6 +146,7 @@ class DashboardQueryService(
     // "Nu draaien"-knoppen uit kan zetten en kan blijven pollen (SF-1929).
     private val cleanupRunGuard: CleanupRunGuard = CleanupRunGuard.inMemory(),
     private val issueAttachments: AttachmentPort? = null,
+    private val agentExecutionConfigService: AgentRoleExecutionConfigService? = null,
 ) : DashboardQueries {
 
     override fun dashboard(): DashboardPageData {
@@ -1359,7 +1364,38 @@ class DashboardQueryService(
             version = versionService.info(),
             auditEnabled = runCatching { auditSettingsRepository.read().enabled }.getOrDefault(AuditSettings.DEFAULT.enabled),
             auditProjectSettings = auditProjectSettingsOverview(),
+            agentExecutionConfigurations = agentExecutionConfigurations(),
+            agentExecutionOptions = agentExecutionOptions(),
+            agentExecutionProjects = projectRepoResolver.projectNames().sortedBy(String::lowercase),
         )
+
+    private fun agentExecutionConfigurations(): List<AgentExecutionConfigView> =
+        agentExecutionConfigService?.list().orEmpty().map { config ->
+            AgentExecutionConfigView(
+                role = config.role.markerKeyPart,
+                projectKey = config.projectKey,
+                vendorId = config.execution.vendorId,
+                model = config.execution.model,
+                mode = config.execution.mode.name,
+                updatedAt = config.updatedAt?.toString(),
+                updatedBy = config.updatedBy,
+            )
+        }
+
+    private fun agentExecutionOptions(): List<AgentExecutionOptionView> =
+        agentExecutionConfigService?.let { service ->
+            JdbcAgentRoleExecutionConfigRepository.CONFIGURABLE_ROLES.flatMap { role ->
+                runCatching { service.options(role) }.getOrDefault(emptyList()).map { option ->
+                    AgentExecutionOptionView(
+                        role = role.markerKeyPart,
+                        vendorId = option.execution.vendorId,
+                        model = option.execution.model,
+                        mode = option.execution.mode.name,
+                        available = option.available,
+                    )
+                }
+            }
+        }.orEmpty()
 
     /** Per project de opgeloste audit-instelling: per-project override, anders de globale default. */
     private fun auditProjectSettingsOverview(): List<AuditProjectSettingsView> {

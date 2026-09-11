@@ -297,6 +297,36 @@ data class SettingsPageData(
     /** Globale aan/uit-schakelaar voor de audit-scheduler ([nl.vdzon.softwarefactory.audit.repositories.AuditSettings.enabled]). */
     val auditEnabled: Boolean,
     val auditProjectSettings: List<AuditProjectSettingsView>,
+    val agentExecutionConfigurations: List<AgentExecutionConfigView> = emptyList(),
+    val agentExecutionOptions: List<AgentExecutionOptionView> = emptyList(),
+    val agentExecutionProjects: List<String> = emptyList(),
+)
+
+data class AgentExecutionConfigView(
+    val role: String,
+    val projectKey: String?,
+    val vendorId: String,
+    val model: String,
+    val mode: String,
+    val updatedAt: String?,
+    val updatedBy: String,
+)
+
+data class AgentExecutionOptionView(
+    val role: String,
+    val vendorId: String,
+    val model: String,
+    val mode: String,
+    val available: Boolean,
+)
+
+data class AgentExecutionConfigSaveInput(
+    val role: String,
+    val projectKey: String?,
+    val vendorId: String,
+    val model: String,
+    val mode: String,
+    val updatedBy: String,
 )
 
 /** Per-project audit-instelling zoals getoond/bewerkt in Settings; `startTime` altijd opgelost

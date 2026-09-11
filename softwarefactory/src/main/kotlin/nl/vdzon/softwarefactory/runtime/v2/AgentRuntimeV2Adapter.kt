@@ -30,7 +30,8 @@ class AgentRuntimeV2Adapter(
         require(!runtimeSettings.token.isNullOrBlank()) {
             "SF_AGENT_RUNTIME_TOKEN is required for Agent Runtime v2 dispatch"
         }
-        val execution = executions.resolve(request.role, request.projectKey).execution
+        val executionProject = projects.projectNameFor(request.targetRepo)
+        val execution = executions.resolve(request.role, executionProject).execution
         val mapping = roleMapping(request.role)
         val repositoryCheckout = repositoryCheckout(request, mapping)
         val sequence = logicalSequence(request)

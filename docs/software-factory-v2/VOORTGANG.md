@@ -21,8 +21,8 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 |---:|---|---|---|
 | 0 | bezig | Productie-health is groen; execution options en repositoryaliases zijn op 2026-09-11 uitgelezen; een echte `STRUCTURED_GENERATION`-probe eindigde `SUCCEEDED` met job `3a2c4970-b6b3-426c-830a-488aa47ef8af`. | Mock- en repositoryprobes afronden. De allowlist bevat `test-repository`, maar er is nog geen online worker die die alias aanbiedt. |
 | 1 | afgerond | [`ontwerp-runtimevervanging.md`](ontwerp-runtimevervanging.md) legt vervanging, correlatie, prompts, Git-eigenaarschap, modelconfiguratie, quota en workspace-aannames vast. | Runtime-consumer bouwen. |
-| 2 | bezig | De v2-adapter maakt idempotente jobs, bouwt rolprompts/schema's, projecteert events/resultaten en gebruikt databasegestuurde modelkeuze. Refiner, planner en summarizer volgen hiermee het v2-pad. | Beheerscherm, uploadonderbreking en expliciete correlatieprojectie afronden. |
-| 3 | bezig | De GitHub-consumer kan een storybranch en PR idempotent rechtstreeks in de targetrepository maken, zonder checkout in de Software Factory. | Dispatcher/completion omzetten en repositorybewijs fail-closed verwerken. |
+| 2 | bezig | De v2-adapter maakt idempotente jobs, bouwt rolprompts/schema's, projecteert events/resultaten en gebruikt databasegestuurde modelkeuze. Refiner, planner en summarizer volgen hiermee het v2-pad. Het Settings-scherm beheert defaults en projectoverschrijvingen. | Hervatbare uploads, artifactvalidatie en expliciete status-/foutprojectie afronden. |
+| 3 | bezig | Storybranch, dispatch, repositorybewijs, verificatiebewijs en PR worden zonder lokale checkout verwerkt; projectmodelkeuze gebruikt de canonieke repositoryprojectnaam. | Promptpariteit, stale-weergave en de resterende repositoryscenario's automatiseren. |
 | 4 | niet gestart | — | Stap 3 groen. |
 | 5 | niet gestart | — | Oude runner verwijderd en volledige reactor lokaal groen. |
 
@@ -115,3 +115,18 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
   `agent_runtime_jobs` opgeslagen. Een tijdelijk onleesbare terminale result-response wordt opnieuw
   gepolld en niet als domeinfout gepubliceerd.
 - Test: `AgentRunCompletionServiceTest` en `AgentRuntimeV2ResultMapperTest` — 25 tests groen.
+
+### 2026-09-11 — modelconfiguratie in Settings
+
+- De settings-response bevat de opgeslagen rolconfiguraties, live beschikbare Runtime-opties en de
+  configureerbare repositoryprojecten.
+- Een ingelogde dashboardgebruiker kan per agentrol de standaard of een projectoverschrijving
+  opslaan. De backend legt het gebruikersmailadres vast en de bestaande configuratieservice
+  accepteert alleen een op dat moment beschikbare vendor/model/mode-combinatie.
+- Projectoverschrijvingen worden bij dispatch opgezocht met de canonieke projectnaam die hoort bij
+  de targetrepository; de trackerprojectkey wordt daarvoor niet misbruikt.
+- `flutter analyze` is groen en de twee gerichte Settings-widgettests zijn groen. De volledige
+  Flutter-testset heeft twee reeds bestaande failures in de quota-wachtstatusweergave; deze wijziging
+  raakt die schermen niet.
+- Gerichte Kotlin-verificatie (`BridgeRequestHandlerTest`, `DashboardQueryServiceTest` en
+  `BridgeApiControllerTest`) is groen: 165 tests, zonder failures.

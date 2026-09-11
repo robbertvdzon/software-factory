@@ -51,6 +51,37 @@ class BridgeApiControllerTest {
     }
 
     @Test
+    fun `agent execution settings stuurt keuze en ingelogde gebruiker naar de factory`() {
+        var seenOperation: String? = null
+        var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
+        val mockMvc = mockMvcWith(
+            StubHub { operation, params ->
+                seenOperation = operation
+                seenParams = params
+                BridgeResponse(id = operation, ok = true)
+            },
+        )
+
+        mockMvc.perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .post("/api/v1/settings/agent-execution")
+                .header("Authorization", "Bearer $token")
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .content(
+                    """{"role":"developer","projectKey":"softwarefactory","vendorId":"codex","model":"gpt-5.6-sol","mode":"HIGH"}""",
+                ),
+        ).andExpect(status().isOk)
+
+        assertEquals("agent.execution.save", seenOperation)
+        assertEquals("developer", seenParams?.path("role")?.asText())
+        assertEquals("softwarefactory", seenParams?.path("projectKey")?.asText())
+        assertEquals("codex", seenParams?.path("vendorId")?.asText())
+        assertEquals("gpt-5.6-sol", seenParams?.path("model")?.asText())
+        assertEquals("HIGH", seenParams?.path("mode")?.asText())
+        assertEquals("robbert@vdzon.com", seenParams?.path("updatedBy")?.asText())
+    }
+
+    @Test
     fun `story-create gebruikt concrete deployed-eventset als notificationEvents ontbreekt`() {
         var seenOperation: String? = null
         var seenParams: com.fasterxml.jackson.databind.JsonNode? = null

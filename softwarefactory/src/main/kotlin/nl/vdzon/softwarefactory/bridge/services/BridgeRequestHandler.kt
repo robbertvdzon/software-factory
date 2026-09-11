@@ -14,6 +14,7 @@ import nl.vdzon.softwarefactory.core.contracts.FactoryOperations
 import nl.vdzon.softwarefactory.core.contracts.TesterScreenshots
 import nl.vdzon.softwarefactory.core.contracts.TelegramAssistantApi
 import nl.vdzon.softwarefactory.dashboard.models.AuditProjectSettingsSaveInput
+import nl.vdzon.softwarefactory.dashboard.models.AgentExecutionConfigSaveInput
 import nl.vdzon.softwarefactory.dashboard.models.CleanupRunNowResult
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.dashboard.models.CreateStoryCommand
@@ -253,6 +254,19 @@ class BridgeRequestHandler(
                     )
                 "audit.settings.save" -> {
                     dashboardCommands.saveAuditSettings(params.requireBool("enabled"), params.auditProjectSettingsList())
+                    Ack
+                }
+                "agent.execution.save" -> {
+                    dashboardCommands.saveAgentExecutionConfig(
+                        AgentExecutionConfigSaveInput(
+                            role = params.require("role"),
+                            projectKey = params.optional("projectKey"),
+                            vendorId = params.require("vendorId"),
+                            model = params.require("model"),
+                            mode = params.require("mode"),
+                            updatedBy = params.require("updatedBy"),
+                        ),
+                    )
                     Ack
                 }
                 "project.forceDeploy" -> {
