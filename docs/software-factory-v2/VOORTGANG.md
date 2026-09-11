@@ -239,3 +239,14 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 - De vier-module-testcompilatie is groen. Alle 862 functionele unit-tests in `softwarefactory`
   waren groen; alleen de al bekende Modulith-ratchet met de 24 eerder vastgelegde architectuurpunten
   blijft rood en wordt als expliciete stap-5-gate hersteld/herijkt.
+
+### 2026-09-11 — AI-levelroutering verwijderd
+
+- Commit `8313d7a0` verwijdert `aiLevel`, de `LEVEL=`-commenttrigger en `AiRouting` uit productie,
+  trackerprojectie, frontend en testfixtures. Bestaande databasekolommen blijven onaangeroerd maar
+  sturen geen gedrag meer.
+- `AgentRuntimeV2Adapter` kiest de uitvoering uitsluitend uit `agent_role_execution_config` en
+  retourneert de werkelijk gekozen vendor, model en mode; `agent_runs` bewaart voortaan die
+  Runtimekeuze in plaats van trackerafleiding.
+- Een schone testcompilatie van `softwarefactory` en `dashboard-backend`, vijf gerichte Kotlin-
+  testsuites en `flutter analyze` zijn groen.
