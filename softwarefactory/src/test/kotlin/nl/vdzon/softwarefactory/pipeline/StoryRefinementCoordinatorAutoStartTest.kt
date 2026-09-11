@@ -207,7 +207,6 @@ class StoryRefinementCoordinatorAutoStartTest {
             pullRequestClient = FakeGitHubApi(),
             processedCommentService = ProcessedCommentService(tracker, processedCommentStore),
             previewApi = FakePreviewEnvironmentCleaner(),
-            storyWorkspaceService = FakeStoryWorkspaceService(),
             costMonitor = FakeCostMonitor(),
             projectRepoResolver = ProjectConfiguration(emptyMap()),
             settings = settings,

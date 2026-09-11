@@ -77,7 +77,7 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
   `SF_AGENT_RUNTIME_TOKEN`; het bestaande secretmechanisme is niet gewijzigd.
 - Test: `mvn -B --no-transfer-progress -pl softwarefactory -am
   -Dtest=AgentRuntimeV2HttpClientTest -Dsurefire.failIfNoSpecifiedTests=false test` — groen.
-- Migratie `V36` voegt rol-/projectconfiguratie en de duurzame koppeling tussen `agent_runs` en
+- Migratie `V37` voegt rol-/projectconfiguratie en de duurzame koppeling tussen `agent_runs` en
   Runtime-jobs toe. Alle bestaande rijen en tabellen blijven intact.
 - De configuratieservice valideert iedere nieuwe vendor/model/mode-combinatie live tegen de
   execution options van Runtime. De defaults zijn expliciet en er is geen model-fallback.
@@ -100,3 +100,8 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 - PR-aanmaak gebruikt alleen repositoryslug, basebranch en storybranch en vereist geen lokale
   checkout. Een al geopende PR wordt hergebruikt.
 - Test: `GitHubCliClientTest` — 15 tests groen, inclusief branchaanmaak en remote PR-hergebruik.
+- De dispatcher maakt voor repositoryrollen nu alleen remote branchcontext aan en geeft geen
+  `workspacePath` meer door. Refiner, planner en summarizer maken helemaal geen Gitbranch of map.
+- De dubbele Flyway-versie die door gelijktijdige main-wijzigingen ontstond is opgelost: Runtime v2
+  staat in `V37`, ná de bestaande story-samenvattingsmigratie `V36`. Een schone PostgreSQL-migratie
+  tot en met v37 en de repository-integratietest zijn groen.

@@ -25,6 +25,20 @@ class FakeGitHubApi(
     private val ancestorResults: Map<Pair<String, String>, Boolean?> = emptyMap(),
 ) : GitHubApi {
     val claimedComments = mutableListOf<Long>()
+    val ensuredBranches = mutableListOf<Triple<String, String, String>>()
+
+    override fun ensureRemoteBranch(targetRepo: String, branchName: String, baseBranch: String): String {
+        ensuredBranches += Triple(targetRepo, branchName, baseBranch)
+        return latestSha ?: "branch-head"
+    }
+
+    override fun ensurePullRequest(
+        targetRepo: String,
+        branchName: String,
+        baseBranch: String,
+        title: String,
+        body: String,
+    ): PullRequestInfo = PullRequestInfo(number = 1, url = "https://github.example/pr/1")
 
     override fun latestCommitSha(targetRepo: String, branch: String): String? = latestSha
 

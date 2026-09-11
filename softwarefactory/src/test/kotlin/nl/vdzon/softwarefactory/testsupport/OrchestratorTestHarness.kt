@@ -72,7 +72,6 @@ abstract class OrchestratorTestHarness {
             pullRequestClient = pullRequests,
             processedCommentService = ProcessedCommentService(issueTracker, processedCommentStore),
             previewApi = previewCleaner,
-            storyWorkspaceService = storyWorkspaceService,
             costMonitor = costMonitor,
             projectRepoResolver = projectRepoResolver,
             settings = settings,

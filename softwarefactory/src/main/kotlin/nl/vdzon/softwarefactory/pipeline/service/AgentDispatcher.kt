@@ -13,15 +13,12 @@ import nl.vdzon.softwarefactory.core.contracts.AiRouting
 import nl.vdzon.softwarefactory.core.contracts.CostMonitor
 import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
 import nl.vdzon.softwarefactory.core.contracts.OrchestratorSettings
-import nl.vdzon.softwarefactory.core.contracts.PreparedStoryWorkspace
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
-import nl.vdzon.softwarefactory.core.contracts.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.core.contracts.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
-import nl.vdzon.softwarefactory.core.contracts.StoryRunWorkspaceUpdate
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import nl.vdzon.softwarefactory.tracker.ProcessedCommentsApi
 import nl.vdzon.softwarefactory.config.ProjectRepositoryCatalog
@@ -51,7 +48,7 @@ data class AgentDispatchContext(
 
 /**
  * Gedeelde "start een agent"-mechaniek voor de pipeline: budget- en concurrency-checks, fase-veld
- * + AgentStartedAt zetten, workspace prepareren, de dispatch-request bouwen en de agent starten.
+ * + AgentStartedAt zetten, de remote branch reserveren, de dispatch-request bouwen en de agent starten.
  *
  * Gebruikt door zowel [StoryRefinementCoordinator] (story-fasen) als
  * [SubtaskExecutionCoordinator] (subtask-pipeline).
@@ -65,7 +62,6 @@ class AgentDispatcher(
     private val pullRequestClient: GitHubApi,
     private val processedCommentService: ProcessedCommentsApi,
     private val previewApi: PreviewApi,
-    private val storyWorkspaceService: StoryWorkspaceApi,
     private val costMonitor: CostMonitor,
     private val projectRepoResolver: ProjectRepositoryCatalog,
     private val settings: OrchestratorSettings,
@@ -136,24 +132,11 @@ class AgentDispatcher(
         issueTrackerClient.transitionIssue(issue.key, stateInProgress)
 
         return try {
-            val workspace = storyWorkspaceService.prepare(storyRun, role)
-            storyWorkspaceService.ensureStoryWorklog(storyRun, issue.summary, issue.description)
-            storyRunRepository.updateWorkspace(StoryRunWorkspaceUpdate(
-                storyRunId = storyRun.id,
-                workspacePath = workspace.workspacePath.toString(),
-                branchName = workspace.branchName,
-                baseBranch = workspace.baseBranch,
-                branchPrefix = workspace.branchPrefix,
-                previewUrlTemplate = workspace.deploymentConfig.previewUrlTemplate,
-                previewNamespaceTemplate = workspace.deploymentConfig.previewNamespaceTemplate,
-                previewDbSecretRecipe = workspace.deploymentConfig.previewDbSecretRecipe,
-            ))
-            postWorkspaceLinkIfNew(issue.key, storyRun, workspace)
+            val preparedRun = prepareRemoteBranch(storyRun, role)
             val request = dispatchRequest(
                 issue = issue,
                 targetRepo = targetRepo,
-                storyRun = storyRun,
-                workspace = workspace,
+                storyRun = preparedRun,
                 role = role,
                 activePhaseValue = activePhaseValue,
                 sourcePhase = sourcePhase,
@@ -164,7 +147,7 @@ class AgentDispatcher(
             logger.info(
                 "Starting agent dispatch: story={} role={} storyRunId={} sourcePhase={} " +
                     "targetPhase={} supplier={} level={} model={} targetRepo={} prNumber={} " +
-                    "branch={} workspace={}",
+                    "branch={}",
                 issue.key,
                 role.markerKeyPart,
                 storyRun.id,
@@ -175,8 +158,7 @@ class AgentDispatcher(
                 request.aiModel?.takeIf { it.isNotBlank() } ?: "<default>",
                 SupportApi.default().redact(targetRepo),
                 storyRun.prNumber ?: "<none>",
-                workspace.branchName,
-                workspace.workspacePath,
+                preparedRun.branchName ?: "<none>",
             )
             val dispatch = agentRuntime.dispatch(request)
             val agentRunId = agentRunRepository.recordStarted(AgentRunStart(
@@ -227,36 +209,18 @@ class AgentDispatcher(
         }
     }
 
-    private fun postWorkspaceLinkIfNew(storyKey: String, storyRun: StoryRunRecord, workspace: PreparedStoryWorkspace) {
-        if (!storyRun.workspacePath.isNullOrBlank()) {
-            return
-        }
-        val repoRoot = workspace.repoRoot.toAbsolutePath().normalize()
-        val message = """
-        [ORCHESTRATOR] Work folder aangemaakt:
-        - Repo: [$repoRoot](${repoRoot.toUri()})
-        - Open in IntelliJ: `open -a "IntelliJ IDEA" "$repoRoot"`
-        """.trimIndent()
-        runCatching {
-            issueTrackerClient.postComment(storyKey, message)
-        }.onFailure { exception ->
-            logger.warn("Could not post workspace link for {}", storyKey, exception)
-        }
-    }
-
     private fun dispatchRequest(
         issue: TrackerIssue,
         targetRepo: String,
         storyRun: StoryRunRecord,
-        workspace: PreparedStoryWorkspace,
         role: AgentRole,
         activePhaseValue: String,
         sourcePhase: AiPhase?,
         loopbackReason: String? = null,
         parentContext: TrackerIssue? = null,
     ): AgentDispatchRequest {
-        val previewUrl = previewApi.render(workspace.deploymentConfig.previewUrlTemplate, storyRun.prNumber)
-        val previewNamespace = previewApi.render(workspace.deploymentConfig.previewNamespaceTemplate, storyRun.prNumber)
+        val previewUrl = previewApi.render(storyRun.previewUrlTemplate, storyRun.prNumber)
+        val previewNamespace = previewApi.render(storyRun.previewNamespaceTemplate, storyRun.prNumber)
         val prCommentContext = prCommentContext(storyRun, role, sourcePhase)
         // Subtaken erven supplier/model/effort van de parent-story als ze zelf leeg zijn.
         val supplier = issue.fields.aiSupplier?.takeIf { it.isNotBlank() }
@@ -272,12 +236,12 @@ class AgentDispatcher(
             serializationKey = storyRun.storyKey,
             targetRepo = targetRepo,
             storyRunId = storyRun.id,
-            workspacePath = workspace.workspacePath.toString(),
-            branchName = workspace.branchName,
+            workspacePath = null,
+            branchName = storyRun.branchName,
             role = role,
             phase = activePhaseValue,
-            baseBranch = workspace.baseBranch,
-            branchPrefix = workspace.branchPrefix,
+            baseBranch = storyRun.baseBranch,
+            branchPrefix = storyRun.branchPrefix,
             prNumber = storyRun.prNumber,
             previewUrl = previewUrl,
             previewNamespace = previewNamespace,
@@ -294,6 +258,36 @@ class AgentDispatcher(
             aiEffort = effort ?: aiRoute.effort,
             questionsAllowed = issueTrackerClient.effectiveQuestionsAllowed(issue),
         )
+    }
+
+    /**
+     * Repositorycontext is voortaan alleen remote state. De Runtime-worker maakt voor iedere job
+     * zelf een tijdelijke checkout; de Software Factory bewaart of deelt geen werkmap meer.
+     */
+    private fun prepareRemoteBranch(storyRun: StoryRunRecord, role: AgentRole): StoryRunRecord {
+        if (role !in REPOSITORY_ROLES) return storyRun
+
+        val baseBranch = storyRun.baseBranch?.takeIf(String::isNotBlank) ?: DEFAULT_BASE_BRANCH
+        if (role == AgentRole.AUDITOR) {
+            return storyRun.copy(baseBranch = baseBranch)
+        }
+        val branchPrefix = storyRun.branchPrefix?.takeIf(String::isNotBlank) ?: DEFAULT_BRANCH_PREFIX
+        val branchName = storyRun.branchName?.takeIf(String::isNotBlank)
+            ?: branchPrefix + storyRun.storyKey.replace(Regex("[^A-Za-z0-9._-]"), "-")
+
+        pullRequestClient.ensureRemoteBranch(storyRun.targetRepo, branchName, baseBranch)
+        storyRunRepository.updatePullRequest(
+            storyRunId = storyRun.id,
+            branchName = branchName,
+            prNumber = storyRun.prNumber,
+            prUrl = storyRun.prUrl,
+            baseBranch = baseBranch,
+            branchPrefix = branchPrefix,
+            previewUrlTemplate = storyRun.previewUrlTemplate,
+            previewNamespaceTemplate = storyRun.previewNamespaceTemplate,
+            previewDbSecretRecipe = storyRun.previewDbSecretRecipe,
+        )
+        return storyRun.copy(branchName = branchName, baseBranch = baseBranch, branchPrefix = branchPrefix)
     }
 
     private fun trackerContext(issue: TrackerIssue, role: AgentRole, parentContext: TrackerIssue? = null): String =
@@ -428,4 +422,16 @@ class AgentDispatcher(
             appendLine()
             appendLine(body.trim())
         }.trimEnd()
+
+    private companion object {
+        const val DEFAULT_BASE_BRANCH = "main"
+        const val DEFAULT_BRANCH_PREFIX = "ai/"
+        val REPOSITORY_ROLES = setOf(
+            AgentRole.DEVELOPER,
+            AgentRole.REVIEWER,
+            AgentRole.TESTER,
+            AgentRole.DOCUMENTER,
+            AgentRole.AUDITOR,
+        )
+    }
 }
