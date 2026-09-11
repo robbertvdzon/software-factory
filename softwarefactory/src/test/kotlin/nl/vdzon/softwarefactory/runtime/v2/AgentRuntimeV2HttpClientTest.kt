@@ -4,6 +4,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpMethod
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.mock.http.client.MockClientHttpRequest
 import org.springframework.test.web.client.MockRestServiceServer
@@ -11,6 +12,7 @@ import org.springframework.test.web.client.match.MockRestRequestMatchers.content
 import org.springframework.test.web.client.match.MockRestRequestMatchers.method
 import org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo
 import org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess
+import org.springframework.test.web.client.response.MockRestResponseCreators.withStatus
 import org.springframework.web.client.RestClient
 import java.util.UUID
 import kotlin.test.assertEquals
@@ -46,6 +48,23 @@ class AgentRuntimeV2HttpClientTest {
 
         assertEquals(jobId, created.id)
         assertEquals(RuntimeJobStatus.QUEUED, created.status)
+        server.verify()
+    }
+
+    @Test
+    fun `worker-wachtstatus uit het productiecontract blijft polbaar`() {
+        val builder = RestClient.builder()
+        val server = MockRestServiceServer.bindTo(builder).build()
+        val client = AgentRuntimeV2HttpClient(builder.build())
+        val jobId = UUID.fromString("55555555-5555-5555-5555-555555555555")
+        server.expect(requestTo("/v2/jobs/$jobId"))
+            .andExpect(method(HttpMethod.GET))
+            .andRespond(withSuccess(jobJson(jobId, "WAITING_FOR_WORKER"), MediaType.APPLICATION_JSON))
+
+        val job = client.getJob(jobId)
+
+        assertEquals(RuntimeJobStatus.WAITING_FOR_WORKER, job.status)
+        assertEquals(false, job.terminal)
         server.verify()
     }
 
@@ -98,6 +117,57 @@ class AgentRuntimeV2HttpClientTest {
         assertEquals(RuntimePublicationStatus.PUSHED, result.repositoryResult?.publicationStatus)
         assertEquals(RuntimeVerificationStatus.PASSED, result.verificationResult?.status)
         assertEquals(2, result.verificationResult?.agentRounds)
+        server.verify()
+    }
+
+    @Test
+    fun `inputupload gebruikt create head patch en complete met offsets`() {
+        val builder = RestClient.builder()
+        val server = MockRestServiceServer.bindTo(builder).build()
+        val client = AgentRuntimeV2UploadClient(builder.build())
+        val uploadId = UUID.fromString("33333333-3333-3333-3333-333333333333")
+        val objectId = UUID.fromString("44444444-4444-4444-4444-444444444444")
+        val sha = "a".repeat(64)
+        server.expect(requestTo("/v2/uploads"))
+            .andExpect(method(HttpMethod.POST))
+            .andRespond(
+                withSuccess(
+                    """{"uploadId":"$uploadId","objectId":"$objectId","state":"UPLOADING","protocol":"RESUMABLE_PATCH","chunkSizeBytes":1048576,"uploadUrl":"/v2/uploads/$uploadId","offset":0,"sizeBytes":3,"expiresAt":"2026-09-12T07:00:00Z"}""",
+                    MediaType.APPLICATION_JSON,
+                ),
+            )
+        server.expect(requestTo("/v2/uploads/$uploadId"))
+            .andExpect(method(HttpMethod.HEAD))
+            .andRespond(
+                withStatus(HttpStatus.NO_CONTENT)
+                    .header("Upload-Offset", "0")
+                    .header("Upload-Length", "3")
+                    .header("Upload-State", "UPLOADING"),
+            )
+        server.expect(requestTo("/v2/uploads/$uploadId"))
+            .andExpect(method(HttpMethod.PATCH))
+            .andExpect { exchange ->
+                assertEquals("0", exchange.headers.getFirst("Upload-Offset"))
+                assertEquals("abc", String((exchange as MockClientHttpRequest).bodyAsBytes))
+            }
+            .andRespond(withStatus(HttpStatus.NO_CONTENT).header("Upload-Offset", "3"))
+        server.expect(requestTo("/v2/uploads/$uploadId/complete"))
+            .andExpect(method(HttpMethod.POST))
+            .andRespond(
+                withSuccess(
+                    """{"objectId":"$objectId","filename":"source.txt","mimeType":"text/plain","sizeBytes":3,"sha256":"$sha","state":"READY","createdAt":"2026-09-11T07:00:00Z","readyAt":"2026-09-11T07:01:00Z"}""",
+                    MediaType.APPLICATION_JSON,
+                ),
+            )
+
+        val upload = client.createUpload(RuntimeCreateUploadRequest("source.txt", "text/plain", 3, sha))
+        val head = client.uploadHead(upload.uploadId)
+        val offset = client.appendUploadChunk(upload.uploadId, head.offset, "abc".toByteArray())
+        val completed = client.completeUpload(upload.uploadId)
+
+        assertEquals(3, offset)
+        assertEquals(RuntimeUploadState.READY, completed.state)
+        assertEquals(objectId, completed.objectId)
         server.verify()
     }
 

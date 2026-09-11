@@ -78,15 +78,24 @@ class AgentRuntimeV2HttpClient(
             .onStatus(HttpStatusCode::isError, runtimeError("get repository aliases"))
             .body(object : ParameterizedTypeReference<List<RuntimeRepositoryAliasOption>>() {})
             .orEmpty()
-
-    private fun runtimeError(operation: String): RestClient.ResponseSpec.ErrorHandler =
-        RestClient.ResponseSpec.ErrorHandler { _, response ->
-            val body = response.body.bufferedReader().use { it.readText() }.take(2_000)
-            throw AgentRuntimeV2Exception(
-                "$operation failed with HTTP ${response.statusCode.value()}: $body",
-            )
-        }
 }
 
-class AgentRuntimeV2Exception(message: String) : RuntimeException(message)
+internal fun runtimeError(operation: String): RestClient.ResponseSpec.ErrorHandler =
+    RestClient.ResponseSpec.ErrorHandler { _, response ->
+        val body = response.body.bufferedReader().use { it.readText() }.take(2_000)
+        throw AgentRuntimeV2Exception(
+            operation = operation,
+            statusCode = response.statusCode.value(),
+            responseBody = body,
+        )
+    }
 
+class AgentRuntimeV2Exception(
+    val operation: String,
+    val statusCode: Int,
+    val responseBody: String,
+) : RuntimeException("$operation failed with HTTP $statusCode: $responseBody") {
+    fun hasErrorCode(errorCode: String): Boolean =
+        responseBody.contains("\"code\":\"$errorCode\"") ||
+            responseBody.contains("\"code\": \"$errorCode\"")
+}

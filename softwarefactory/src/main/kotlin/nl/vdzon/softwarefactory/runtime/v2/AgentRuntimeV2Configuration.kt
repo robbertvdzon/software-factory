@@ -47,5 +47,8 @@ class AgentRuntimeV2Configuration {
     @Bean
     fun agentRuntimeV2HttpClient(restClient: RestClient): AgentRuntimeV2HttpClient =
         AgentRuntimeV2HttpClient(restClient)
-}
 
+    @Bean
+    fun agentRuntimeV2UploadClient(restClient: RestClient): AgentRuntimeV2UploadClient =
+        AgentRuntimeV2UploadClient(restClient)
+}

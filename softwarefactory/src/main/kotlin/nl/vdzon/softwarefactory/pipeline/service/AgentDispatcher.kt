@@ -2,6 +2,8 @@ package nl.vdzon.softwarefactory.pipeline.service
 
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.core.contracts.AgentDispatchRequest
+import nl.vdzon.softwarefactory.core.contracts.AgentInputAttachment
+import nl.vdzon.softwarefactory.contract.ProductFactoryAttachmentNames
 import nl.vdzon.softwarefactory.core.contracts.BoardState
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.AgentRunStart
@@ -251,6 +253,7 @@ class AgentDispatcher(
             agentMode = "comment".takeIf { prCommentContext != null },
             trackerContext = trackerContext(issue, role, parentContext),
             prCommentContext = prCommentContext,
+            inputAttachments = productFactoryAttachments(storyRun.storyKey),
             aiLevel = aiRoute.level,
             aiSupplier = supplier,
             // Per-subtask model/effort (planner-keuze) gaat voor; anders parent, anders routing.
@@ -259,6 +262,34 @@ class AgentDispatcher(
             questionsAllowed = issueTrackerClient.effectiveQuestionsAllowed(issue),
         )
     }
+
+    private fun productFactoryAttachments(storyKey: String): List<AgentInputAttachment> =
+        issueTrackerClient.listIssueAttachments(storyKey).mapNotNull { attachment ->
+            val parsed = ProductFactoryAttachmentNames.parse(attachment.name) ?: return@mapNotNull null
+            val bytes = requireNotNull(issueTrackerClient.downloadAttachmentBytes(attachment)) {
+                "Product Factory-attachment ${attachment.name} kan niet worden gelezen."
+            }
+            val stablePart = parsed.attachmentId.lowercase()
+                .replace(Regex("[^a-z0-9-]"), "-")
+                .trim('-')
+                .take(70)
+                .ifBlank { "attachment" }
+            val extension = parsed.fileName.substringAfterLast('.', "bin").lowercase()
+                .replace(Regex("[^a-z0-9]"), "")
+                .take(12)
+                .ifBlank { "bin" }
+            AgentInputAttachment(
+                logicalName = "product-factory-$stablePart",
+                originalFilename = parsed.fileName,
+                uploadFilename = "$stablePart.$extension",
+                mimeType = attachment.mimeType?.takeIf(String::isNotBlank) ?: "application/octet-stream",
+                bytes = bytes,
+            )
+        }.also { attachments ->
+            require(attachments.map { it.logicalName }.distinct().size == attachments.size) {
+                "Product Factory-attachments hebben geen unieke Runtime-objectnamen."
+            }
+        }
 
     /**
      * Repositorycontext is voortaan alleen remote state. De Runtime-worker maakt voor iedere job

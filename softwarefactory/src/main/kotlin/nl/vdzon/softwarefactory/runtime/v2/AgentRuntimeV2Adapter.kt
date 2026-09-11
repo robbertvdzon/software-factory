@@ -1,6 +1,5 @@
 package nl.vdzon.softwarefactory.runtime.v2
 
-import com.fasterxml.jackson.databind.JsonNode
 import nl.vdzon.softwarefactory.config.ProjectRepositoryCatalog
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.AgentDispatchRequest
@@ -18,7 +17,7 @@ import java.util.UUID
 @ConditionalOnProperty(name = ["softwarefactory.runtime"], havingValue = "v2", matchIfMissing = true)
 class AgentRuntimeV2Adapter(
     private val client: AgentRuntimeV2HttpClient,
-    private val instructionFactory: AgentRuntimeInstructionFactory,
+    private val jobContent: AgentRuntimeJobContentFactory,
     private val executions: AgentRoleExecutionConfigService,
     private val projects: ProjectRepositoryCatalog,
     private val agentRuns: AgentRunRepository,
@@ -42,11 +41,8 @@ class AgentRuntimeV2Adapter(
                 jobKind = mapping.jobKind,
                 taskType = mapping.taskType,
                 execution = execution,
-                input = RuntimeJobInput(instructionFactory.instruction(request)),
-                output = RuntimeOutputContract(
-                    resultSchema = instructionFactory.resultSchema(request.role),
-                    artifacts = artifacts(request.role),
-                ),
+                input = jobContent.input(idempotencyKey, request),
+                output = jobContent.output(request.role),
                 repositoryCheckout = repositoryCheckout,
                 verification = if (mapping.mutating) {
                     RuntimeJobVerification(
@@ -122,18 +118,6 @@ class AgentRuntimeV2Adapter(
                 RuntimePublicationMode.NONE
             },
         )
-    }
-
-    private fun artifacts(role: AgentRole): List<RuntimeArtifactDeclaration> = when (role) {
-        AgentRole.TESTER -> listOf(
-            RuntimeArtifactDeclaration(
-                name = "screenshots.zip",
-                required = false,
-                mimeTypes = listOf("application/zip"),
-                maxBytes = 100L * 1024 * 1024,
-            ),
-        )
-        else -> emptyList()
     }
 
     private fun roleMapping(role: AgentRole): RoleMapping = when (role) {

@@ -33,6 +33,17 @@ class AgentRuntimeInstructionFactory(
             appendLine()
             appendLine(it)
         }
+        if (request.inputAttachments.isNotEmpty()) {
+            appendLine()
+            appendLine("## Aangeleverde bestanden")
+            appendLine("Lees deze bestanden vanuit de getoonde Runtime-objectpaden:")
+            request.inputAttachments.forEach { attachment ->
+                appendLine(
+                    "- `${attachment.originalFilename}` (${attachment.mimeType}): " +
+                        "`/job/input/objects/${attachment.logicalName}/content`",
+                )
+            }
+        }
         val tips = runCatching { knowledge.find(request.targetRepo, request.role.markerKeyPart) }
             .getOrDefault(emptyList())
             .sortedByDescending { it.updatedAt }
@@ -183,4 +194,3 @@ class AgentRuntimeInstructionFactory(
         )
     }
 }
-

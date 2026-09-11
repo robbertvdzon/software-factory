@@ -6,6 +6,7 @@ import nl.vdzon.softwarefactory.core.contracts.CreditsPause
 import nl.vdzon.softwarefactory.core.contracts.ErrorCategory
 import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
 import nl.vdzon.softwarefactory.core.contracts.TrackerComment
+import nl.vdzon.softwarefactory.core.contracts.TrackerAttachment
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.testsupport.FakeAgentRuntime
@@ -24,7 +25,7 @@ import org.junit.jupiter.api.Test
 
 /**
  * Pickup-/gate-gedrag van de orchestrator: paused/error-skips, repo-resolutie,
- * workspace-comments, dispatch-context, budget-/credits-gates en fase-recovery van stories.
+ * workspacevrije dispatch-context, budget-/credits-gates en fase-recovery van stories.
  *
  * Afgesplitst uit de voormalige OrchestratorServiceTest; wiring en fakes staan in
  * `nl.vdzon.softwarefactory.testsupport` ([OrchestratorTestHarness]).
@@ -103,22 +104,47 @@ class OrchestratorGateTest : OrchestratorTestHarness() {
     }
 
     @Test
-    fun `posts workspace link when story workspace is created`() {
+    fun `dispatch creates no local workspace or workspace comment`() {
         val issueTracker = FakeTrackerApi(listOf(issue("KAN-21", phase = null)))
-        val service = service(issueTracker)
+        val runtime = FakeAgentRuntime(now)
+        val service = service(issueTracker, runtime = runtime)
 
         val result = service.pollOnce()
 
         assertEquals(IssueProcessResult.Dispatched("KAN-21", AgentRole.REFINER, "factory-KAN-21-refiner"), result.issueResults.single())
-        val comment = issueTracker.postedComments.single()
-        assertEquals("KAN-21", comment.first)
-        assertTrue(comment.second.contains("Work folder aangemaakt"))
-        assertTrue(comment.second.contains("/tmp/software-factory-test-workspaces/KAN-21/repo"))
-        assertTrue(comment.second.contains("open -a \"IntelliJ IDEA\""))
+        assertEquals(null, runtime.dispatches.single().workspacePath)
+        assertTrue(issueTracker.postedComments.isEmpty())
     }
 
     @Test
-    fun `does not repost workspace link when story already has workspace`() {
+    fun `product factory attachment is passed to runtime without a workspace`() {
+        val attachment = TrackerAttachment(
+            id = "tracker-1",
+            name = "product-factory-input__ux-mobile__lege-lijst.png",
+            url = null,
+            mimeType = "image/png",
+            size = 3,
+            created = null,
+        )
+        val issueTracker = FakeTrackerApi(
+            issues = listOf(issue("KAN-24", phase = null)),
+            attachments = mapOf("KAN-24" to listOf(attachment)),
+            attachmentBytes = mapOf("tracker-1" to byteArrayOf(1, 2, 3)),
+        )
+        val runtime = FakeAgentRuntime(now)
+
+        service(issueTracker, runtime = runtime).pollOnce()
+
+        val input = runtime.dispatches.single().inputAttachments.single()
+        assertEquals("product-factory-ux-mobile", input.logicalName)
+        assertEquals("lege-lijst.png", input.originalFilename)
+        assertEquals("ux-mobile.png", input.uploadFilename)
+        assertEquals(listOf<Byte>(1, 2, 3), input.bytes.toList())
+        assertEquals(null, runtime.dispatches.single().workspacePath)
+    }
+
+    @Test
+    fun `legacy workspace metadata does not cause a workspace comment`() {
         val issueTracker = FakeTrackerApi(listOf(issue("KAN-22", phase = null)))
         val storyRuns = InMemoryStoryRunRepository()
         storyRuns.openOrCreate("KAN-22", "git@example/repo.git")

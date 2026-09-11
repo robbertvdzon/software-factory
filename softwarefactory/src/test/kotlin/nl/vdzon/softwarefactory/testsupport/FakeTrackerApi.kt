@@ -3,6 +3,7 @@ package nl.vdzon.softwarefactory.testsupport
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
+import nl.vdzon.softwarefactory.core.contracts.TrackerAttachment
 import nl.vdzon.softwarefactory.core.contracts.TrackerComment
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
@@ -22,6 +23,8 @@ class FakeTrackerApi(
     // (of een parent in [issues]) gooit getIssue voor [parentKey] — precies de trackerstoring die
     // dispatch/deploy sinds SF-1560 laat skippen i.p.v. als "geen parent" te behandelen.
     private val parentIssue: TrackerIssue? = null,
+    private val attachments: Map<String, List<TrackerAttachment>> = emptyMap(),
+    private val attachmentBytes: Map<String, ByteArray> = emptyMap(),
 ) : TrackerApi {
     val updates: MutableMap<String, MutableList<TrackerFieldUpdate>> = mutableMapOf()
     val transitions: MutableList<Pair<String, String>> = mutableListOf()
@@ -38,6 +41,12 @@ class FakeTrackerApi(
     override fun parentStoryKey(subtaskKey: String): String? = parentKey
 
     override fun subtasksOf(parentKey: String): List<TrackerIssue> = subtasks
+
+    override fun listIssueAttachments(issueKey: String): List<TrackerAttachment> =
+        attachments[issueKey].orEmpty()
+
+    override fun downloadAttachmentBytes(attachment: TrackerAttachment): ByteArray? =
+        attachmentBytes[attachment.id]
 
     val createdSubtasks: MutableList<SubtaskSpec> = mutableListOf()
 

@@ -10,10 +10,20 @@ enum class RuntimeTaskType { STRUCTURED_GENERATION, REPOSITORY_AGENT }
 enum class RuntimeExecutionMode { API, SUBSCRIPTION, MOCK }
 enum class RuntimePublicationMode { NONE, COMMIT_AND_PUSH }
 enum class RuntimeVerificationMode { NONE, REPOSITORY_CONFIG }
-enum class RuntimeJobStatus { QUEUED, RUNNING, RETRY_WAIT, SUCCEEDED, FAILED, CANCELLED, TIMED_OUT }
+enum class RuntimeJobStatus {
+    QUEUED,
+    WAITING_FOR_WORKER,
+    RUNNING,
+    RETRY_WAIT,
+    SUCCEEDED,
+    FAILED,
+    CANCELLED,
+    TIMED_OUT,
+}
 enum class RuntimePublicationStatus { NONE, NO_CHANGES, PUSHED }
 enum class RuntimeVerificationStatus { PASSED, FAILED, SKIPPED, CONFIG_MISSING, CONFIG_INVALID, TIMEOUT }
 enum class RuntimeVerificationCommandStatus { PASSED, FAILED, TIMEOUT, SKIPPED }
+enum class RuntimeUploadState { UPLOADING, READY, EXPIRED }
 
 data class RuntimeExecution(
     val vendorId: String,
@@ -30,6 +40,42 @@ data class RuntimeInputObjectRef(
     val objectId: UUID,
     val name: String,
     val role: String,
+)
+
+data class RuntimeCreateUploadRequest(
+    val filename: String,
+    val mimeType: String,
+    val sizeBytes: Long,
+    val sha256: String,
+)
+
+data class RuntimeUploadView(
+    val uploadId: UUID,
+    val objectId: UUID,
+    val state: RuntimeUploadState,
+    val protocol: String,
+    val chunkSizeBytes: Long,
+    val uploadUrl: String,
+    val offset: Long,
+    val sizeBytes: Long,
+    val expiresAt: OffsetDateTime,
+)
+
+data class RuntimeUploadHead(
+    val offset: Long,
+    val length: Long,
+    val state: RuntimeUploadState,
+)
+
+data class RuntimeInputObjectView(
+    val objectId: UUID,
+    val filename: String,
+    val mimeType: String,
+    val sizeBytes: Long,
+    val sha256: String,
+    val state: RuntimeUploadState,
+    val createdAt: OffsetDateTime,
+    val readyAt: OffsetDateTime,
 )
 
 data class RuntimeOutputContract(

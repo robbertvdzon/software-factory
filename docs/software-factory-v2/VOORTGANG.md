@@ -21,7 +21,7 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 |---:|---|---|---|
 | 0 | bezig | Productie-health is groen; execution options en repositoryaliases zijn op 2026-09-11 uitgelezen; een echte `STRUCTURED_GENERATION`-probe eindigde `SUCCEEDED` met job `3a2c4970-b6b3-426c-830a-488aa47ef8af`. | Mock- en repositoryprobes afronden. De allowlist bevat `test-repository`, maar er is nog geen online worker die die alias aanbiedt. |
 | 1 | afgerond | [`ontwerp-runtimevervanging.md`](ontwerp-runtimevervanging.md) legt vervanging, correlatie, prompts, Git-eigenaarschap, modelconfiguratie, quota en workspace-aannames vast. | Runtime-consumer bouwen. |
-| 2 | bezig | De v2-adapter maakt idempotente jobs, bouwt rolprompts/schema's, projecteert events/resultaten en gebruikt databasegestuurde modelkeuze. Refiner, planner en summarizer volgen hiermee het v2-pad. Het Settings-scherm beheert defaults en projectoverschrijvingen. | Hervatbare uploads, artifactvalidatie en expliciete status-/foutprojectie afronden. |
+| 2 | bezig | De v2-adapter maakt idempotente jobs, bouwt rolprompts/schema's, projecteert events/resultaten en gebruikt databasegestuurde modelkeuze. Refiner, planner en summarizer volgen hiermee het v2-pad. Het Settings-scherm beheert defaults en projectoverschrijvingen. Prompt en attachments gebruiken waar nodig hervatbare inputuploads. | Artifactvalidatie en expliciete status-/foutprojectie afronden. |
 | 3 | bezig | Storybranch, dispatch, repositorybewijs, verificatiebewijs en PR worden zonder lokale checkout verwerkt; projectmodelkeuze gebruikt de canonieke repositoryprojectnaam. Ook audits gebruiken een read-only Runtime-checkout en getypeerd resultaat. | Promptpariteit, stale-weergave en de resterende repositoryscenario's automatiseren. |
 | 4 | niet gestart | — | Stap 3 groen. |
 | 5 | niet gestart | — | Oude runner verwijderd en volledige reactor lokaal groen. |
@@ -145,3 +145,27 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
   verwachte alias, branch en actuele remote branch-head horen; anders faalt de audit zichtbaar.
 - Een tijdelijk onleesbaar resultaat van een geslaagde terminale job blijft polbaar. Gerichte tests
   voor Runtime-resultaatmapping, workspacevrije auditdispatch en auditrapportpublicatie zijn groen.
+
+### 2026-09-11 — hervatbare Runtime-inputuploads
+
+- Commit: `feat: upload Runtime-invoer hervatbaar [skip ci]`.
+- Migratie `V38` bewaart per idempotente agentstap en logische objectnaam het Runtime-upload- en
+  object-ID, de inhoudshash en de laatst bekende offset. Een restart of verloren create-jobresponse
+  hergebruikt daardoor exact dezelfde READY-objectreferenties.
+- De authoritative `HEAD`-offset van Runtime bepaalt waar een onderbroken upload verdergaat. Een
+  verlopen of verdwenen reservering wordt vervangen; gewijzigde inhoud, bestandsnaam of MIME onder
+  dezelfde idempotentiesleutel wordt fail-closed geweigerd.
+- Product Factory-attachments worden rechtstreeks uit de tracker gelezen en als Runtime-inputobject
+  aangeboden. Er ontstaat geen gedeelde map of blijvende checkout. Een prompt boven de Runtime-limiet
+  van 65.536 tekens wordt als `full-prompt` geüpload; de inline instructie verwijst naar het vaste
+  workerpad. Het resultaatschema blijft inline, omdat het actuele v2-contract daar geen objectref voor
+  accepteert.
+- De consumer accepteert ook de actuele niet-terminale Runtime-status `WAITING_FOR_WORKER`.
+- Test: upload-HTTP-contract, hervatten vanaf de serveroffset, Product Factory-attachmentdispatch,
+  workspacevrije dispatch en de actuele wachtstatus zijn groen: 17 gerichte tests, geen failures.
+  Een schone PostgreSQL/Flyway-run tot en met `V38` is groen en een afzonderlijke upgradeproef van
+  `V37` naar `V38` behoudt een bestaande Runtime-job en maakt de uploadtabel aan.
+- `quality/run.sh` is nog rood op 24 reeds tijdens de eerdere refactor opgebouwde afwijkingen ten
+  opzichte van de oude ratchetbaseline. De nieuwe uploadservice en gesplitste uploadclient voegen na
+  refactor geen eigen finding of suppressie toe; het herstellen/herijken van de volledige ratchet
+  blijft een expliciete gate voor stap 5.

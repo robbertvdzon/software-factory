@@ -43,6 +43,8 @@ data class AgentDispatchRequest(
     val agentMode: String? = null,
     val trackerContext: String? = null,
     val prCommentContext: String? = null,
+    /** Invoerbestanden die via Runtime-objectuploads worden aangeleverd; nooit via een gedeelde map. */
+    val inputAttachments: List<AgentInputAttachment> = emptyList(),
     val aiLevel: Int? = null,
     val aiSupplier: String? = null,
     val aiModel: String? = null,
@@ -60,6 +62,15 @@ data class AgentDispatchRequest(
         "story-key" to serializationKey,
         "role" to role.markerKeyPart,
     ),
+)
+
+data class AgentInputAttachment(
+    val logicalName: String,
+    val originalFilename: String,
+    val uploadFilename: String,
+    val mimeType: String,
+    val bytes: ByteArray,
+    val role: String = "DOCUMENT",
 )
 
 data class AgentDispatchResult(
