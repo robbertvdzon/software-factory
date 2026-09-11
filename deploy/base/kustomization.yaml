@@ -17,4 +17,4 @@ images:
   newTag: sha-ffec15e
 - name: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
   newName: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
-  newTag: sha-fa6e340
+  newTag: sha-ffec15e
