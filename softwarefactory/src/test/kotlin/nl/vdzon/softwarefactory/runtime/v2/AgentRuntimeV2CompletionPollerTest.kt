@@ -88,12 +88,21 @@ class AgentRuntimeV2CompletionPollerTest {
         assertTrue(fixture.runtime.requests.isEmpty())
     }
 
-    private fun fixture(job: RuntimeJobView): Fixture {
+    @Test
+    fun `resultaat van subtaak wordt op subtaak en niet op parent-story afgerond`() {
+        val fixture = fixture(job(RuntimeJobStatus.CANCELLED, "USER_CANCELLED", "Geannuleerd"), "SF-43")
+
+        fixture.poller.poll()
+
+        assertEquals("SF-43", fixture.runtime.requests.single().storyKey)
+    }
+
+    private fun fixture(job: RuntimeJobView, subtaskKey: String? = null): Fixture {
         val agentRuns = mock(AgentRunRepository::class.java)
         val storyRuns = mock(StoryRunRepository::class.java)
         val client = mock(AgentRuntimeV2HttpClient::class.java)
         val runtime = CapturingRuntime()
-        doReturn(listOf(run())).`when`(agentRuns).activeRuns()
+        doReturn(listOf(run(subtaskKey))).`when`(agentRuns).activeRuns()
         doReturn(StoryRunRecord(7, "SF-42", "https://github.com/example/repo"))
             .`when`(storyRuns).get(7)
         doReturn(RuntimeJobEventPage(active = false)).`when`(client).events(jobId)
@@ -109,7 +118,7 @@ class AgentRuntimeV2CompletionPollerTest {
         return Fixture(poller, agentRuns, client, runtime)
     }
 
-    private fun run() = AgentRunRecord(
+    private fun run(subtaskKey: String? = null) = AgentRunRecord(
         id = 1,
         storyRunId = 7,
         role = AgentRole.DEVELOPER,
@@ -118,6 +127,7 @@ class AgentRuntimeV2CompletionPollerTest {
         endedAt = null,
         outcome = null,
         summaryText = null,
+        subtaskKey = subtaskKey,
     )
 
     private fun job(status: RuntimeJobStatus, errorCode: String? = null, errorMessage: String? = null) =

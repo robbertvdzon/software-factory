@@ -290,6 +290,8 @@ data class AgentRunRecord(
     val level: Int? = null,
     val workspacePath: String? = null,
     val rateLimit: AgentRunRateLimit? = null,
+    /** Issue waarop het agentresultaat moet landen; null betekent de parent-story zelf. */
+    val subtaskKey: String? = null,
 )
 
 data class AgentRunRateLimit(

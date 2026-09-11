@@ -50,12 +50,13 @@ class AgentRuntimeV2CompletionPoller(
         if (run.role == AgentRole.AUDITOR) return
         if (!job.terminal) return
         val story = storyRuns.get(run.storyRunId) ?: return
+        val targetIssueKey = run.subtaskKey ?: story.storyKey
         val result = terminalResult(job)
         val completion = if (result == null) {
-            mapper.failed(story.storyKey, run.role, job)
+            mapper.failed(targetIssueKey, run.role, job)
         } else {
             storeResult(jobId, result)
-            mapper.completed(story.storyKey, run.role, jobId.toString(), job, result)
+            mapper.completed(targetIssueKey, run.role, jobId.toString(), job, result)
         }
         runtimeApi.complete(completion)
     }

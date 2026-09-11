@@ -455,7 +455,7 @@ class JdbcAgentRunRepository(
             """
             SELECT id, story_run_id, role, container_name, started_at, ended_at, outcome, summary_text,
                    model, effort, level, workspace_path, rate_limit_status, rate_limit_resets_at,
-                   rate_limit_overage_resets_at
+                   rate_limit_overage_resets_at, subtask_key
             FROM ${factorySecrets.factoryDatabaseSchema}.agent_runs
             WHERE ended_at IS NULL
             ORDER BY started_at ASC, id ASC
@@ -493,7 +493,7 @@ class JdbcAgentRunRepository(
             """
             SELECT id, story_run_id, role, container_name, started_at, ended_at, outcome, summary_text,
                    model, effort, level, workspace_path, rate_limit_status, rate_limit_resets_at,
-                   rate_limit_overage_resets_at
+                   rate_limit_overage_resets_at, subtask_key
             FROM ${factorySecrets.factoryDatabaseSchema}.agent_runs
             WHERE story_run_id = ? AND role = ?
             $quotaFilter
@@ -660,6 +660,7 @@ private fun ResultSet.toAgentRunRecord(): AgentRunRecord =
         level = (getObject("level") as Number?)?.toInt(),
         workspacePath = getString("workspace_path"),
         rateLimit = toAgentRunRateLimit(),
+        subtaskKey = getString("subtask_key"),
     )
 
 private fun ResultSet.toAgentRunRateLimit(): AgentRunRateLimit? {
