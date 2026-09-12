@@ -21,6 +21,10 @@ spec:
       # Bestaande ServiceAccount uit robberts-infrastructure (sf-preview-cleanup-rbac.yaml): mag
       # preview-namespaces wissen; leesrechten op ArgoCD-Applications staan in sf-argocd-read-rbac.yaml.
       serviceAccountName: sf-preview-cleanup
+      securityContext:
+        # De bijlagen-PVC (local-path) is anders niet schrijfbaar, zie attachments-pvc.yaml.
+        seLinuxOptions:
+          type: spc_t
       containers:
         - name: app
           image: ghcr.io/robbertvdzon/softwarefactory-dashboard-backend:main

@@ -8,3 +8,17 @@ spec:
   storageClassName: local-path
   resources:
     requests: {storage: 2Gi}
+---
+# local-path-PVC's liggen op een hostpad dat OpenShift niet kan herlabelen; net als product-factory
+# krijgt de factory-ServiceAccount daarom de hostmount-anyuid-SCC en draait de pod met spc_t.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: software-factory-attachments-local-path-scc
+subjects:
+  - kind: ServiceAccount
+    name: sf-preview-cleanup
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:hostmount-anyuid-v2
