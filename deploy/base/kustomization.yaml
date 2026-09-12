@@ -19,4 +19,4 @@ images:
   newTag: main
 - name: ghcr.io/robbertvdzon/software-factory-frontend
   newName: ghcr.io/robbertvdzon/software-factory-frontend
-  newTag: main
+  newTag: sha-c8d3d06
