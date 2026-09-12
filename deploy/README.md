@@ -1,11 +1,16 @@
-# Software Factory dashboard deploy
+# Software Factory deploy
 
-This deploys only the dashboard surface:
+Dit deployt de volledige Software Factory in namespace `software-factory`:
 
-- `softwarefactory-dashboard-backend`: small API that relays requests to the local orchestrator over an outbound WebSocket bridge (see `docs/ontwerp-bridge-dashboard.md`) — it holds no tracker data itself.
+- `softwarefactory-dashboard-backend`: de factory zelf (orchestrator, tracker, pipeline, audits,
+  Telegram, dashboard-API en Product Factory-integratie), gebouwd uit `softwarefactory/Dockerfile`.
+  Het image bevat `gh`, `kubectl` en `oc`; de pod draait als ServiceAccount `sf-preview-cleanup`
+  (robberts-infrastructure) en gebruikt de in-cluster credentials, dus geen kubeconfig.
 - `softwarefactory-dashboard-frontend`: Flutter web app served by nginx; `/api/*` is proxied to the backend service.
+- `database`: eigen PostgreSQL 16 (StatefulSet, PVC `software-factory-database-data`), zie `base/database.yaml`.
+- PVC `software-factory-attachments`: storybijlagen, gemount op `/var/lib/software-factory/attachments`.
 
-The local orchestrator on the laptop remains responsible for polling the tracker database, starting agents and processing results.
+De Agent Runtime-worker is geen onderdeel van deze deploy; die draait apart.
 
 ## Cluster setup: namespace
 
@@ -19,15 +24,17 @@ from every bootstrap script/playbook on 2026-07-08; see
 
 ## Secrets
 
-The dashboard uses the same root `secrets.env` keys as the local app. To create the OpenShift secret:
+Alle configuratie van de factory komt uit één Sealed Secret (`softwarefactory-dashboard-secrets`):
+de `SF_*`-sleutels uit `deploy/secrets-cluster.env` (kopieer `deploy/secrets-cluster.env.example`)
+plus `deploy/projects-cluster.yaml`, dat als `projects.yaml` in de pod wordt gemount. Beide bestanden
+zijn gitignored; de repository is publiek en projects.yaml bevat chat-id's.
 
 ```bash
 ./deploy/seal-secrets.sh
 ```
 
-By default the script reads `./secrets.env`. If cluster values need to differ, copy `deploy/secrets-cluster.env.example` to `deploy/secrets-cluster.env`; that file is gitignored and takes precedence.
-
 The generated `deploy/base/sealed-secret-dashboard.yaml` is encrypted for the current cluster and can be committed.
+Een wijziging in secrets of projectconfiguratie is dus: bestand aanpassen, opnieuw sealen, committen, ArgoCD syncen.
 
 ## Normal deploy
 
@@ -44,7 +51,8 @@ oc apply -k deploy/base
 
 ### How those images are built
 
-Both images are built and pushed by `.github/workflows/dashboard-backend-image.yml` and
+Both images are built and pushed by `.github/workflows/dashboard-backend-image.yml` (the factory,
+from `softwarefactory/Dockerfile`, with the commit baked in as `SF_BUILD_COMMIT`) and
 `.github/workflows/dashboard-frontend-image.yml` (the frontend workflow also builds and releases
 the Android APK). They start in two ways:
 

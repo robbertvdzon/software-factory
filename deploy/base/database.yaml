@@ -1,0 +1,91 @@
+# Eigen PostgreSQL voor de Software Factory, naar het clusterpatroon van pvdd/hkh/product-factory:
+# eigen ServiceAccount aan de local-path-SCC, één RWO-PVC op local-path, StatefulSet + headless Service.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: software-factory-database
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: software-factory-database-local-path-scc
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:local-path-postgresql
+subjects:
+  - {kind: ServiceAccount, name: software-factory-database}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: software-factory-database-data
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests: {storage: 10Gi}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: database
+  labels: {app.kubernetes.io/name: software-factory, app.kubernetes.io/component: database}
+spec:
+  serviceName: database
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: software-factory, app.kubernetes.io/component: database}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: software-factory, app.kubernetes.io/component: database}
+    spec:
+      serviceAccountName: software-factory-database
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        fsGroupChangePolicy: OnRootMismatch
+        seLinuxOptions: {type: spc_t}
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: postgres
+          image: quay.io/sclorg/postgresql-16-c9s@sha256:22162c54bc5a00ac54c5d48da193a8a3805e10950b961b36aa121ea6b11ea6ae
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+            runAsNonRoot: true
+          env:
+            - {name: POSTGRESQL_DATABASE, value: software_factory}
+            - name: POSTGRESQL_USER
+              valueFrom: {secretKeyRef: {name: softwarefactory-dashboard-secrets, key: SF_DATABASE_USER}}
+            - name: POSTGRESQL_PASSWORD
+              valueFrom: {secretKeyRef: {name: softwarefactory-dashboard-secrets, key: SF_DATABASE_PASSWORD}}
+          ports:
+            - {name: postgres, containerPort: 5432}
+          resources:
+            requests: {cpu: 50m, memory: 256Mi}
+            limits: {cpu: "1", memory: 1Gi}
+          startupProbe:
+            exec: {command: [sh, -c, 'pg_isready -U "$POSTGRESQL_USER" -d software_factory']}
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            exec: {command: [sh, -c, 'pg_isready -U "$POSTGRESQL_USER" -d software_factory']}
+            periodSeconds: 10
+          livenessProbe:
+            exec: {command: [sh, -c, 'pg_isready -U "$POSTGRESQL_USER" -d software_factory']}
+            periodSeconds: 30
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/pgsql/data}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: software-factory-database-data}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: database
+spec:
+  clusterIP: None
+  selector: {app.kubernetes.io/name: software-factory, app.kubernetes.io/component: database}
+  ports:
+    - {name: postgres, port: 5432, targetPort: postgres}

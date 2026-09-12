@@ -1,0 +1,10 @@
+# Storybijlagen (tester-screenshots, Product Factory-invoer): ~15 MB per maand, dus 2Gi is voor jaren genoeg.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: software-factory-attachments
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests: {storage: 2Gi}

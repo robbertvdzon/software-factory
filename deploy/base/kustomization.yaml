@@ -5,6 +5,8 @@ namespace: software-factory
 
 resources:
 - sealed-secret-dashboard.yaml
+- database.yaml
+- attachments-pvc.yaml
 - softwarefactory-dashboard-backend-deployment.yaml
 - softwarefactory-dashboard-backend-service.yaml
 - softwarefactory-dashboard-frontend-deployment.yaml

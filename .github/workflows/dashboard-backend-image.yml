@@ -1,4 +1,4 @@
-name: Build dashboard-backend image
+name: Build software factory image
 
 on:
   workflow_run:
@@ -40,6 +40,14 @@ jobs:
         id: sha
         run: echo "tag=sha-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
+      # Versie-info voor het dashboard: in het image is geen .git, zie FactoryVersionService.
+      - name: Build info
+        id: build
+        run: |
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "subject=$(git log -1 --format=%s)" >> "$GITHUB_OUTPUT"
+          echo "date=$(git log -1 --format=%ci)" >> "$GITHUB_OUTPUT"
+
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -51,11 +59,16 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          file: dashboard-backend/Dockerfile
+          file: softwarefactory/Dockerfile
           push: true
           tags: |
             ${{ env.IMAGE }}:${{ steps.sha.outputs.tag }}
             ${{ env.IMAGE }}:main
+          build-args: |
+            SF_BUILD_COMMIT=${{ steps.build.outputs.commit }}
+            SF_BUILD_BRANCH=main
+            SF_BUILD_COMMIT_SUBJECT=${{ steps.build.outputs.subject }}
+            SF_BUILD_COMMIT_DATE=${{ steps.build.outputs.date }}
           cache-from: type=gha,scope=softwarefactory-dashboard-backend
           cache-to: type=gha,mode=max,scope=softwarefactory-dashboard-backend
 

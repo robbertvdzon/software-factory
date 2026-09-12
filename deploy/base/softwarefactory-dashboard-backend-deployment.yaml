@@ -6,6 +6,10 @@ metadata:
     app: softwarefactory-dashboard-backend
 spec:
   replicas: 1
+  # Eén factory tegelijk: schedulers, Telegram-polling en de orchestrator verdragen geen tweede
+  # instantie, dus nooit een nieuwe pod naast de oude.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: softwarefactory-dashboard-backend
@@ -14,6 +18,9 @@ spec:
       labels:
         app: softwarefactory-dashboard-backend
     spec:
+      # Bestaande ServiceAccount uit robberts-infrastructure (sf-preview-cleanup-rbac.yaml): mag
+      # preview-namespaces wissen; leesrechten op ArgoCD-Applications staan in sf-argocd-read-rbac.yaml.
+      serviceAccountName: sf-preview-cleanup
       containers:
         - name: app
           image: ghcr.io/robbertvdzon/softwarefactory-dashboard-backend:main
@@ -21,9 +28,22 @@ spec:
           envFrom:
             - secretRef:
                 name: softwarefactory-dashboard-secrets
+          env:
+            - {name: TZ, value: Europe/Amsterdam}
+            - {name: SF_PROJECTS_FILE, value: /etc/software-factory/projects.yaml}
+            - {name: SF_TRACKER_ATTACHMENTS_DIR, value: /var/lib/software-factory/attachments}
+            # gh leest het token uit GH_TOKEN; zelfde token als waarmee de factory PR's beheert.
+            - name: GH_TOKEN
+              valueFrom: {secretKeyRef: {name: softwarefactory-dashboard-secrets, key: SF_GITHUB_TOKEN}}
           ports:
             - name: http
               containerPort: 8080
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
           readinessProbe:
             httpGet:
               path: /healthz
@@ -36,8 +56,19 @@ spec:
             periodSeconds: 30
           resources:
             requests:
-              cpu: 25m
-              memory: 256Mi
+              cpu: 100m
+              memory: 512Mi
             limits:
-              cpu: 500m
-              memory: 768Mi
+              cpu: "2"
+              memory: 2Gi
+          volumeMounts:
+            - {name: projects, mountPath: /etc/software-factory, readOnly: true}
+            - {name: attachments, mountPath: /var/lib/software-factory/attachments}
+      volumes:
+        - name: projects
+          secret:
+            secretName: softwarefactory-dashboard-secrets
+            items:
+              - {key: SF_PROJECTS_YAML, path: projects.yaml}
+        - name: attachments
+          persistentVolumeClaim: {claimName: software-factory-attachments}

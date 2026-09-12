@@ -42,6 +42,8 @@ ENV SF_BUILD_COMMIT=${SF_BUILD_COMMIT} \
     SF_BUILD_COMMIT_SUBJECT=${SF_BUILD_COMMIT_SUBJECT} \
     SF_BUILD_COMMIT_DATE=${SF_BUILD_COMMIT_DATE}
 COPY --from=build /build/softwarefactory/target/softwarefactory-app-0.0.1-SNAPSHOT.jar /app/app.jar
+# Gecommitte tuning-defaults; SecretsEnvLoader leest ze naast het (ontbrekende) /app/secrets.env.
+COPY properties.default.env /app/properties.default.env
 # Schrijfbare mappen voor logs en (zonder PVC) bijlagen, ook onder een willekeurige OpenShift-uid.
 RUN mkdir -p /app/logs /app/attachments && chgrp -R 0 /app && chmod -R g+rwX /app
 EXPOSE 8080
