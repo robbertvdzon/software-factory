@@ -1,6 +1,6 @@
 # Software Factory — topologie naar OpenShift
 
-Status: ontwerp vastgesteld, klaar om uit te voeren
+Status: uitgevoerd op 2026-09-12; zie het uitvoeringslog
 
 Peildatum: 2026-09-12
 
@@ -367,6 +367,27 @@ vanaf de cluster werken.
   namespace, inclusief de PVC's, ook nadat de finalizer van de oude Application was weggehaald. De
   database en bijlagen zijn daarna opnieuw uit de dump en het archief gezet. Hernoem een Application
   nooit meer zonder eerst de data veilig te stellen, of hernoem hem niet.
+
+- **2026-09-12, stap 5 en 6 uitgevoerd.** Rename naar `software-factory-backend` en
+  `software-factory-frontend` (commit `c8d3d064`), ArgoCD-Application `software-factory`, nieuwe
+  images publiek op GHCR. Route voor `softwarefactory.vdzonsoftware.nl` via de bestaande
+  Cloudflare-wildcard; `dashboard.vdzonsoftware.nl` stuurt browsers met 301 en behoud van pad
+  door en blijft `/api/*` bedienen. De Google-origin stond al op de gedeelde OAuth-client. Product
+  Factory wijst naar de nieuwe Service en host (commit `99048c3` daar); tot die promotie is
+  uitgerold houdt een alias-Service op de oude naam de integratie werkend.
+- **Aandachtspunt:** elke push naar `main` bouwt en herdeployt de factory zelf (Recreate), ook
+  midden in een lopende story. De recovery van actieve agent-runs vangt dat op, maar plan
+  documentatie-commits niet tijdens een gevoelige story.
+
+- **2026-09-12, stap 7 uitgevoerd.** Story SF-2429 op `test-repository` is volledig vanaf de
+  cluster doorlopen en gemerged (PR #4); de tester wees vier rondes af op een ontbrekende
+  `main`-ref in de read-only checkout en is één keer handmatig goedgekeurd, waarna de keten zelf
+  tot merge kwam. Documentatie-audit `softwarefactory/documentation` leverde rapport 104 met
+  vervolgstory SF-2436; de eerste run brak af omdat er tijdens de run naar `main` werd gepusht
+  (fail-closed checkoutcontrole). Telegram leverde de ERROR-melding van SF-2431. De Product
+  Factory-integratie antwoordt op de nieuwe host en via de alias-Service. `factory-loop.sh`,
+  `factory-loop.command`, de map `agentworker` en de LaunchAgent zijn weg; de lokale Postgres is
+  gestopt (volume en bijlagenmap staan nog op de laptop, bewust niet verwijderd).
 
 ## Werk buiten deze repository
 

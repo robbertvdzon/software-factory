@@ -24,10 +24,11 @@ class AttachmentConflictException(message: String) : RuntimeException(message)
  * invoer faalt opnieuw. Alles wat onverwacht is wordt een 500 met de melding, zodat de frontend
  * die kan tonen.
  */
+// DashboardStatusController hoort hier bewust niet bij: het SSE-kanaal meldt zijn time-out via
+// AsyncRequestTimeoutException nadat de response al is gecommit, en dat mag geen foutbody worden.
 @RestControllerAdvice(assignableTypes = [
     DashboardQueryController::class,
     DashboardCommandController::class,
-    DashboardStatusController::class,
     ProductFactoryIntegrationController::class,
 ])
 class DashboardApiErrorHandler {
