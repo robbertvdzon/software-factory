@@ -150,9 +150,11 @@ expliciet geregeld worden:
   valt daarop terug als er geen `.git` is.
 - **`projects.yaml` en de operationele secrets.** `projects.yaml` is nu gitignored, maar bevat geen
   geheime waarden: alleen repo-URL's, Runtime-aliassen, Telegram-chat-id's, deploydoelen, namen van
-  omgevingsvariabelen en paden. Het wordt een tracked bestand `deploy/base/projects.yaml` dat via
-  een `configMapGenerator` als ConfigMap wordt gemount, met `SF_PROJECTS_FILE` naar dat pad. Een
-  wijziging in de projectconfiguratie is daarmee een commit plus ArgoCD-sync. De `private:`-lijsten
+  omgevingsvariabelen en paden. Omdat de repository publiek is en de Telegram-chat-id's niet
+  openbaar hoeven te zijn, blijft het bestand gitignored en gaat het als extra sleutel mee in het
+  Sealed Secret, gemount als bestand, met `SF_PROJECTS_FILE` naar dat pad. `deploy/seal-secrets.sh`
+  neemt het bestand mee. Een wijziging in de projectconfiguratie is daarmee opnieuw sealen, een
+  commit en een ArgoCD-sync. De `private:`-lijsten
   met absolute laptoppaden hebben geen aanroeper meer en vervallen. Er is geen plan om
   `projects.yaml` naar de database te verhuizen; [stappenplan.md](stappenplan.md) legt vast dat het
   bestand de bron blijft. Secrets worden Sealed Secrets in dezelfde vorm als het bestaande
@@ -260,16 +262,15 @@ bestaan en bereikbaar zijn vanuit de namespace.
 2. Laat de factory-pod draaien als de bestaande ServiceAccount `sf-preview-cleanup`, en voeg in
    `robberts-infrastructure` een Role en RoleBinding toe in namespace `argocd` voor `get` en `list`
    op `applications.argoproj.io` voor die ServiceAccount.
-3. Neem `projects.yaml` op als `deploy/base/projects.yaml` met een `configMapGenerator`, gemount
-   als bestand. Haal daarbij het deploydoel `factory-self` uit het project `softwarefactory` (de
-   `openshift-watch` op de backend-Deployment blijft als zelf-deploy), schrap de `private:`-lijsten,
-   en haal `projects.yaml` uit `.gitignore`. Lokaal ontwikkelen leest hetzelfde bestand.
+3. Laat `deploy/seal-secrets.sh` `projects.yaml` als sleutel in het Sealed Secret opnemen en mount
+   die als bestand. Haal daarbij het deploydoel `factory-self` uit het project `softwarefactory` (de
+   `openshift-watch` op de backend-Deployment blijft als zelf-deploy) en schrap de `private:`-lijsten.
 4. Breid het Sealed Secret uit met alle sleutels uit `secrets.env` die de factory nodig heeft:
    tracker, GitHub, database, Agent Runtime, Google-login, Product Factory-token, Telegram en
    `SF_DASHBOARD_BASE_URL`. `SF_KUBECONFIG`, `SF_PREVIEW_CLEANUP_KUBECONFIG`, `SF_BRIDGE_TOKEN` en
    `SF_BRIDGE_URLS` vervallen. Zet `GH_TOKEN` op dezelfde waarde als `SF_GITHUB_TOKEN`.
 5. Werk de backend-Deployment bij: nieuwe ServiceAccount, envFrom voor secret en properties, mounts
-   voor projects-ConfigMap en bijlagen-PVC, `TZ=Europe/Amsterdam`, geheugen 512Mi/2Gi, en
+   voor het projects-bestand uit het secret en de bijlagen-PVC, `TZ=Europe/Amsterdam`, geheugen 512Mi/2Gi, en
    `SF_TRACKER_ATTACHMENTS_DIR` naar het mountpad.
 6. Werk `.github/workflows/dashboard-backend-image.yml` bij zodat hij het nieuwe Dockerfile bouwt;
    de imagenaam blijft in deze stap nog `softwarefactory-dashboard-backend`.
