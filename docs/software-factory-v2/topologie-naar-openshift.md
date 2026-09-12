@@ -383,6 +383,20 @@ vraagt geen wijziging in de infrastructuurrepo.
 | Inloggen breekt door de nieuwe host | Google OAuth-origin wordt in stap 6 toegevoegd en op beide hosts getest voordat de oude host doorverwijst. |
 | Geheugen te krap voor de volledige factory | Start ruim op 2Gi limit en meet; de lokale JVM is de referentie. |
 
+## Vervolg na de verhuizing
+
+Niet onderdeel van dit plan, wel als idee vastgelegd op 2026-09-12:
+
+- **Projectconfiguratie en operationele secrets in de database, beheerd via het dashboard.** Dan
+  vervalt de cyclus sealen, committen en syncen voor elke wijziging in `projects.yaml` of een
+  token, en kan alles vanaf het dashboard worden beheerd. Er is al een patroon voor: de
+  modelconfiguratie per agentrol en de auditinstellingen staan in de database met een
+  dashboardscherm. Wat altijd buiten de database blijft, is de bootstrap: databasecredentials,
+  Google-client-id, e-mailallowlist en het remember-secret, want zonder die kun je niet inloggen om
+  de rest te beheren. Dat blijft één klein Sealed Secret. Dit is een echte ombouw van
+  `SecretsEnvLoader`, `FactorySecrets` en `ProjectConfiguration` plus een nieuw scherm, en hoort
+  daarom na de verhuizing, niet erin.
+
 ## Buiten scope
 
 - De agent runtime of zijn worker verplaatsen; die blijft op de MacBook.
