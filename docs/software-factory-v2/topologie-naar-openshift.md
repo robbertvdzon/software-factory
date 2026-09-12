@@ -67,10 +67,21 @@ Gecontroleerd in de repo op 2026-09-12.
   `softwarefactory/attachments`: 466 bestanden, 29 MB, sinds juli 2026, groei circa 15 MB per maand.
   De tabel `issue_attachments` bewaart per bestand het absolute laptoppad in `local_path`. Er is geen
   retentie op bijlagen.
-- `gh` wordt aangeroepen door `GitHubCliClient` (factory-common) en `AuditJobsReader`; het token
-  komt uit `SF_GITHUB_TOKEN`. `kubectl` wordt alleen aangeroepen door `KubectlDeploymentStatusProbe`,
-  die `kubectl get application` doet op ArgoCD-Applications en optioneel `SF_KUBECONFIG` gebruikt.
-  `PreviewEnvironmentCleaner` bestaat niet meer.
+- **De factory doet zelf geen git-checkouts, commits of pushes meer.** Al het repositorywerk
+  gebeurt in de Agent Runtime-worker op de MacBook. De factory praat met GitHub via `gh`
+  (`GitHubCliClient` in factory-common en `AuditJobsReader`), inclusief het aanmaken en verwijderen
+  van storybranches via `gh api`. `gh` authenticeert met de omgevingsvariabele `GH_TOKEN`, gevuld uit
+  `SF_GITHUB_TOKEN`; er is geen `gh auth login` of ssh-sleutel nodig. De clone-, checkout- en
+  push-methoden in `GitCommandClient` hebben geen aanroepers meer en zijn dode code uit de tijd vóór
+  Runtime v2; alleen `repositorySlug` en `runCommand` worden nog gebruikt.
+- `kubectl` wordt alleen aangeroepen door `KubectlDeploymentStatusProbe`, die `kubectl get
+  application` doet op ArgoCD-Applications en optioneel `SF_KUBECONFIG` gebruikt. `oc` wordt
+  aangeroepen door `OcPreviewEnvironmentCleaner` (factory-common) voor `oc delete project` van
+  preview-namespaces, met `SF_PREVIEW_CLEANUP_KUBECONFIG`. Daarvoor bestaat in
+  `robberts-infrastructure` al ServiceAccount `sf-preview-cleanup` in namespace `software-factory`
+  met een ClusterRole die alleen namespaces en projects mag opvragen en wissen.
+- `FactoryVersionService` leest branch en commit met `git log` uit de werkmap van het proces. Op een
+  pod is er geen `.git`, dus het dashboard zou "onbekend" tonen.
 - De dashboardknoppen Herstart en Stop werken via `FactoryProcessService`: Herstart is een exit 0
   die `factory-loop.sh` opnieuw laat starten; Stop schrijft `work/.factory-stop` zodat de loop
   stopt.
@@ -125,10 +136,17 @@ expliciet geregeld worden:
 
 - **`gh` en het GitHub-token.** Het runtime-image krijgt de `gh`-binary; `GH_TOKEN` wordt gevuld
   vanuit hetzelfde secret als `SF_GITHUB_TOKEN`. Er is geen interactieve `gh auth login` op een pod.
-- **`kubectl` en ArgoCD-rechten.** Het image krijgt de `kubectl`-binary. `SF_KUBECONFIG` blijft leeg,
-  zodat de probe de in-cluster ServiceAccount gebruikt. Die ServiceAccount heeft `get` en `list` op
-  `applications.argoproj.io` nodig in namespace `argocd`. Dat is een Role plus RoleBinding in
-  `robberts-infrastructure`.
+- **Git.** Geen aanvullende inrichting nodig: de factory clonet en pusht niet zelf, en `gh` werkt
+  met het token in `GH_TOKEN`. De dode clone- en pushcode in `GitCommandClient` wordt in stap 1
+  opgeruimd, zodat het image ook geen `git`-binary nodig heeft.
+- **`kubectl`, `oc` en clusterrechten.** Het image krijgt de binaries `kubectl` en `oc`.
+  `SF_KUBECONFIG` en `SF_PREVIEW_CLEANUP_KUBECONFIG` blijven leeg, zodat beide de in-cluster
+  ServiceAccount gebruiken. De factory-pod draait als de bestaande ServiceAccount
+  `sf-preview-cleanup`, die al namespaces mag wissen; daar komt in `robberts-infrastructure` een Role
+  plus RoleBinding bij voor `get` en `list` op `applications.argoproj.io` in namespace `argocd`.
+- **Versie-informatie.** Het Dockerfile bakt de commit-sha en branch in het image, bijvoorbeeld als
+  `SF_BUILD_COMMIT` en `SF_BUILD_BRANCH` via build-args uit de workflow, en `FactoryVersionService`
+  valt daarop terug als er geen `.git` is.
 - **`projects.yaml` en de operationele secrets.** `projects.yaml` wordt een ConfigMap die als bestand
   wordt gemount, met `SF_PROJECTS_FILE` naar dat pad. Secrets worden Sealed Secrets in dezelfde vorm
   als het bestaande `deploy/base/sealed-secret-dashboard.yaml`, aangemaakt met
@@ -195,10 +213,14 @@ lokaal bewezen; de lokale factory draait ondertussen door op `main`.
    `docker/prepare-mini-reactor.sh`.
 5. Verwijder de Stop-knop uit de frontend, `requestStop` en het signaalbestand uit
    `FactoryProcessService`, en de bridgestatus en offline-afhandeling uit de frontend.
-6. Verwijder `spring-boot-starter-websocket` uit `softwarefactory` als er geen andere gebruiker is.
-7. Werk `docker/docker-compose.yml` bij: geen aparte backend-service meer; de frontend proxyt lokaal
+6. Verwijder `spring-boot-starter-websocket` uit `softwarefactory` als er geen andere gebruiker is,
+   en verwijder de ongebruikte clone-, checkout-, commit- en pushmethoden uit `GitApi` en
+   `GitCommandClient`, inclusief hun tests.
+7. Laat `FactoryVersionService` terugvallen op `SF_BUILD_COMMIT` en `SF_BUILD_BRANCH` als de werkmap
+   geen git-repository is.
+8. Werk `docker/docker-compose.yml` bij: geen aparte backend-service meer; de frontend proxyt lokaal
    naar de factory zelf.
-8. Bewijs lokaal: `mvn verify` groen, de Flutter-frontend werkt tegen de lokale factory op alle
+9. Bewijs lokaal: `mvn verify` groen, de Flutter-frontend werkt tegen de lokale factory op alle
    schermen, de Product Factory-integratie-endpoints antwoorden identiek, en één story draait
    lokaal end-to-end via deze branch.
 
@@ -223,17 +245,19 @@ bestaan en bereikbaar zijn vanuit de namespace.
 
 ### Stap 3 — Factory-image en deployment inrichten
 
-1. Vervang het Dockerfile: bouw de hele reactor met `-pl softwarefactory -am`, en voeg in het
-   runtime-image de binaries `gh` en `kubectl` toe.
-2. Maak ServiceAccount `software-factory` voor de factory-pod, met in `robberts-infrastructure` een
-   Role en RoleBinding in namespace `argocd` voor `get` en `list` op `applications.argoproj.io`.
+1. Vervang het Dockerfile: bouw de hele reactor met `-pl softwarefactory -am`, voeg in het
+   runtime-image de binaries `gh`, `kubectl` en `oc` toe, en geef commit-sha en branch als build-args
+   door vanuit de workflow.
+2. Laat de factory-pod draaien als de bestaande ServiceAccount `sf-preview-cleanup`, en voeg in
+   `robberts-infrastructure` een Role en RoleBinding toe in namespace `argocd` voor `get` en `list`
+   op `applications.argoproj.io` voor die ServiceAccount.
 3. Zet `projects.yaml` om naar ConfigMap `software-factory-projects`, gemount als bestand. Haal
    daarbij het deploydoel `factory-self` uit het project `softwarefactory`; de `openshift-watch` op
    de backend-Deployment blijft als zelf-deploy.
 4. Breid het Sealed Secret uit met alle sleutels uit `secrets.env` die de factory nodig heeft:
    tracker, GitHub, database, Agent Runtime, Google-login, Product Factory-token, Telegram en
-   `SF_DASHBOARD_BASE_URL`. `SF_KUBECONFIG`, `SF_BRIDGE_TOKEN` en `SF_BRIDGE_URLS` vervallen. Zet
-   `GH_TOKEN` op dezelfde waarde als `SF_GITHUB_TOKEN`.
+   `SF_DASHBOARD_BASE_URL`. `SF_KUBECONFIG`, `SF_PREVIEW_CLEANUP_KUBECONFIG`, `SF_BRIDGE_TOKEN` en
+   `SF_BRIDGE_URLS` vervallen. Zet `GH_TOKEN` op dezelfde waarde als `SF_GITHUB_TOKEN`.
 5. Werk de backend-Deployment bij: nieuwe ServiceAccount, envFrom voor secret en properties, mounts
    voor projects-ConfigMap en bijlagen-PVC, `TZ=Europe/Amsterdam`, geheugen 512Mi/2Gi, en
    `SF_TRACKER_ATTACHMENTS_DIR` naar het mountpad.
@@ -243,8 +267,9 @@ bestaan en bereikbaar zijn vanuit de namespace.
    cluster-database. De lokale factory draait nog; zet daarom in deze uitrol Telegram uit via een
    leeg bot-token en `SF_TRACKER_PROJECTS` leeg, zodat de cluster-pod niets oppakt.
 8. Controleer: Flyway migreert vanaf leeg, `/healthz` is `UP`, inloggen via Google werkt op het
-   bestaande dashboard, `gh auth status` en `kubectl get application -n argocd` slagen vanuit de
-   pod (`oc rsh`).
+   bestaande dashboard, en vanuit de pod (`oc rsh`) slagen `gh auth status`,
+   `gh api repos/robbertvdzon/software-factory/branches/main`, `kubectl get application -n argocd`
+   en `oc get project`.
 
 **Klaar wanneer:** de volledige factory op de cluster start tegen de lege cluster-database, health
 rapporteert, en `gh` en `kubectl` vanuit de pod bewezen werken.
@@ -322,7 +347,7 @@ vanaf de cluster werken.
 
 | Wat | Waar | Stap |
 |---|---|---|
-| Role en RoleBinding voor `get`/`list` op ArgoCD-Applications | `robberts-infrastructure/manifests/root-app/apps/` | 3 |
+| Role en RoleBinding voor `get`/`list` op ArgoCD-Applications voor ServiceAccount `sf-preview-cleanup` | `robberts-infrastructure/manifests/root-app/apps/` | 3 |
 | ArgoCD-Application hernoemen | `robberts-infrastructure/manifests/root-app/apps/` | 5 |
 | DNS-record voor `softwarefactory.vdzonsoftware.nl` | Cloudflare | 6 |
 | Toegestane origin en redirect voor de nieuwe host | Google OAuth-console | 6 |
@@ -336,7 +361,7 @@ vraagt geen wijziging in de infrastructuurrepo.
 | Risico | Beheersing |
 |---|---|
 | Bridge-ombouw verandert API-gedrag | Stap 1 vergelijkt elk endpoint lokaal met het huidige gedrag; de Product Factory-tests in `dashboard-backend` verhuizen mee als controllertests. |
-| `gh` of `kubectl` werkt niet vanaf een pod | Stap 3 test beide vanuit de pod vóór de overzet. |
+| `gh`, `kubectl` of `oc` werkt niet vanaf een pod | Stap 3 test alle drie vanuit de pod vóór de overzet, inclusief een echte GitHub-API-call met het token. |
 | Deploys of previews falen door andere rechten | De ServiceAccount krijgt precies de ArgoCD-leesrechten die de probe gebruikt; een echte deploy naar een targetproject is onderdeel van stap 7. |
 | Dump past niet of schema wijkt af | `SF_DATABASE_SCHEMA` is op de cluster gelijk aan lokaal; rijaantallen worden per tabel vergeleken. |
 | Bijlagen niet gevonden na overzet | Paden worden in stap 4 herschreven en steekproefsgewijs gecontroleerd. |
