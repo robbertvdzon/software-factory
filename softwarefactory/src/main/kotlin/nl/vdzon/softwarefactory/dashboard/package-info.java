@@ -1,9 +1,9 @@
 @org.springframework.modulith.ApplicationModule(allowedDependencies = {
     "audit", "audit :: models", "audit :: repositories", "audit :: services", "audit :: types",
-    "config", "config :: time", "contract", "core", "core :: contracts", "git", "github", "knowledge",
+    "config", "config :: time", "core", "core :: contracts", "git", "github", "knowledge",
     "knowledge :: models",
     // maintenance :: repositories: de cleanup-run-historie achter het Maintenance-scherm (SF-1913);
-    // de bridge-module mag maintenance zelf niet kennen en leest 'm via DashboardQueries.
+    // de web-module mag maintenance zelf niet kennen en leest 'm via DashboardQueries.
     "maintenance", "maintenance :: repositories", "maintenance :: types",
     "orchestrator",
     // pipeline (zonder named interface): alleen de root-package-poort DeployTargetStatusApi

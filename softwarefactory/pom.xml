@@ -22,10 +22,6 @@
             <artifactId>factory-common</artifactId>
         </dependency>
         <dependency>
-            <groupId>nl.vdzon</groupId>
-            <artifactId>factory-contracts</artifactId>
-        </dependency>
-        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
         </dependency>
@@ -37,10 +33,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
-        <!-- Client-kant van de bridge (BridgeClient verbindt uitgaand naar dashboard-backend). -->
+        <!-- Verificatie van Google OIDC ID-tokens voor de dashboard-login (RS256-signature via JWKS, claims). -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-websocket</artifactId>
+            <groupId>com.nimbusds</groupId>
+            <artifactId>nimbus-jose-jwt</artifactId>
+            <version>9.48</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.modulith</groupId>

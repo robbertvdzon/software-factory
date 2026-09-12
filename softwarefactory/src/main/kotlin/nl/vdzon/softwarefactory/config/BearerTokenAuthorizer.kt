@@ -5,10 +5,9 @@ import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 
 /**
- * Gedeelde Bearer-token-autorisatie tegen `SF_FACTORY_API_TOKEN`, gebruikt door alle
- * `softwarefactory`-controllers die dit patroon nodig hebben (FactoryApiController,
- * TrackerStoryApiController, CompletionOperationsController). Niet gebruikt door
- * dashboard-backend's AuthService (Google-SSO, andere flow).
+ * Gedeelde Bearer-token-autorisatie tegen `SF_FACTORY_API_TOKEN`, gebruikt door de
+ * machine-tot-machine-controllers (TrackerStoryApiController, CompletionOperationsController).
+ * Het dashboard zelf gebruikt Google-SSO via `web.services.DashboardAuthService` (andere flow).
  *
  * `internal`: mag binnen de softwarefactory-app-compilatie-eenheid vanuit elk pakket
  * (incl. `web.controllers`) aangeroepen worden, maar telt niet als publiek root-API

@@ -686,7 +686,7 @@ class TrackerCapabilityPersistenceE2eTest {
     // SF-2102 — changelogFor: de vier eigenschappen van de query staan hieronder elk in een eigen
     // test, zodat ze afzonderlijk rood kunnen worden. Bewust rechtstreeks op PostgresTrackerClient:
     // TrackerCapabilities.changelogFor heeft een default-implementatie die emptyList() teruggeeft en
-    // géén testfake overschrijft die, dus dekking via een fake of via de bridge is altijd groen.
+    // géén testfake overschrijft die, dus dekking via een fake of via de dashboard-API is altijd groen.
     @Test
     fun `changelogFor only returns stories of the requested project`() {
         val eigen = storyWithShortSummary("softwarefactory", "Eigen project", "Samenvatting eigen")

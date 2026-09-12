@@ -30,15 +30,6 @@ commands:
       - tools/verify-dashboard-frontend
     workingDirectory: .
     timeoutSeconds: 1800
-  - id: backend-mini-reactor-smoke
-    pathPrefixes:
-      - docker/
-      - pom.xml
-    argv:
-      - bash
-      - docker/test-prepare-mini-reactor.sh
-    workingDirectory: .
-    timeoutSeconds: 300
   - id: repository-documentation-audit
     argv:
       - tools/audit-documentation

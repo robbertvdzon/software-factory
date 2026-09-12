@@ -314,7 +314,7 @@ class _RootScreenState extends State<RootScreen> {
                 const SizedBox(height: 22),
                 const Text('Software Factory', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
-                const Text('Login op het bridge-dashboard', style: TextStyle(color: Colors.black54)),
+                const Text('Log in met je Google-account', style: TextStyle(color: Colors.black54)),
                 const SizedBox(height: 24),
                 if (kIsWeb)
                   // GoogleSignIn.signIn() is op web deprecated en werkt niet meer betrouwbaar

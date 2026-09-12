@@ -3,7 +3,7 @@ package nl.vdzon.softwarefactory.pipeline.service
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.core.contracts.AgentDispatchRequest
 import nl.vdzon.softwarefactory.core.contracts.AgentInputAttachment
-import nl.vdzon.softwarefactory.contract.ProductFactoryAttachmentNames
+import nl.vdzon.softwarefactory.core.contracts.ProductFactoryAttachmentNames
 import nl.vdzon.softwarefactory.core.contracts.BoardState
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.AgentRunStart

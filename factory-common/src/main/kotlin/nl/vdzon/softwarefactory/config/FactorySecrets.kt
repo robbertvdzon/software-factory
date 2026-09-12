@@ -24,13 +24,19 @@ class FactorySecrets(
     val telegramChatId: String? = null,
     // Publieke basis-URL van het dashboard voor klikbare links in meldingen.
     val dashboardBaseUrl: String? = null,
-    // Bridge naar dashboard-backend(s) (zie docs/ontwerp-bridge-dashboard.md): komma-gescheiden
-    // lijst van websocket-URL's (leeg = feature uit) + het gedeelde token uit de hello-frame.
-    val bridgeUrls: List<String> = emptyList(),
-    val bridgeToken: String? = null,
-    // Map op de laptop-schijf waar issue-attachments (tester-screenshots) als losse bestanden
-    // komen te staan.
+    // Map waar issue-attachments (tester-screenshots, Product Factory-invoer) als losse bestanden
+    // komen te staan; op de cluster een PVC-mount.
     val trackerAttachmentsDir: String = "attachments",
+    // Dashboard-login via Google-SSO: OAuth-web-client-ID (audience van het ID-token), de
+    // allowlist van geverifieerde e-mailadressen (lowercase) en het HMAC-geheim waarmee de
+    // uitgegeven sessietokens worden ondertekend. Alle drie leeg => niemand kan inloggen; er
+    // wordt nooit een token afgeleid van een leeg geheim.
+    val googleClientId: String? = null,
+    val allowedEmails: Set<String> = emptySet(),
+    val dashboardRememberSecret: String? = null,
+    // Apart machine-token voor Product Factory: geeft uitsluitend toegang tot
+    // /api/integrations/* en is nadrukkelijk geen dashboardsessie. Leeg => integratie dicht.
+    val productFactoryToken: String? = null,
 ) {
     /** Telegram is actief zodra zowel een bot-token als een chat-id is geconfigureerd. */
     val telegramEnabled: Boolean
@@ -48,9 +54,11 @@ class FactorySecrets(
         "telegramBotToken" to if (telegramBotToken.isNullOrBlank()) "<not set>" else "<redacted>",
         "telegramChatId" to (telegramChatId?.takeIf { it.isNotBlank() } ?: "<not set>"),
         "dashboardBaseUrl" to (dashboardBaseUrl?.takeIf { it.isNotBlank() } ?: "<not set>"),
-        "bridgeUrls" to bridgeUrls.joinToString(",").ifBlank { "<not set>" },
-        "bridgeToken" to if (bridgeToken.isNullOrBlank()) "<not set>" else "<redacted>",
         "trackerAttachmentsDir" to trackerAttachmentsDir,
+        "googleClientId" to (googleClientId?.takeIf { it.isNotBlank() } ?: "<not set>"),
+        "allowedEmails" to allowedEmails.joinToString(",").ifBlank { "<not set>" },
+        "dashboardRememberSecret" to if (dashboardRememberSecret.isNullOrBlank()) "<not set>" else "<redacted>",
+        "productFactoryToken" to if (productFactoryToken.isNullOrBlank()) "<not set>" else "<redacted>",
     )
 
     override fun toString(): String = "FactorySecrets(${redactedSummary()})"

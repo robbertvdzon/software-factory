@@ -3,7 +3,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../api_client.dart';
 import '../app_state.dart';
-import '../main.dart';
 import '../text_scale_preference.dart';
 import '../widgets/common.dart';
 import 'data_screen.dart';
@@ -23,7 +22,6 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _dataScreenKey = GlobalKey<DataScreenState>();
-  var _busy = false;
   var _savingAuditSettings = false;
   bool? _auditEnabled;
   String _executionScope = '';
@@ -106,33 +104,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } finally {
       if (mounted) setState(() => _savingAuditSettings = false);
-    }
-  }
-
-  Future<void> _restartOrStop(String path, String label) async {
-    final confirmed = await confirmDestructive(
-      context,
-      title: '$label bevestigen',
-      message: 'Dit $label de factory-JVM. Weet je het zeker?',
-      confirmLabel: label,
-    );
-    if (!confirmed) return;
-    setState(() => _busy = true);
-    try {
-      await widget.state.api.postJson(path);
-      if (mounted) {
-        showActionResult(
-          context,
-          success: true,
-          message: '$label aangevraagd.',
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        showActionResult(context, success: false, message: e.toString());
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -370,33 +341,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   value: widget.textScale.enabled,
                   onChanged: (v) => widget.textScale.setEnabled(v),
                 ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const SectionTitle('Factory-proces (destructief)'),
-            Panel(
-              child: Wrap(
-                spacing: 8,
-                children: [
-                  FilledButton.tonal(
-                    onPressed: _busy
-                        ? null
-                        : () => _restartOrStop(
-                            '/api/v1/factory/restart',
-                            'Herstart',
-                          ),
-                    child: const Text('Herstart'),
-                  ),
-                  FilledButton.tonal(
-                    style: FilledButton.styleFrom(
-                      foregroundColor: SfColors.red,
-                    ),
-                    onPressed: _busy
-                        ? null
-                        : () => _restartOrStop('/api/v1/factory/stop', 'Stop'),
-                    child: const Text('Stop'),
-                  ),
-                ],
               ),
             ),
           ],

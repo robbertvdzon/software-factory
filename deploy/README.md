@@ -65,17 +65,16 @@ The dashboard is HTTPS-only. Two settings enforce that across the Cloudflare/Ope
 - `deploy/base/softwarefactory-dashboard-frontend-route.yaml` deliberately has
   `insecureEdgeTerminationPolicy: Allow`. Cloudflare terminates public HTTPS and connects to the
   OpenShift router over HTTP; `Redirect` sends the client back to the same public HTTPS URL and
-  breaks the dashboard and `/bridge` WebSocket. Public HTTP-to-HTTPS enforcement belongs at
-  Cloudflare.
+  breaks the dashboard. Public HTTP-to-HTTPS enforcement belongs at Cloudflare.
 - `dashboard-frontend/nginx.conf` sends `Strict-Transport-Security: max-age=31536000` on every
   response, so browsers come back over https on their own. Deliberately without
   `includeSubDomains` and without `preload`: those are hard to walk back for the whole domain.
   The header is repeated in every `location` block that has its own `add_header`, because nginx
   masks the server-level `add_header` as soon as the chosen location declares one.
 
-External traffic runs through Cloudflare (`docs/ontwerp-bridge-dashboard.md`). HTTP-to-HTTPS must
-be configured there (for example "Always Use HTTPS"). Do not change the Route to `Redirect` while
-the Tunnel origin uses HTTP; keep the HSTS header and verify `/bridge` after every routing change.
+External traffic runs through Cloudflare. HTTP-to-HTTPS must be configured there (for example
+"Always Use HTTPS"). Do not change the Route to `Redirect` while the Tunnel origin uses HTTP; keep
+the HSTS header and verify the dashboard after every routing change.
 
 ## SNO local test deploy
 

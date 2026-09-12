@@ -41,6 +41,31 @@ class SecretsEnvLoaderTest {
     }
 
     @Test
+    fun `loads dashboard login and product factory keys`() {
+        val secretsFile = tempDir.resolve("secrets.env")
+        secretsFile.writeText(
+            """
+            SF_GITHUB_TOKEN=github-secret
+            SF_DATABASE_URL=postgresql://user:pass@example/db
+            SF_DATABASE_SCHEMA=software_factory
+            SF_GOOGLE_CLIENT_ID=client.apps.googleusercontent.com
+            SF_ALLOWED_EMAILS= Robbert@Vdzon.com ,ander@example.com,
+            SF_DASHBOARD_REMEMBER_SECRET=remember
+            SF_PRODUCT_FACTORY_TOKEN=pf-token
+            """.trimIndent(),
+        )
+
+        val secrets = SecretsEnvLoader(secretsFile = secretsFile, environment = emptyMap()).load()
+
+        assertEquals("client.apps.googleusercontent.com", secrets.googleClientId)
+        assertEquals(setOf("robbert@vdzon.com", "ander@example.com"), secrets.allowedEmails)
+        assertEquals("remember", secrets.dashboardRememberSecret)
+        assertEquals("pf-token", secrets.productFactoryToken)
+        assertEquals("<redacted>", secrets.redactedSummary()["dashboardRememberSecret"])
+        assertEquals("<redacted>", secrets.redactedSummary()["productFactoryToken"])
+    }
+
+    @Test
     fun `falls back to environment when file is missing`() {
         val secretsFile = tempDir.resolve("missing.env")
 

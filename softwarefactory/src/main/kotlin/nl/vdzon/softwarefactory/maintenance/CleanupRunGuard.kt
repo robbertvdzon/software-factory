@@ -5,7 +5,7 @@ package nl.vdzon.softwarefactory.maintenance
  * ongeacht of die handmatig ("Nu draaien") of door de scheduler is gestart.
  *
  * Bewust in-memory en per JVM (zie `services/InMemoryCleanupRunGuard`): de factory draait als één
- * proces en zowel de schedulers als de bridge-afhandeling zitten daarin, dus een DB-lock zou alleen
+ * proces en zowel de schedulers als de dashboard-API zitten daarin, dus een DB-lock zou alleen
  * complexiteit toevoegen. Draait de factory ooit met meerdere instanties, dan is dit het punt om te
  * herzien.
  *

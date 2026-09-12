@@ -177,7 +177,7 @@ class DashboardCommandService(
         )
     }
 
-    /** Partial update — alleen de meegegeven (niet-null) velden worden gewijzigd, zie de bridge-operatie `story.edit`. */
+    /** Partial update — alleen de meegegeven (niet-null) velden worden gewijzigd (`POST /api/v1/stories/{key}/edit`). */
     override fun editStory(
         storyKey: String,
         description: String?,

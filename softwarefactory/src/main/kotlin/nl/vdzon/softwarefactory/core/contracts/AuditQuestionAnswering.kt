@@ -2,7 +2,7 @@ package nl.vdzon.softwarefactory.core.contracts
 
 /**
  * Beantwoorden van een blokkerende auditvraag, als losse poort zodat transportmodules (Telegram,
- * bridge) 'm kunnen aanroepen zonder van de `audit`-module af te hangen.
+ * de dashboard-API) 'm kunnen aanroepen zonder van de `audit`-module af te hangen.
  *
  * Bewust niet op [FactoryOperations] geplakt: die wordt in veel testfixtures met de hand
  * geconstrueerd, en dan sleep je de complete audit-scheduler met z'n repositories overal mee naar

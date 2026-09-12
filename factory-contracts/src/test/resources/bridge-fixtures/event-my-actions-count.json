@@ -1,7 +1,0 @@
-{
-  "type": "event",
-  "event": "myActionsCount",
-  "body": {
-    "count": 3
-  }
-}

@@ -1,22 +1,19 @@
 # Runbook — Software Factory
 
-Dit runbook beschrijft de actuele uitvoering na de overstap naar Agent Runtime v2. Het
-OpenShift-doelbeeld en de latere rename staan apart in
+Dit runbook beschrijft de actuele uitvoering na de overstap naar Agent Runtime v2. De verhuizing
+van de factory naar OpenShift en de latere rename staan in
 [`docs/software-factory-v2/topologie-naar-openshift.md`](docs/software-factory-v2/topologie-naar-openshift.md).
 
 ## Onderdelen en topologie
 
-- `softwarefactory`: Kotlin/Spring-orchestrator, tracker, pipeline, Telegram, audits, maintenance
-  en de integratie met Agent Runtime v2. In de huidige tussenfase draait dit proces nog lokaal.
-- `dashboard-backend`: remote API en WebSocketbridge, op OpenShift.
-- `dashboard-frontend`: Flutter-webinterface, op OpenShift.
+- `softwarefactory`: één Kotlin/Spring-applicatie met orchestrator, tracker, pipeline, Telegram,
+  audits, maintenance, de integratie met Agent Runtime v2 én de dashboard-API (`/api/v1`, met
+  Google-login) en de Product Factory-integratie (`/api/integrations/*`). Dit is de enige
+  deployable; de vroegere `dashboard-backend` met WebSocketbridge bestaat niet meer.
+- `dashboard-frontend`: Flutter-webinterface; nginx proxyt `/api/*` naar de factory.
 - PostgreSQL: duurzame factorydata en Flyway-migraties.
 - Agent Runtime v2: alle AI-uitvoering. De Runtime-worker mag op een MacBook draaien; Software
   Factory heeft zelf geen worker, Docker-socket, providercredential of repositorycheckout meer.
-
-De lokale orchestrator maakt een uitgaande WebSocketverbinding naar `dashboard-backend`. Die bridge
-verdwijnt pas in het afzonderlijke topologieplan wanneer de orchestratorfunctionaliteit naar de
-backend op OpenShift verhuist.
 
 ## Story- en Git-flow
 
@@ -63,9 +60,13 @@ tools/verify-dashboard-frontend
 De Spring-app luistert standaard op poort 8080. Flyway migreert het ingestelde schema bij start.
 Applicatielogs staan onder `logs/`.
 
-`factory-loop.sh` is alleen de huidige lokale proceswrapper (`git pull` en opnieuw starten). Hij
-bouwt geen agentimages. De dashboardacties restart/stop sturen dit lokale proces aan; ze worden in
-het latere OpenShift-topologieplan vervangen.
+Het dashboard is lokaal bereikbaar via `flutter run --dart-define=API_BASE_URL=http://localhost:8080`
+vanuit `dashboard-frontend/`, of via de Compose-frontend op poort 9080 als de factory als container
+draait. Zonder `.git` in de werkmap (in een image) komt de getoonde versie uit `SF_BUILD_COMMIT`
+en `SF_BUILD_BRANCH`; het Dockerfile bakt die mee.
+
+`factory-loop.sh` is alleen de huidige lokale proceswrapper (`git pull` en opnieuw starten) en
+verdwijnt bij de verhuizing naar OpenShift.
 
 ## Configuratie en secrets
 
@@ -85,11 +86,12 @@ Belangrijkste secrets:
 - `SF_DATABASE_URL` en `SF_DATABASE_SCHEMA`: PostgreSQL;
 - `SF_AGENT_RUNTIME_TOKEN`: tenanttoken voor Agent Runtime v2;
 - `SF_TELEGRAM_BOT_TOKEN` en chat-id's: optionele Telegramintegratie;
-- `SF_FACTORY_API_TOKEN`: machinecalls op de lokale factory;
+- `SF_FACTORY_API_TOKEN`: machinecalls op de tracker-API (`/api/tracker/*`);
 - `SF_PRODUCT_FACTORY_TOKEN`: Product Factory-integratie;
 - `SF_KUBECONFIG`: alleen waar Software Factory previews/deployments of cleanup op OpenShift
   bestuurt;
-- dashboardsecrets zoals Google client-id, e-mailallowlist, remember-secret en bridge-token.
+- `SF_GOOGLE_CLIENT_ID`, `SF_ALLOWED_EMAILS` en `SF_DASHBOARD_REMEMBER_SECRET`: de dashboardlogin.
+  Ontbreekt er één, dan kan niemand inloggen en logt de app dat bij opstart.
 
 AI-providercredentials en Gitcredentials van de Runtime-worker horen niet in Software Factory.
 Het gitignored `secrets.env` van een targetproject wordt niet gelezen, gemount, gekopieerd,
@@ -127,16 +129,16 @@ Google-login- en backendconfiguratie en of de frontend een 401 naar de loginrout
 
 ## Product Factory-integratie
 
-`/api/integrations/v1` ondersteunt status, create, get/list, answers en cancel. Een
-`Idempotency-Key` hoort bij het bestaande Product Factory-HTTP-contract; de interne Runtime-job
-heeft daarnaast zijn eigen duurzame correlatie.
+`/api/integrations/v1` (status, create, get, answers) en `/api/integrations/v2` (status, create
+met bijlagen, get/list, cancel) draaien in de factory zelf. Een `Idempotency-Key` hoort bij het
+Product Factory-HTTP-contract; de interne Runtime-job heeft daarnaast zijn eigen duurzame
+correlatie.
 
 - `400`: ongeldig verzoek; pas het verzoek aan, blind opnieuw sturen helpt niet.
 - `401`: controleer het gedeelde Product Factory-token.
-- `503`: de lokale factory is in de huidige topologie niet aan de bridge verbonden; retry kan
-  zinvol zijn.
-- `404`/`502`: factory- of bridgefout.
-- `500`: serverfout; inspecteer backend- en factorylogs.
+- `404`/`409`: onbekende story of een conflict met een eerdere aanlevering.
+- `500` (v2: `retryable: true`): factoryfout; inspecteer de factorylog, een retry kan zinvol zijn.
+- `503`: de factory is niet bereikbaar (bijvoorbeeld tijdens een herstart).
 
 ## Merge, preview en deploy
 

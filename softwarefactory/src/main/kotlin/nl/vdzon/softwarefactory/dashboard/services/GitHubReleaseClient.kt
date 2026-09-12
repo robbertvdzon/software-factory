@@ -12,8 +12,7 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 
 /**
- * Kleine GitHub-REST-client voor de bridge-operatie `downloads.list` (zie
- * docs/ontwerp-bridge-dashboard.md §5) — de enige écht nieuwe businesslogica in dit project.
+ * Kleine GitHub-REST-client voor het Downloads-endpoint van het dashboard.
  * Zelfde recept als de verwijderde `dashboard-backend.../github/GitHubClient.kt`
  * (`latestReleaseDownloads`), nu aan de factory-kant met [FactorySecrets.githubToken].
  */

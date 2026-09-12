@@ -1,8 +1,8 @@
 # Installation
 
-Deze instructie installeert de huidige tussenfase: de Software Factory-orchestrator draait lokaal,
-dashboard-backend/-frontend draaien lokaal of op OpenShift, en alle AI-uitvoering gaat naar Agent
-Runtime v2. De latere volledige OpenShift-topologie staat in
+Deze instructie installeert de Software Factory: één Spring-applicatie (`softwarefactory`) met
+orchestrator, dashboard-API en Product Factory-integratie, de Flutter-frontend, en alle
+AI-uitvoering via Agent Runtime v2. De verhuizing van dit proces naar OpenShift staat in
 [`software-factory-v2/topologie-naar-openshift.md`](software-factory-v2/topologie-naar-openshift.md).
 
 ## Vereisten
@@ -36,7 +36,7 @@ SF_DATABASE_SCHEMA=software_factory_dev
 SF_AGENT_RUNTIME_TOKEN=
 ```
 
-Voor dashboard/bridge, Telegram, Product Factory en OpenShift zijn extra keys nodig; zie
+Voor de dashboardlogin, Telegram, Product Factory en OpenShift zijn extra keys nodig; zie
 [`factory/secrets-local.md`](factory/secrets-local.md). Gebruik `properties.env` voor niet-geheime
 lokale overrides.
 
@@ -103,9 +103,9 @@ frontend opnieuw naar de loginflow kunnen navigeren.
 
 ## Installatie controleren
 
-1. `GET` de health/status van de hoofdapp en dashboard-backend.
+1. `GET /healthz` en `GET /api/version` van de app.
 2. Controleer dat Flyway zonder fout op de laatste migratie staat.
-3. Controleer de bridgeverbinding in de huidige topologie.
+3. `GET /api/v1/status` zonder token geeft 401; na Google-login geeft het versie en starttijd.
 4. Vraag Runtime execution options en repositoryaliassen op.
 5. Dien een `mock/mock/MOCK` structured-generationjob in.
 6. Dien een read-only repositoryjob in op een testalias.
@@ -115,9 +115,6 @@ frontend opnieuw naar de loginflow kunnen navigeren.
 ## Productie
 
 Gebruik secretobjects/environmentvariabelen in plaats van gecommitte `.env`-bestanden. Geef
-GitHub-, packagecleanup-, previewcleanup- en Runtime-tokens elk de kleinste eigen scope. Zet
-`SF_DASHBOARD_COOKIE_SECURE=true` achter HTTPS.
+GitHub-, packagecleanup-, previewcleanup- en Runtime-tokens elk de kleinste eigen scope.
 
-De huidige deployment van dashboard-backend en -frontend staat onder `deploy/`. Verplaats de
-orchestrator of database niet ad hoc; voer daarvoor het afzonderlijke topologieplan uit, inclusief
-rollback en datamigratie.
+De deployment staat onder `deploy/`; het topologieplan beschrijft de volledige uitrol op OpenShift.

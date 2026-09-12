@@ -17,8 +17,8 @@ import java.time.Instant
 import java.time.format.DateTimeParseException
 
 /**
- * GitHub Actions REST-client voor de bridge-operaties `builds.list`/`builds.runs` (zie
- * docs/ontwerp-bridge-dashboard.md §5) — zelfde recept als [GitHubReleaseClient], nu voor
+ * GitHub Actions REST-client voor de Builds-endpoints van het dashboard — zelfde recept als
+ * [GitHubReleaseClient], nu voor
  * workflow-runs i.p.v. releases. Korte in-memory TTL-cache per repo-slug (patroon
  * [nl.vdzon.softwarefactory.nightly.NightlyJobsReader]) omdat zowel het geaggregeerde
  * `builds.list` als het per-repo endpoint dezelfde data ophalen.

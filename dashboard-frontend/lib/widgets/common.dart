@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../main.dart';
 
-/// Statusbanner boven elk scherm: altijd zichtbaar zodra de bridge offline is
-/// (§9 "Factory-status prominent").
+/// Statusbanner boven elk scherm: zichtbaar zodra de Software Factory niet bereikbaar is
+/// (bijvoorbeeld tijdens een herstart van de pod).
 class OfflineBanner extends StatelessWidget {
   final AppState state;
   const OfflineBanner({super.key, required this.state});
@@ -22,7 +22,7 @@ class OfflineBanner extends StatelessWidget {
           const SizedBox(width: 8),
           const Expanded(
             child: Text(
-              'Factory niet verbonden — acties en data kunnen verouderd zijn.',
+              'Software Factory niet bereikbaar — acties en data kunnen verouderd zijn.',
               style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
             ),
           ),

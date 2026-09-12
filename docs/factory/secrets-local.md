@@ -86,22 +86,16 @@ Bot-token en standaardchat-id moeten beide gezet zijn om Telegram te activeren. 
 chat-id's staan in `projects.yaml`. De conversationele assistent gebruikt Agent Runtime v2 en geen
 apart Claude-/Codex-token of assistantimage.
 
-## Huidige dashboardbridge en Product Factory
+## Machinetokens
 
 ```env
-SF_BRIDGE_URLS=ws://localhost:9090/bridge
-SF_BRIDGE_TOKEN=
 SF_FACTORY_API_TOKEN=
 SF_PRODUCT_FACTORY_TOKEN=
 ```
 
-`SF_BRIDGE_TOKEN` is gedeeld tussen de lokale orchestrator en `dashboard-backend` zolang de huidige
-WebSockettopologie bestaat. `SF_PRODUCT_FACTORY_TOKEN` beschermt `/api/integrations/v1`.
-`SF_FACTORY_API_TOKEN` beschermt machinecalls op de hoofdapp. Deze tokens zijn onderling niet
-uitwisselbaar.
-
-Na uitvoering van `topologie-naar-openshift.md` verdwijnen bridge- en lokaal procesbeheer; pas dan
-mag deze sectie worden verwijderd.
+`SF_PRODUCT_FACTORY_TOKEN` beschermt `/api/integrations/v1` en `/api/integrations/v2`.
+`SF_FACTORY_API_TOKEN` beschermt de tracker-API (`/api/tracker/*`). Deze tokens zijn onderling niet
+uitwisselbaar en geen dashboardsessie.
 
 ## Dashboardlogin
 
@@ -109,12 +103,11 @@ mag deze sectie worden verwijderd.
 SF_GOOGLE_CLIENT_ID=
 SF_ALLOWED_EMAILS=user@example.com
 SF_DASHBOARD_REMEMBER_SECRET=
-SF_DASHBOARD_REMEMBER_DAYS=30
-SF_DASHBOARD_COOKIE_SECURE=true
 ```
 
-Gebruik op HTTPS een secure cookie. Een lege allowlist of foutieve Google-clientconfig kan de login
-fail-closed maken. De frontend moet een 401/sessieverloop naar een zichtbare nieuwe loginroute
+Het sessietoken is dertig dagen geldig en wordt met `SF_DASHBOARD_REMEMBER_SECRET` ondertekend.
+Een lege allowlist, een leeg geheim of een foutieve Google-clientconfig maakt de login
+fail-closed. De frontend moet een 401/sessieverloop naar een zichtbare nieuwe loginroute
 sturen; alleen een foutbanner “Log opnieuw in” is onvoldoende.
 
 ## Targetprojectsecrets veranderen niet
@@ -127,4 +120,4 @@ netwerkshare voor. De eigenaar blijft dat bestand zelf beheren zoals voorheen.
 
 `FactorySecrets.toString()` en `redactedSummary()` maskeren tokens en databasecredentials. Log nooit
 de volledige resolved environment. Tests gebruiken fictieve waarden en controleren dat Runtime-
-requests geen provider-, Git-, database-, bridge-, Telegram- of projectsecret bevatten.
+requests geen provider-, Git-, database-, Telegram- of projectsecret bevatten.

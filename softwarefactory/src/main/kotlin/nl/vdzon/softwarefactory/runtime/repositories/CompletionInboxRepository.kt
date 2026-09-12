@@ -421,7 +421,7 @@ private fun validateCompletion(request: AgentRunCompleteRequest, encodedSize: In
 /**
  * Kapt [payload] af tot ≤ [MAX_EVENT_BYTES] bytes inclusief een zichtbare afkap-marker die het
  * originele aantal bytes vermeldt. De marker-tekst hoeft geen geldige JSON te blijven (analoog aan
- * de bestaande `eventsForStory`-afkap in de dashboard-bridge, die de frontend al gracieus opvangt).
+ * de bestaande `eventsForStory`-afkap in de dashboard-repository, die de frontend al gracieus opvangt).
  */
 private fun truncateEventPayload(payload: String, originalBytes: Int): String {
     val marker = "...[afgekapt: origineel $originalBytes bytes]"

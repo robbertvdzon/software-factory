@@ -1,18 +1,17 @@
 # Software Factory Dashboard
 
-Flutter-frontend voor de Software Factory. De UI praat met `dashboard-backend` op poort 9080;
-de backend is een dunne bridge naar de factory-WebSocket (`/bridge`) en leest zelf geen tracker-DB
-of GitHub.
+Flutter-frontend voor de Software Factory. De UI praat via `/api/v1` rechtstreeks met de
+Software Factory-backend (de module `softwarefactory`), die ook de factory zelf bevat.
 
 ## Lokaal ontwikkelen
 
-Vereist: Flutter 3.35.x en een bereikbare factory/bridge. Gebruik vanuit deze map:
+Vereist: Flutter 3.35.x en een draaiende Software Factory. Gebruik vanuit deze map:
 
 ```bash
 flutter pub get
 flutter analyze
 flutter test
-flutter run --dart-define=API_BASE_URL=http://localhost:9080
+flutter run --dart-define=API_BASE_URL=http://localhost:8080
 ```
 
 De Google-login gebruikt de geconfigureerde client-id; secrets horen niet in deze repository.
@@ -33,7 +32,7 @@ startvoorwaarden van de image-workflows.
 ## Nginx-config en HSTS
 
 `nginx.conf` in deze map zit in het productie-image: nginx serveert de gebouwde web-app en proxyt
-`/api/*` en `/bridge` naar de backend. Het dashboard is https-only (SF-2008) en stuurt op elke
+`/api/*` naar de backend. Het dashboard is https-only (SF-2008) en stuurt op elke
 respons `Strict-Transport-Security: max-age=31536000` mee — bewust zonder `includeSubDomains` en
 zonder `preload`, want die zijn voor het hele domein lastig terug te draaien.
 

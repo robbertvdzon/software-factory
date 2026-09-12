@@ -14,9 +14,9 @@ import org.testcontainers.containers.PostgreSQLContainer
 
 /**
  * SF-1199: een enkele tester-run kan tientallen KB per event wegschrijven (volledige tool-output);
- * 200 van die events samen bracht de story-detailpagina eerder over de bridge's WebSocket-
- * buffergrens (2 MB) heen, waarna de hele pagina zonder data bleef hangen ("message too big",
- * code 1009). `eventsForStory` kapt de payload nu per event af — deze test pint dat gedrag vast.
+ * 200 van die events samen brachten de story-detailpagina eerder over de payloadgrens van het
+ * toenmalige transport heen, waarna de hele pagina zonder data bleef hangen. `eventsForStory`
+ * kapt de payload nu per event af — deze test pint dat gedrag vast.
  *
  * Draait tegen een echte Postgres (Testcontainers) omdat de query Postgres-specifieke features
  * gebruikt (`JSONB`, `payload::text`, `LEFT(...)`); Flyway bouwt het echte schema op.
@@ -99,7 +99,7 @@ class FactoryDashboardRepositoryEventsForStoryTest {
     }
 
     @Test
-    fun `kapt een grote payload af zodat het totaal onder de bridge-buffergrens blijft`() {
+    fun `kapt een grote payload af zodat het totaal onder de payloadgrens blijft`() {
         val events = repository.eventsForStory(storyRunId)
 
         assertEquals(2, events.size)

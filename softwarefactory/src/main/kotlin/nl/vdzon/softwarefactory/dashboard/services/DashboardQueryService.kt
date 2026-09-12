@@ -16,9 +16,9 @@ import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.core.contracts.FinishedStatus
-import nl.vdzon.softwarefactory.contract.ProductFactoryMetadata
-import nl.vdzon.softwarefactory.contract.ProductFactoryAttachmentNames
-import nl.vdzon.softwarefactory.contract.ProductFactoryStoryMetadata
+import nl.vdzon.softwarefactory.core.contracts.ProductFactoryMetadata
+import nl.vdzon.softwarefactory.core.contracts.ProductFactoryAttachmentNames
+import nl.vdzon.softwarefactory.core.contracts.ProductFactoryStoryMetadata
 import nl.vdzon.softwarefactory.audit.AuditGateway
 import nl.vdzon.softwarefactory.audit.repositories.AuditJobStatus
 import nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettings
@@ -386,7 +386,7 @@ class DashboardQueryService(
 
     /**
      * Detail van één opruimronde. Bewust hetzelfde soft-fail-`load` als de lijst: een onbekende id
-     * én een onbereikbare database leveren beide `null`, wat de bridge als NOT_FOUND (404) doorgeeft
+     * én een onbereikbare database leveren beide `null`, wat de dashboard-API als NOT_FOUND (404) doorgeeft
      * — voor het detailscherm is dat hetzelfde "deze run is er niet (meer)".
      */
     override fun maintenanceCleanupDetail(runId: Long): MaintenanceCleanupRunDetailView? {
@@ -1046,7 +1046,7 @@ class DashboardQueryService(
      * `.apk`-downloads per geconfigureerde repo (projects.yaml), over de meest recente releases
      * (niet alleen "latest") — zie [GitHubReleaseClient.apkDownloads] voor waarom: een repo met
      * meerdere apps publiceert per app een eigen permanent-overschreven tag, dus die staan als
-     * losse releases naast elkaar. Nieuwe operatie voor de bridge (§5 `downloads.list`) — het oude
+     * losse releases naast elkaar. Voedt het Downloads-endpoint van het dashboard — het oude
      * Kotlin-dashboard toont dit nog niet. Zelfde parallel+cache-recept als [projectsOverview]: per
      * repo een onafhankelijke netwerk-call, dus parallel i.p.v. serieel, en 20s gecached zodat elke
      * tab/poll niet opnieuw betaalt.
@@ -1139,7 +1139,7 @@ class DashboardQueryService(
 
     /**
      * Laatste GitHub Actions-run per workflow, per geconfigureerde repo (projects.yaml). Nieuwe
-     * operatie voor de bridge (§5 `builds.list`), zie [GitHubActionsClient]. Zelfde parallel+cache-
+     * Builds-endpoint van het dashboard, zie [GitHubActionsClient]. Zelfde parallel+cache-
      * recept als [projectsOverview]/[downloads].
      */
     override fun builds(force: Boolean): BuildsPageData {

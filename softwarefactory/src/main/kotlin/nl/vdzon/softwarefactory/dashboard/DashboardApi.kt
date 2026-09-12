@@ -19,7 +19,7 @@ interface DashboardQueries {
     fun auditReportsFor(project: String, auditType: String): AuditReportListPageData
     fun auditReportDetail(reportId: Long): AuditReportDetailView
     fun maintenanceCleanups(project: String? = null, kind: String? = null): MaintenanceCleanupListPageData
-    /** `null` = onbekende run; de bridge vertaalt dat naar NOT_FOUND (HTTP 404). */
+    /** `null` = onbekende run; de dashboard-API vertaalt dat naar NOT_FOUND (HTTP 404). */
     fun maintenanceCleanupDetail(runId: Long): MaintenanceCleanupRunDetailView?
     fun settings(username: String): SettingsPageData
     fun downloads(force: Boolean = false): DownloadsPageData
@@ -61,7 +61,7 @@ interface DashboardCommands {
     fun startDeveloping(storyKey: String)
 }
 
-interface FactoryProcessControl { fun requestRestart(); fun requestStop() }
+/** Abonnement op "de factory-state is mogelijk veranderd"; de web-laag vertaalt dat naar SSE. */
 interface DashboardChangeSource { fun addListener(listener: () -> Unit) }
 interface FactoryVersionQuery {
     fun info(): FactoryVersionInfo

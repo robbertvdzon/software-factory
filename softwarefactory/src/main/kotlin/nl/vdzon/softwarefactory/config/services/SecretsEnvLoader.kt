@@ -62,10 +62,11 @@ class SecretsEnvLoader(
             telegramBotToken = resolveOptional("SF_TELEGRAM_BOT_TOKEN"),
             telegramChatId = resolveOptional("SF_TELEGRAM_CHAT_ID"),
             dashboardBaseUrl = resolveOptional("SF_DASHBOARD_BASE_URL"),
-            bridgeUrls = resolveOptional("SF_BRIDGE_URLS").orEmpty()
-                .split(',').map { it.trim() }.filter { it.isNotBlank() },
-            bridgeToken = resolveOptional("SF_BRIDGE_TOKEN"),
             trackerAttachmentsDir = resolveOptional("SF_TRACKER_ATTACHMENTS_DIR")?.takeIf { it.isNotBlank() } ?: "attachments",
+            googleClientId = resolveOptional("SF_GOOGLE_CLIENT_ID"),
+            allowedEmails = resolveAllowedEmails(resolveOptional("SF_ALLOWED_EMAILS")),
+            dashboardRememberSecret = resolveOptional("SF_DASHBOARD_REMEMBER_SECRET"),
+            productFactoryToken = resolveOptional("SF_PRODUCT_FACTORY_TOKEN"),
             loadedFrom = loadedFromDescription(),
         )
     }
@@ -117,6 +118,10 @@ class SecretsEnvLoader(
         }
         return value
     }
+
+    /** Komma-gescheiden allowlist; adressen worden genormaliseerd naar lowercase. */
+    private fun resolveAllowedEmails(value: String?): Set<String> =
+        value.orEmpty().split(',').map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet()
 
     private fun resolveProjects(value: String?): List<String> =
         value.orEmpty()

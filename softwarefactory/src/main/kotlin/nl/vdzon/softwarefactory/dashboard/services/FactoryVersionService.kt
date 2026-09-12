@@ -12,19 +12,23 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Legt **bij opstart** vast op welke git-commit de draaiende factory staat, plus het starttijdstip.
- * Bewust één keer bij start (niet live): zo toont de UI de versie die écht draait, en niet een latere
- * `git pull` die pas na een herstart actief wordt. Hiermee kun je aan de commit-message zien of een
- * bepaalde story al in de draaiende versie zit.
+ * Bewust één keer bij start (niet live): zo toont de UI de versie die écht draait.
+ *
+ * In een image is er geen `.git`; dan komen commit en branch uit de omgevingsvariabelen
+ * `SF_BUILD_COMMIT`, `SF_BUILD_BRANCH`, `SF_BUILD_COMMIT_SUBJECT` en `SF_BUILD_COMMIT_DATE`, die
+ * het Dockerfile als build-args meebakt. Een lokale checkout (ontwikkelen) leest gewoon git.
  */
 @Service
-class FactoryVersionService : FactoryVersionQuery {
+class FactoryVersionService(
+    private val environment: Map<String, String> = System.getenv(),
+) : FactoryVersionQuery {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val root: Path = projectRoot()
     private val versionInfo: FactoryVersionInfo by lazy { capture() }
 
     override fun info(): FactoryVersionInfo = versionInfo
 
-    /** Korte git-sha, voor de bridge-hello (die alleen een `FactoryVersionInfo`-veld nodig heeft). */
+    /** Korte git-sha, zoals de statusregel van het dashboard die toont. */
     override fun commitShort(): String = versionInfo.commitShort
 
     @PostConstruct
@@ -37,7 +41,10 @@ class FactoryVersionService : FactoryVersionQuery {
         )
     }
 
-    private fun capture(): FactoryVersionInfo {
+    private fun capture(): FactoryVersionInfo =
+        if (Files.isDirectory(root.resolve(".git"))) captureFromGit() else captureFromBuildInfo()
+
+    private fun captureFromGit(): FactoryVersionInfo {
         // %h=short sha, %s=subject, %ci=commit-datum; velden gescheiden door unit-separator (0x1f).
         val raw = git("log", "-1", "--format=%h%x1f%s%x1f%ci")
         val parts = raw?.split('\u001F').orEmpty()
@@ -50,6 +57,16 @@ class FactoryVersionService : FactoryVersionQuery {
             dirty = git("status", "--porcelain").orEmpty().isNotBlank(),
         )
     }
+
+    private fun captureFromBuildInfo(): FactoryVersionInfo =
+        FactoryVersionInfo(
+            startedAt = OffsetDateTime.now(),
+            branch = environment["SF_BUILD_BRANCH"]?.takeIf { it.isNotBlank() } ?: "onbekend",
+            commitShort = environment["SF_BUILD_COMMIT"]?.takeIf { it.isNotBlank() }?.take(SHORT_SHA_LENGTH) ?: "onbekend",
+            commitSubject = environment["SF_BUILD_COMMIT_SUBJECT"].orEmpty(),
+            commitDate = environment["SF_BUILD_COMMIT_DATE"].orEmpty(),
+            dirty = false,
+        )
 
     /** Draait een git-commando in de repo-root; geeft de getrimde stdout terug, of null bij een fout. */
     private fun git(vararg args: String): String? =
@@ -78,5 +95,9 @@ class FactoryVersionService : FactoryVersionQuery {
         } else {
             cwd
         }
+    }
+
+    private companion object {
+        const val SHORT_SHA_LENGTH = 7
     }
 }

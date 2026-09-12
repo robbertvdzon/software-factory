@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart';
 
 import 'api_client.dart';
 
-/// Gedeelde app-state: sessie, live "changed"-events en de factory-online-status
-/// (§9 UI-richting: "Factory-status prominent" + "geen refresh-knoppen").
+/// Gedeelde app-state: sessie, live "changed"-events en de bereikbaarheid van de backend
+/// ("geen refresh-knoppen": schermen luisteren op events).
 class AppState extends ChangeNotifier {
   final ApiClient api;
   late final SseClient sse;
@@ -24,22 +24,19 @@ class AppState extends ChangeNotifier {
     sse = SseClient(api);
   }
 
-  /// Start meteen (geeft niet op de bridge-round-trips te wachten): de SSE-connect en de eerste
-  /// status/my-actions-fetch gaan op de achtergrond parallel lopen i.p.v. serieel vóór de
-  /// eerste render. Elke call gaat via de websocket-bridge naar de laptop-factory (tot 30s
-  /// timeout) — serieel wachten hierop vóórdat de UI (bv. Stories) zelf mag laden, gaf een
-  /// merkbare vertraging bij elke volledige page-refresh (F5), terwijl in-app-navigeren snel
-  /// bleef omdat AppState dan al bestond en dit alleen bij opstart gebeurde.
+  /// Start meteen: de SSE-connect en de eerste status/my-actions-fetch gaan op de achtergrond
+  /// parallel lopen i.p.v. serieel vóór de eerste render, zodat de UI (bv. Stories) niet op deze
+  /// calls hoeft te wachten bij een volledige page-refresh (F5).
   Future<void> start() async {
     sse.events.listen((_) {
       changedTick++;
       notifyListeners();
       refreshStatus();
     });
-    // De SSE-stream is alleen het live-eventkanaal browser<->backend; of de fáctory
-    // bridge-verbonden is, weet alleen /api/v1/status. Bij elke transportwissel dus
-    // altijd de echte status opnieuw ophalen i.p.v. de banner blind op de SSE-staat
-    // te zetten (anders blijft "offline" hangen na een kortstondige SSE-reconnect).
+    // De SSE-stream is alleen het live-eventkanaal; of de backend bereikbaar is, bewijst
+    // /api/v1/status. Bij elke transportwissel dus altijd de echte status opnieuw ophalen
+    // i.p.v. de banner blind op de SSE-staat te zetten (anders blijft "offline" hangen na
+    // een kortstondige SSE-reconnect).
     sse.connectionChanges.listen((_) => refreshStatus());
     _statusTimer = Timer.periodic(const Duration(seconds: 20), (_) => refreshStatus());
     unawaited(sse.connect());
@@ -55,9 +52,8 @@ class AppState extends ChangeNotifier {
       factoryVersion = status['factoryVersion'] as String?;
     } catch (_) {
       // Eén mislukte call is meestal een netwerk-hik (transportwissel, slapende telefoon), geen
-      // offline factory. Meteen omslaan liet de banner knipperen; pas na twee mislukkingen op rij
-      // is het aannemelijk genoeg om te tonen. Een echte offline factory geeft gewoon
-      // `connected: false` terug en gaat dus niet door deze catch heen.
+      // onbereikbare backend. Meteen omslaan liet de banner knipperen; pas na twee mislukkingen
+      // op rij is het aannemelijk genoeg om te tonen.
       _statusFailures++;
       if (_statusFailures >= 2) connected = false;
     }

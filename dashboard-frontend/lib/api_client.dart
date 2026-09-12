@@ -145,7 +145,7 @@ String _extractMessage(http.Response response) {
 class FactoryOfflineException implements Exception {
   const FactoryOfflineException();
   @override
-  String toString() => 'Factory niet verbonden.';
+  String toString() => 'Software Factory niet bereikbaar.';
 }
 
 /// Lichtgewicht Server-Sent-Events-client voor `/api/v1/events` (de "changed"-push,

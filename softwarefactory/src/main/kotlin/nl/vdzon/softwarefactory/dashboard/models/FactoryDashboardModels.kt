@@ -160,7 +160,7 @@ data class StoriesPageData(
     val quotaRetryAfterByStory: Map<String, String> = emptyMap(),
 )
 
-/** Interne bridgeprojectie voor de kleine Product Factory v2-status- en zoekroutes. */
+/** Interne projectie voor de Product Factory v2-status- en zoekroutes. */
 data class ProductFactoryStoryFilter(
     val storyKey: String? = null,
     val productId: String? = null,
@@ -719,7 +719,7 @@ data class AuditOverviewPageData(
 
 /**
  * Uitkomst van "Run now" — de `audit`-module z'n `ManualAuditResult` vertaald naar de dashboard-laag
- * (de `bridge`-module mag niet rechtstreeks van `audit :: types` afhangen, zie
+ * (de `web`-module mag niet rechtstreeks van `audit :: types` afhangen, zie
  * `ModulithArchitectureTest`).
  *
  * [accepted] = de audit draait nu of staat in de wachtrij; [status] is de reden in lowercase
@@ -732,7 +732,7 @@ data class AuditRunNowResult(
 
 /**
  * Uitkomst van "Nu draaien" op het Opruimen-scherm (SF-1929) — de `runtime`-poort z'n
- * `CleanupRunNowOutcome` vertaald naar de dashboard-laag (de `bridge`-module mag niet rechtstreeks
+ * `CleanupRunNowOutcome` vertaald naar de dashboard-laag (de `web`-module mag niet rechtstreeks
  * van `runtime`/`maintenance` afhangen, zie `ModulithArchitectureTest`).
  *
  * [accepted] = er is minstens één ronde gestart; [status] is de samenvattende reden in lowercase

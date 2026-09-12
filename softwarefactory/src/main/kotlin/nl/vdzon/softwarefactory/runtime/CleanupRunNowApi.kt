@@ -15,7 +15,7 @@ interface CleanupRunNowApi {
     /**
      * Start één ronde van [kind] (een `CleanupKinds`-waarde), of van álle vrije soorten bij
      * `CleanupKinds.ALL_KINDS`. Niet-blokkerend: de ronde loopt op een achtergrond-executor, zodat
-     * de 30s-timeout van de bridge een lange GitHub-ronde nooit afkapt.
+     * een lange GitHub-ronde nooit de HTTP-aanroep van het dashboard ophoudt.
      */
     fun runNow(kind: String): CleanupRunNowOutcome
 }

@@ -1,5 +1,8 @@
 name: software-factory
 
+# Lokale keten: Postgres, de volledige Software Factory als container en het dashboard.
+# Voor ontwikkelen draai je de factory meestal op de host (`./factory start`) en gebruik je
+# alleen `postgres` (`./factory local-db`); de frontend praat dan via `flutter run` met :8080.
 services:
   postgres:
     image: postgres:17-alpine
@@ -21,16 +24,24 @@ services:
   softwarefactory-dashboard-backend:
     build:
       context: ..
-      dockerfile: dashboard-backend/Dockerfile
+      dockerfile: softwarefactory/Dockerfile
+      args:
+        SF_BUILD_COMMIT: ${SF_DASHBOARD_BUILD_SHA:-local}
+        SF_BUILD_BRANCH: local
     restart: unless-stopped
+    # Alle SF_*-sleutels uit secrets.env (of een alternatief bestand via SF_COMPOSE_SECRETS) komen als
+    # omgevingsvariabelen binnen; hieronder de waarden die in Compose altijd anders zijn.
+    env_file:
+      - ${SF_COMPOSE_SECRETS:-../secrets.env}
     environment:
-      PORT: "80"
-      SF_GOOGLE_CLIENT_ID: ${SF_GOOGLE_CLIENT_ID:?set in secrets.env}
-      SF_ALLOWED_EMAILS: ${SF_ALLOWED_EMAILS:-robbert@vdzon.com}
-      SF_DASHBOARD_REMEMBER_SECRET: ${SF_DASHBOARD_REMEMBER_SECRET:?set in secrets.env}
-      SF_DASHBOARD_REMEMBER_DAYS: ${SF_DASHBOARD_REMEMBER_DAYS:-30}
-      SF_DASHBOARD_COOKIE_SECURE: ${SF_DASHBOARD_COOKIE_SECURE:-false}
-      SF_BRIDGE_TOKEN: ${SF_BRIDGE_TOKEN:?set in secrets.env}
+      SERVER_PORT: "80"
+      SF_DATABASE_URL: postgresql://software_factory:software_factory@postgres:5432/software_factory
+      SF_TRACKER_ATTACHMENTS_DIR: /app/attachments
+      # Nooit twee Telegram-pollers op één bot-token (de factory op de host loopt meestal al).
+      SF_TELEGRAM_BOT_TOKEN: ""
+      SF_TELEGRAM_CHAT_ID: ""
+    volumes:
+      - software-factory-attachments:/app/attachments
     ports:
       - "127.0.0.1:${SF_LOCAL_DASHBOARD_BACKEND_PORT:-9090}:80"
     depends_on:
@@ -54,3 +65,4 @@ services:
 
 volumes:
   software-factory-postgres-data:
+  software-factory-attachments:

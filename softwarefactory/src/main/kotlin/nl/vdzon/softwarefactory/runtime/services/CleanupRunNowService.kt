@@ -22,9 +22,9 @@ import java.util.concurrent.Executors
  *    [CleanupRunner]-beans (de pollers zelf) en [MaintenanceCleanupApi] (de GitHub-tick).
  *  * **Synchroon claimen, asynchroon draaien.** De [CleanupRunGuard] wordt in de aanroepende thread
  *    gepakt — anders zou een tweede snelle klik óók "gestart" krijgen — waarna de ronde zelf op een
- *    executor loopt zodat de 30s-timeout van de bridge een lange GitHub-ronde nooit afkapt.
+ *    executor loopt zodat een lange GitHub-ronde de HTTP-aanroep van het dashboard nooit ophoudt.
  *  * **Weigeren is geen fout.** Al draaiend/uitgezet/onbekend levert een status op (HTTP 200), net
- *    als bij `audit.runNow`; alleen echte fouten volgen het `BridgeError`-pad.
+ *    als bij "audit nu draaien"; alleen echte fouten worden een HTTP-fout.
  */
 @Service
 class CleanupRunNowService @Autowired constructor(

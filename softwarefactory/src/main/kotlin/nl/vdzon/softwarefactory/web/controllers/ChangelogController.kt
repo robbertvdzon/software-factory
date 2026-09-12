@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController
  * robberts-assistent, ...) via hun eigen backend een "wat is er nieuw"-lijst kunnen tonen, net als
  * [AgentRunCompletionController] al ongeauthenticeerd is (daar is netwerkisolatie de grens, hier is
  * de inhoud zelf bewust publiek). De eigen dashboard-frontend gebruikt in plaats hiervan de
- * geauthenticeerde bridge-route (zie `BridgeRequestHandler`'s `"changelog.for"`-commando).
+ * geauthenticeerde route `GET /api/v1/changelog/{name}` (zie [DashboardQueryController]).
  */
 @RestController
 @RequestMapping("/api/v1/public/changelog")

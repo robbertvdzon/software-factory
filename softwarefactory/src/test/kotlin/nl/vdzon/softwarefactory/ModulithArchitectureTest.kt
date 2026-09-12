@@ -10,7 +10,7 @@ import org.springframework.modulith.core.ApplicationModules
 class ModulithArchitectureTest {
     private val sourceRoot = Path.of("src/main/kotlin/nl/vdzon/softwarefactory")
     private val modules = setOf(
-        "audit", "bridge", "config", "contract", "core", "dashboard", "docs", "git", "github",
+        "audit", "config", "core", "dashboard", "docs", "git", "github",
         "knowledge", "maintenance", "merge", "orchestrator", "pipeline", "preview", "runtime",
         "support", "telegram", "tracker", "verification", "web",
     )
@@ -34,7 +34,7 @@ class ModulithArchitectureTest {
 
     @Test
     fun `transport adapters do not depend on each other`() {
-        val transports = setOf("bridge", "telegram", "web")
+        val transports = setOf("telegram", "web")
         transports.forEach { source ->
             sourceRoot.resolve(source).toFile().walkTopDown().filter { it.extension == "kt" }.forEach { file ->
                 transports.minus(source).forEach { target ->
@@ -50,11 +50,11 @@ class ModulithArchitectureTest {
     @Test
     fun `negative dependency fixtures are rejected`() {
         val namedInterfaces = mapOf("dashboard" to setOf("models", "types"))
-        assertFalse(isAllowed("bridge", "web.controllers", setOf("dashboard"), namedInterfaces))
-        assertFalse(isAllowed("bridge", "dashboard.services", setOf("dashboard"), namedInterfaces))
-        assertFalse(isAllowed("bridge", "dashboard.unknown", setOf("dashboard :: unknown"), namedInterfaces))
-        assertTrue(isAllowed("bridge", "dashboard", setOf("dashboard"), namedInterfaces))
-        assertTrue(isAllowed("bridge", "dashboard.models", setOf("dashboard :: models"), namedInterfaces))
+        assertFalse(isAllowed("telegram", "web.controllers", setOf("dashboard"), namedInterfaces))
+        assertFalse(isAllowed("web", "dashboard.services", setOf("dashboard"), namedInterfaces))
+        assertFalse(isAllowed("web", "dashboard.unknown", setOf("dashboard :: unknown"), namedInterfaces))
+        assertTrue(isAllowed("web", "dashboard", setOf("dashboard"), namedInterfaces))
+        assertTrue(isAllowed("web", "dashboard.models", setOf("dashboard :: models"), namedInterfaces))
     }
 
     private fun isAllowed(
@@ -65,7 +65,7 @@ class ModulithArchitectureTest {
     ): Boolean {
         val parts = targetPackage.split('.')
         val target = parts.first()
-        if (source in setOf("bridge", "telegram", "web") && target in setOf("bridge", "telegram", "web")) return false
+        if (source in setOf("telegram", "web") && target in setOf("telegram", "web")) return false
         if (parts.size == 1) return target in allowed
         val named = parts[1]
         return named in namedInterfaces[target].orEmpty() && "$target :: $named" in allowed

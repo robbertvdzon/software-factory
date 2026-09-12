@@ -27,11 +27,6 @@
         <dependencies>
             <dependency>
                 <groupId>nl.vdzon</groupId>
-                <artifactId>factory-contracts</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>nl.vdzon</groupId>
                 <artifactId>factory-common</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -46,10 +41,8 @@
     </dependencyManagement>
 
     <modules>
-        <module>factory-contracts</module>
         <module>factory-common</module>
         <module>softwarefactory</module>
-        <module>dashboard-backend</module>
     </modules>
 
     <profiles>
