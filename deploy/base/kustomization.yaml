@@ -19,4 +19,4 @@ images:
   newTag: sha-dcc2bd8
 - name: ghcr.io/robbertvdzon/software-factory-frontend
   newName: ghcr.io/robbertvdzon/software-factory-frontend
-  newTag: sha-dcc2bd8
+  newTag: sha-ffaf623
