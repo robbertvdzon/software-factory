@@ -5,7 +5,7 @@ metadata:
   labels:
     app: softwarefactory-dashboard-backend
 spec:
-  replicas: 1
+  replicas: 0
   # Eén factory tegelijk: schedulers, Telegram-polling en de orchestrator verdragen geen tweede
   # instantie, dus nooit een nieuwe pod naast de oude.
   strategy:
