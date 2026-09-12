@@ -78,8 +78,11 @@ ontwikkellaptop is geen runtimeonderdeel meer; lokaal draaien is alleen voor ont
 3. `secrets.env` — lokale, gitignored secrets;
 4. echte environmentvariabelen — hoogste prioriteit.
 
-`projects.yaml` koppelt projectnamen aan geregistreerde Runtime-repositoryaliassen, base branches,
-Telegramkanalen, previews en verplichte mergechecks.
+De projectcatalogus (projectnaam, repo, Runtime-alias, mergechecks, deploydoelen, Telegramkanaal)
+staat in de database en wordt beheerd op het Settings-scherm van het dashboard, als één
+YAML-document in dezelfde vorm als het vroegere `projects.yaml`. Opslaan valideert en is direct
+actief, zonder deploy of herstart. Een lege database importeert bij opstart eenmalig
+`projects.yaml` (of `SF_PROJECTS_FILE`) als dat bestand bestaat; daarna is de database de bron.
 
 Belangrijkste secrets:
 

@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.maintenance.services
 
-import nl.vdzon.softwarefactory.config.ProjectConfiguration
+import nl.vdzon.softwarefactory.config.ProjectReleaseCleanupSettings
+import nl.vdzon.softwarefactory.config.ProjectRepositoryCatalog
 import nl.vdzon.softwarefactory.config.ReleaseCleanupConfig
 import nl.vdzon.softwarefactory.maintenance.CleanupRunGuard
 import nl.vdzon.softwarefactory.maintenance.MaintenanceCleanupApi
@@ -30,7 +31,8 @@ import java.time.OffsetDateTime
  */
 @Component
 class MaintenanceCleanupScheduler(
-    private val projects: ProjectConfiguration,
+    private val projects: ProjectReleaseCleanupSettings,
+    private val projectCatalog: ProjectRepositoryCatalog,
     private val releaseClient: GitHubReleaseCleanupClient,
     private val packageClient: GitHubPackageCleanupClient,
     private val protectedShaSource: GitHubProtectedShaSource,
@@ -67,7 +69,7 @@ class MaintenanceCleanupScheduler(
 
     /** Eén ronde over alle projecten; de aanroeper houdt de bewaking al vast (zie [MaintenanceCleanupApi]). */
     override fun runCleanupRoundLocked(trigger: String) {
-        for (projectName in projects.projectNames()) {
+        for (projectName in projectCatalog.projectNames()) {
             val config = projects.releaseCleanupFor(projectName) ?: continue
             val startedAt = OffsetDateTime.now()
             runCatching { cleanupProject(projectName, config) }
@@ -81,7 +83,7 @@ class MaintenanceCleanupScheduler(
 
     /** @return de uitkomst, of null als het project geen GitHub-slug heeft (overgeslagen, géén rij). */
     private fun cleanupProject(projectName: String, config: ReleaseCleanupConfig): CleanupOutcome? {
-        val slug = githubSlugFrom(projects.repoFor(projectName))
+        val slug = githubSlugFrom(projectCatalog.repoFor(projectName))
         if (slug == null) {
             logger.warn("Maintenance-cleanup: geen GitHub-slug voor project '{}', overgeslagen.", projectName)
             return null

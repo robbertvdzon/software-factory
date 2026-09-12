@@ -24,17 +24,19 @@ from every bootstrap script/playbook on 2026-07-08; see
 
 ## Secrets
 
-Alle configuratie van de factory komt uit één Sealed Secret (`software-factory-secrets`):
-de `SF_*`-sleutels uit `deploy/secrets-cluster.env` (kopieer `deploy/secrets-cluster.env.example`)
-plus `deploy/projects-cluster.yaml`, dat als `projects.yaml` in de pod wordt gemount. Beide bestanden
-zijn gitignored; de repository is publiek en projects.yaml bevat chat-id's.
+De secrets van de factory komen uit één Sealed Secret (`software-factory-secrets`): de
+`SF_*`-sleutels uit `deploy/secrets-cluster.env` (kopieer `deploy/secrets-cluster.env.example`,
+gitignored). De projectcatalogus staat in de database en wordt via het dashboard beheerd; een
+`deploy/projects-cluster.yaml` wordt alleen nog als `SF_PROJECTS_YAML` gesealed en gemount om een
+lege database eenmalig te vullen.
 
 ```bash
 ./deploy/seal-secrets.sh
 ```
 
 The generated `deploy/base/sealed-secret.yaml` is encrypted for the current cluster and can be committed.
-Een wijziging in secrets of projectconfiguratie is dus: bestand aanpassen, opnieuw sealen, committen, ArgoCD syncen.
+Een wijziging in secrets is dus: bestand aanpassen, opnieuw sealen, committen, ArgoCD syncen. De
+projectcatalogus wijzig je op het Settings-scherm, zonder deploy.
 
 ## Normal deploy
 

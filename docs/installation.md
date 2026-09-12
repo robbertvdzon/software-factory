@@ -42,7 +42,10 @@ lokale overrides.
 
 ## Projectcatalogus
 
-Configureer ieder targetproject in `projects.yaml` met ten minste:
+De catalogus staat in de database en wordt beheerd op het Settings-scherm van het dashboard, als
+YAML in de vorm van `projects.yaml.example`. Bij een lege database importeert de factory eenmalig
+een lokaal `projects.yaml` (of `SF_PROJECTS_FILE`) als dat bestaat. Configureer ieder targetproject
+met ten minste:
 
 - canonieke projectnaam en repository;
 - base branch;

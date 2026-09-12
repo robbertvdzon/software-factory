@@ -36,9 +36,11 @@ SF_PROJECTS_FILE=projects.yaml
 SF_SECRETS_FILE=/optioneel/absoluut/pad/secrets.env
 ```
 
-Een lege `SF_TRACKER_PROJECTS` laat de tracker bestaande projectkeys ontdekken. `projects.yaml`
-bevat geen providercredential: het koppelt projectnamen aan repositoryconfiguratie, Runtime-alias,
-base branch, Telegram, previews en mergechecks.
+Een lege `SF_TRACKER_PROJECTS` laat de tracker bestaande projectkeys ontdekken. De projectcatalogus
+(projectnaam, repositoryconfiguratie, Runtime-alias, base branch, Telegram, previews en
+mergechecks) staat in de database en wordt via het Settings-scherm beheerd; `SF_PROJECTS_FILE`
+wijst alleen naar het bestand waarmee een lege database eenmalig wordt gevuld. Het bevat geen
+providercredential.
 
 ## Runtime
 
@@ -83,7 +85,7 @@ SF_DASHBOARD_BASE_URL=
 ```
 
 Bot-token en standaardchat-id moeten beide gezet zijn om Telegram te activeren. Projectspecifieke
-chat-id's staan in `projects.yaml`. De conversationele assistent gebruikt Agent Runtime v2 en geen
+chat-id's staan in de projectcatalogus (Settings-scherm). De conversationele assistent gebruikt Agent Runtime v2 en geen
 apart Claude-/Codex-token of assistantimage.
 
 ## Machinetokens

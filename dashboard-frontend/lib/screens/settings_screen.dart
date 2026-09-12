@@ -23,6 +23,9 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final _dataScreenKey = GlobalKey<DataScreenState>();
   var _savingAuditSettings = false;
+  var _savingProjectCatalog = false;
+  final _projectCatalogController = TextEditingController();
+  bool _projectCatalogSeeded = false;
   bool? _auditEnabled;
   String _executionScope = '';
   final Map<String, TextEditingController> _auditStartTimeControllers = {};
@@ -30,6 +33,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   void dispose() {
+    _projectCatalogController.dispose();
     for (final controller in _auditStartTimeControllers.values) {
       controller.dispose();
     }
@@ -55,6 +59,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // Eén gezamenlijke save voor de hele "Audits per project"-tabel + de globale schakelaar,
   // i.p.v. een los save-knopje per projectrij.
+  // De catalogus is één YAML-document (zelfde vorm als het vroegere projects.yaml); de backend
+  // valideert 'm en maakt 'm direct actief, zonder deploy of herstart.
+  Future<void> _saveProjectCatalog() async {
+    setState(() => _savingProjectCatalog = true);
+    try {
+      await widget.state.api.postJson('/api/v1/settings/project-catalog', {
+        'yaml': _projectCatalogController.text,
+      });
+      if (mounted) {
+        showActionResult(
+          context,
+          success: true,
+          message: 'Projectcatalogus opgeslagen en actief.',
+        );
+      }
+      await _dataScreenKey.currentState?.reload();
+    } catch (e) {
+      if (mounted) {
+        showActionResult(context, success: false, message: e.toString());
+      }
+    } finally {
+      if (mounted) setState(() => _savingProjectCatalog = false);
+    }
+  }
+
   Future<void> _saveAuditSettings(List<dynamic> auditProjectSettings) async {
     final projects = <Map<String, dynamic>>[];
     for (final row in auditProjectSettings) {
@@ -132,6 +161,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 .where((value) => value.isNotEmpty)
                 .toList();
         _auditEnabled ??= data['auditEnabled'] == true;
+        final projectCatalog = Map<String, dynamic>.from(
+          data['projectCatalog'] as Map? ?? {},
+        );
+        if (!_projectCatalogSeeded) {
+          _projectCatalogController.text = text(projectCatalog['yaml']);
+          _projectCatalogSeeded = true;
+        }
+        final catalogProjects = (projectCatalog['projects'] as List? ?? [])
+            .map((value) => text(value))
+            .where((value) => value.isNotEmpty)
+            .toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -318,6 +358,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ? const SizedBox(
                               width: 18,
                               height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.save_outlined),
+                      label: const Text('Opslaan'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            const SectionTitle('Projectcatalogus'),
+            Panel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    catalogProjects.isEmpty
+                        ? 'Nog geen projecten geconfigureerd.'
+                        : 'Actieve projecten: ${catalogProjects.join(', ')}',
+                  ),
+                  if (text(projectCatalog['updatedBy']).isNotEmpty)
+                    Text(
+                      'Laatst opgeslagen door ${text(projectCatalog['updatedBy'])} '
+                      'op ${text(projectCatalog['updatedAt'])}.',
+                      style: const TextStyle(color: Colors.black54, fontSize: 12),
+                    ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Eén YAML-document met alle projecten: repo, Runtime-alias, mergechecks, '
+                    'deploydoelen, Telegram-kanaal. Opslaan valideert en is direct actief.',
+                    style: TextStyle(color: Colors.black54, fontSize: 12),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const ValueKey('project-catalog-yaml'),
+                    controller: _projectCatalogController,
+                    maxLines: 24,
+                    minLines: 12,
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: 'projects:\n  - name: ...\n    repo: ...',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton.icon(
+                      key: const ValueKey('project-catalog-save'),
+                      onPressed: _savingProjectCatalog ? null : _saveProjectCatalog,
+                      icon: _savingProjectCatalog
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.save_outlined),

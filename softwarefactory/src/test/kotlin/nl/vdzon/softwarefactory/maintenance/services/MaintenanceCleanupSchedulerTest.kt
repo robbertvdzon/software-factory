@@ -107,8 +107,10 @@ class MaintenanceCleanupSchedulerTest {
     @Test
     fun `een mislukte projectrun legt de fout vast en laat de andere projecten doorlopen`() {
         val repository = InMemoryRunRepository()
+        val brokenProjects = projects("kapot" to "https://github.com/robbert/kapot", "sf" to SF_REPO)
         val scheduler = MaintenanceCleanupScheduler(
-            projects = projects("kapot" to "https://github.com/robbert/kapot", "sf" to SF_REPO),
+            projects = brokenProjects,
+            projectCatalog = brokenProjects,
             releaseClient = object : FakeReleaseClient() {
                 override fun listReleases(slug: String): List<ReleaseInfo> =
                     if (slug == "robbert/kapot") error("GitHub gaf 500") else super.listReleases(slug)
@@ -276,6 +278,7 @@ class MaintenanceCleanupSchedulerTest {
         protectedShaSource: GitHubProtectedShaSource = FakeProtectedShaSource(),
     ) = MaintenanceCleanupScheduler(
         projects = projects,
+        projectCatalog = projects,
         releaseClient = releaseClient,
         packageClient = packageClient,
         protectedShaSource = protectedShaSource,

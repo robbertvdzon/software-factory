@@ -132,6 +132,63 @@ void main() {
     });
   });
 
+  testWidgets('Projectcatalogus toont het document en slaat het op', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    SharedPreferences.setMockInitialValues({});
+    final api = ApiClient();
+    final state = AppState(api);
+    final textScale = TextScalePreference();
+    await textScale.load();
+    Map<String, dynamic>? saved;
+
+    final mockClient = MockClient((request) async {
+      if (request.method == 'GET' &&
+          request.url.path.endsWith('/api/v1/settings')) {
+        return http.Response(
+          jsonEncode({
+            'configuration': <String, dynamic>{},
+            'version': <String, dynamic>{},
+            'projectCatalog': {
+              'yaml': 'projects:\n  - name: sample\n',
+              'updatedAt': '2026-09-12T20:00Z',
+              'updatedBy': 'robbert@example.com',
+              'projects': ['sample'],
+            },
+          }),
+          200,
+        );
+      }
+      if (request.method == 'POST' &&
+          request.url.path.endsWith('/api/v1/settings/project-catalog')) {
+        saved = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response('{"ok":true}', 200);
+      }
+      return http.Response('Not found', 404);
+    });
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SettingsScreen(state: state, textScale: textScale),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Actieve projecten: sample'), findsOneWidget);
+      final field = find.byKey(const ValueKey('project-catalog-yaml'));
+      await tester.ensureVisible(field);
+      await tester.enterText(field, 'projects:\n  - name: sample\n  - name: tweede\n');
+      final save = find.byKey(const ValueKey('project-catalog-save'));
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+    }, () => mockClient);
+
+    expect(saved, {'yaml': 'projects:\n  - name: sample\n  - name: tweede\n'});
+  });
+
   testWidgets('AI-uitvoering licht nieuwe en lopende agentjobs toe', (
     tester,
   ) async {

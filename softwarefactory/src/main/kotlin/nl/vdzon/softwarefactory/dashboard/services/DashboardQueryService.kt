@@ -5,6 +5,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.config.ApkPackageMapping
 import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.FactorySecrets
+import nl.vdzon.softwarefactory.config.ProjectCatalog
 import nl.vdzon.softwarefactory.config.ProjectDashboardSettings
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.DeploymentStatusProbe
@@ -38,6 +39,7 @@ import nl.vdzon.softwarefactory.maintenance.repositories.MaintenanceCleanupRunRe
 import nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi
 import nl.vdzon.softwarefactory.runtime.AgentLogApi
 import nl.vdzon.softwarefactory.dashboard.models.AgentLogPageData
+import nl.vdzon.softwarefactory.dashboard.models.ProjectCatalogView
 import nl.vdzon.softwarefactory.dashboard.models.AgentsPageData
 import nl.vdzon.softwarefactory.dashboard.models.AuditMemoryNoteView
 import nl.vdzon.softwarefactory.dashboard.models.AuditMemoryPageData
@@ -146,6 +148,8 @@ class DashboardQueryService(
     private val cleanupRunGuard: CleanupRunGuard = CleanupRunGuard.inMemory(),
     private val issueAttachments: AttachmentPort? = null,
     private val agentExecutionConfigService: AgentRoleExecutionConfigService? = null,
+    /** Optioneel met default `null` zodat handmatig geconstrueerde testfixtures blijven werken; Spring vult 'm. */
+    private val projectCatalog: ProjectCatalog? = null,
 ) : DashboardQueries {
 
     override fun dashboard(): DashboardPageData {
@@ -1366,6 +1370,14 @@ class DashboardQueryService(
             agentExecutionConfigurations = agentExecutionConfigurations(),
             agentExecutionOptions = agentExecutionOptions(),
             agentExecutionProjects = projectRepoResolver.projectNames().sortedBy(String::lowercase),
+            projectCatalog = projectCatalog?.let {
+                ProjectCatalogView(
+                    yaml = it.yaml(),
+                    updatedAt = it.updatedAt()?.toString(),
+                    updatedBy = it.updatedBy(),
+                    projects = it.projectNames(),
+                )
+            },
         )
 
     private fun agentExecutionConfigurations(): List<AgentExecutionConfigView> =

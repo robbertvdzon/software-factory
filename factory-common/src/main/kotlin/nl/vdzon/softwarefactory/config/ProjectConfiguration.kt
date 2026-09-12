@@ -475,20 +475,33 @@ class ProjectConfiguration(
                 return ProjectConfiguration(emptyMap())
             }
             return try {
-                val parsed = Files.newBufferedReader(path).use { reader -> parse(safeYaml().load(reader)) }
-                logger.info(
-                    "Project-config '{}' geladen: {} project(en) {}, {} met Telegram-kanaal.",
-                    path, parsed.repos.size, parsed.repos.keys, parsed.telegramChatIds.size,
-                )
-                ProjectConfiguration(
-                    parsed.repos, parsed.runtimeAliases, parsed.telegramChatIds, parsed.privateFiles, parsed.base,
-                    parsed.deployConfigs, parsed.liveComponents, parsed.requiredChecks,
-                    parsed.deployTargets, parsed.releaseCleanupConfigs, parsed.apkPackages,
-                )
+                val configuration = parseYamlText(Files.readString(path))
+                logger.info("Project-config '{}' geladen: {} project(en) {}.", path, configuration.projectNames().size, configuration.projectNames())
+                configuration
             } catch (ex: Exception) {
                 logger.error("Project-config '{}' kon niet worden gelezen: {}", path, ex.message, ex)
                 ProjectConfiguration(emptyMap())
             }
+        }
+
+        /**
+         * Parseert een complete catalogus (zelfde vorm als `projects.yaml`) uit tekst. Gooit een
+         * [IllegalArgumentException] met een leesbare melding bij ongeldige YAML of structuur, zodat de
+         * dashboard-API een opgeslagen catalogus vóór het bewaren kan afwijzen; een ontbrekend
+         * verplicht veld op één project wordt, net als bij het bestand, gelogd en overgeslagen.
+         */
+        fun parseYamlText(text: String): ProjectConfiguration {
+            val root = try {
+                safeYaml().load<Any?>(text)
+            } catch (ex: Exception) {
+                throw IllegalArgumentException("Ongeldige YAML: ${ex.message?.lineSequence()?.firstOrNull() ?: ex.javaClass.simpleName}", ex)
+            }
+            val parsed = parse(root)
+            return ProjectConfiguration(
+                parsed.repos, parsed.runtimeAliases, parsed.telegramChatIds, parsed.privateFiles, parsed.base,
+                parsed.deployConfigs, parsed.liveComponents, parsed.requiredChecks,
+                parsed.deployTargets, parsed.releaseCleanupConfigs, parsed.apkPackages,
+            )
         }
 
         private data class ParsedProjects(

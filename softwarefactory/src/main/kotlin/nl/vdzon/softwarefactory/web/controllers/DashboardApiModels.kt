@@ -45,5 +45,8 @@ data class AgentExecutionConfigSaveRequest(
     val mode: String,
 )
 
+/** De volledige projectcatalogus als YAML (zelfde vorm als het vroegere `projects.yaml`). */
+data class ProjectCatalogSaveRequest(val yaml: String)
+
 /** Bevestiging van een uitgevoerde actie zonder eigen resultaat. */
 data class Ack(val ok: Boolean = true)

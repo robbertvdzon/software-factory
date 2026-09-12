@@ -100,6 +100,7 @@ internal open class StubDashboardCommands : DashboardCommands {
     override fun answerAuditQuestion(questionId: Long, answer: String): Boolean = unexpected("answerAuditQuestion")
     override fun saveAuditSettings(enabled: Boolean, projects: List<AuditProjectSettingsSaveInput>) = unexpected("saveAuditSettings")
     override fun startDeveloping(storyKey: String) = unexpected("startDeveloping")
+    override fun saveProjectCatalog(yaml: String, updatedBy: String): Unit = unexpected("saveProjectCatalog")
 }
 
 internal open class StubFactoryOperations : FactoryOperations {

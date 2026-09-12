@@ -174,6 +174,16 @@ class DashboardCommandController(
         return Ack()
     }
 
+    /** Valideert en bewaart de projectcatalogus; een ongeldig document geeft 400 met de reden. */
+    @PostMapping("/settings/project-catalog")
+    fun saveProjectCatalog(
+        @RequestAttribute(DashboardAuthInterceptor.USER_ATTRIBUTE) user: String,
+        @RequestBody body: ProjectCatalogSaveRequest,
+    ): Ack {
+        commands.saveProjectCatalog(body.yaml, user)
+        return Ack()
+    }
+
     @PostMapping("/audit-memory/update")
     fun auditMemoryUpdate(@RequestBody body: AuditMemoryNoteRequest): Ack {
         commands.updateAuditMemoryNote(body.project, body.auditType, body.key, body.content)

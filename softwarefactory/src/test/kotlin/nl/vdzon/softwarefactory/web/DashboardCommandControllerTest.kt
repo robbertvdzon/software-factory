@@ -18,7 +18,12 @@ import kotlin.test.assertEquals
 class DashboardCommandControllerTest {
     private val commands = object : StubDashboardCommands() {
         var saved: AgentExecutionConfigSaveInput? = null
+        var savedCatalog: Pair<String, String>? = null
         override fun saveAgentExecutionConfig(input: AgentExecutionConfigSaveInput) { saved = input }
+        override fun saveProjectCatalog(yaml: String, updatedBy: String) {
+            require(yaml.contains("projects:")) { "Ongeldige YAML: verwacht een top-level 'projects:'-lijst" }
+            savedCatalog = yaml to updatedBy
+        }
     }
     private val authService = DashboardAuthService(
         DashboardApiFixtures.fakeSecrets(),
@@ -58,5 +63,31 @@ class DashboardCommandControllerTest {
         ).andExpect(status().isOk)
 
         assertEquals(null, commands.saved!!.projectKey)
+    }
+
+    @Test
+    fun `project-catalog bewaart de YAML met de ingelogde gebruiker`() {
+        mvc.perform(
+            post("/api/v1/settings/project-catalog")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"yaml":"projects:\n  - name: sample\n    repo: x\n"}"""),
+        ).andExpect(status().isOk)
+
+        assertEquals("projects:\n  - name: sample\n    repo: x\n" to DashboardApiFixtures.USER, commands.savedCatalog)
+    }
+
+    @Test
+    fun `project-catalog geeft 400 met de reden bij een ongeldig document`() {
+        val result = mvc.perform(
+            post("/api/v1/settings/project-catalog")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"yaml":"geen lijst"}"""),
+        ).andReturn()
+
+        assertEquals(400, result.response.status)
+        assert(result.response.contentAsString.contains("Ongeldige YAML"))
+        assertEquals(null, commands.savedCatalog)
     }
 }

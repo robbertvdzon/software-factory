@@ -58,6 +58,14 @@ interface DashboardCommands {
     fun saveAgentExecutionConfig(input: AgentExecutionConfigSaveInput) {
         throw UnsupportedOperationException("Agent execution configuration is not available")
     }
+
+    /**
+     * Bewaart de projectcatalogus (YAML, zelfde vorm als `projects.yaml`) en maakt 'm direct actief.
+     * Ongeldige inhoud => [IllegalArgumentException] met de reden; er wordt dan niets gewijzigd.
+     */
+    fun saveProjectCatalog(yaml: String, updatedBy: String) {
+        throw UnsupportedOperationException("Project catalog is not available")
+    }
     fun startDeveloping(storyKey: String)
 }
 

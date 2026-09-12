@@ -422,7 +422,7 @@ vraagt geen wijziging in de infrastructuurrepo.
 
 Niet onderdeel van dit plan, wel als idee vastgelegd op 2026-09-12:
 
-- **Projectcatalogus in de database, beheerd via het dashboard.** Besloten op 2026-09-12: alleen
+- **Projectcatalogus in de database, beheerd via het dashboard — uitgevoerd op 2026-09-12.** Alleen
   `projects.yaml` verhuist, de secrets blijven in het Sealed Secret. Dat bestand verandert
   regelmatig (nieuw project, deploydoel, Telegram-kanaal) en gaat nu onnodig door de cyclus
   sealen, committen, ArgoCD-sync en pod-herstart; de tokens veranderen zelden en zijn daar prima

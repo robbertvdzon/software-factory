@@ -305,6 +305,15 @@ data class SettingsPageData(
     val agentExecutionConfigurations: List<AgentExecutionConfigView> = emptyList(),
     val agentExecutionOptions: List<AgentExecutionOptionView> = emptyList(),
     val agentExecutionProjects: List<String> = emptyList(),
+    /** De projectcatalogus (YAML) zoals opgeslagen in de database; null zolang er niets is bewaard. */
+    val projectCatalog: ProjectCatalogView? = null,
+)
+
+data class ProjectCatalogView(
+    val yaml: String?,
+    val updatedAt: String?,
+    val updatedBy: String?,
+    val projects: List<String>,
 )
 
 data class AgentExecutionConfigView(

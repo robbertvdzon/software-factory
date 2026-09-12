@@ -6,6 +6,7 @@ import nl.vdzon.softwarefactory.audit.services.AuditScheduler
 import nl.vdzon.softwarefactory.audit.types.ManualAuditResult
 import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.FactorySecrets
+import nl.vdzon.softwarefactory.config.ProjectCatalog
 import nl.vdzon.softwarefactory.config.ProjectDashboardSettings
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
@@ -60,7 +61,13 @@ class DashboardCommandService(
      */
     private val cleanupRunNowApi: CleanupRunNowApi? = null,
     private val agentExecutionConfigService: AgentRoleExecutionConfigService? = null,
+    private val projectCatalog: ProjectCatalog? = null,
 ) : DashboardCommands {
+    override fun saveProjectCatalog(yaml: String, updatedBy: String) {
+        val catalog = requireNotNull(projectCatalog) { "Projectcatalogus is niet beschikbaar." }
+        catalog.save(yaml, updatedBy)
+    }
+
     override fun saveAgentExecutionConfig(input: AgentExecutionConfigSaveInput) {
         val service = requireNotNull(agentExecutionConfigService) {
             "Agent Runtime-modelconfiguratie is niet beschikbaar."
