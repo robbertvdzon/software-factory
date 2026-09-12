@@ -354,6 +354,20 @@ nieuwe namen gezond draait.
 Runtime-worker daar nog staat, en één story, één audit en de Product Factory-integratie aantoonbaar
 vanaf de cluster werken.
 
+## Uitvoeringslog
+
+- **2026-09-12, stap 1 t/m 4 uitgevoerd.** Bridge verwijderd (commit `32e5fe03`), cluster-manifesten
+  (`16bf6c79`), overzet met volledige database (34 tabellen, tellingen gelijk) en 505 bijlagen. De
+  lokale factory is gestopt; de LaunchAgent `nl.vdzon.factory-loop` is ontladen.
+- **Les uit stap 4:** de bijlagen-PVC op `local-path` was pas schrijfbaar na de
+  `hostmount-anyuid`-SCC voor de ServiceAccount plus `spc_t` op de pod, precies zoals product-factory
+  dat doet. Een `pg_restore` van de Postgres 17-dump op de laptop werkt op de Postgres 16 van de
+  cluster alleen met de nieuwere client via een port-forward.
+- **Les uit stap 5:** het hernoemen van de ArgoCD-Application verwijderde alle resources in de
+  namespace, inclusief de PVC's, ook nadat de finalizer van de oude Application was weggehaald. De
+  database en bijlagen zijn daarna opnieuw uit de dump en het archief gezet. Hernoem een Application
+  nooit meer zonder eerst de data veilig te stellen, of hernoem hem niet.
+
 ## Werk buiten deze repository
 
 | Wat | Waar | Stap |
