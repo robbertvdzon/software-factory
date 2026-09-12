@@ -19,4 +19,4 @@ images:
   newTag: sha-ffaf623
 - name: ghcr.io/robbertvdzon/software-factory-frontend
   newName: ghcr.io/robbertvdzon/software-factory-frontend
-  newTag: sha-ffaf623
+  newTag: sha-56bed73
