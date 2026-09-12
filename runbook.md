@@ -65,8 +65,9 @@ vanuit `dashboard-frontend/`, of via de Compose-frontend op poort 9080 als de fa
 draait. Zonder `.git` in de werkmap (in een image) komt de getoonde versie uit `SF_BUILD_COMMIT`
 en `SF_BUILD_BRANCH`; het Dockerfile bakt die mee.
 
-`factory-loop.sh` is alleen de huidige lokale proceswrapper (`git pull` en opnieuw starten) en
-verdwijnt bij de verhuizing naar OpenShift.
+Op de cluster draait de factory als `software-factory-backend` in namespace `software-factory`
+(zie `deploy/README.md`); een nieuwe versie komt binnen via de image-bump-PR van CI. Een
+ontwikkellaptop is geen runtimeonderdeel meer; lokaal draaien is alleen voor ontwikkeling.
 
 ## Configuratie en secrets
 

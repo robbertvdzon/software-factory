@@ -1,5 +1,9 @@
 # Bouwopdracht: bridge-architectuur + nieuwe Flutter-frontend
 
+> **Historisch (2026-09-12).** De bridge is verwijderd toen de Software Factory naar OpenShift
+> verhuisde; zie `docs/software-factory-v2/topologie-naar-openshift.md`. De Flutter-frontend en de
+> `/api/v1`-contracten uit dit document bestaan nog, de WebSocketbridge niet.
+
 *Status: ontwerp goedgekeurd, bouw nog niet gestart. Vastgesteld 2026-07-04 door Robbert.
 Dit document is een **zelfstandige bouwopdracht**: de uitvoerende AI-agent heeft géén andere context
 nodig dan dit document plus de repo zelf. Lees eerst §0 en §1 volledig voordat je iets doet.*
