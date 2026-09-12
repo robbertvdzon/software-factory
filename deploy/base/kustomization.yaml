@@ -4,19 +4,19 @@ kind: Kustomization
 namespace: software-factory
 
 resources:
-- sealed-secret-dashboard.yaml
+- sealed-secret.yaml
 - database.yaml
 - attachments-pvc.yaml
-- softwarefactory-dashboard-backend-deployment.yaml
-- softwarefactory-dashboard-backend-service.yaml
-- softwarefactory-dashboard-frontend-deployment.yaml
-- softwarefactory-dashboard-frontend-service.yaml
-- softwarefactory-dashboard-frontend-route.yaml
+- software-factory-backend-deployment.yaml
+- software-factory-backend-service.yaml
+- software-factory-frontend-deployment.yaml
+- software-factory-frontend-service.yaml
+- software-factory-frontend-route.yaml
 
 images:
-- name: ghcr.io/robbertvdzon/softwarefactory-dashboard-backend
-  newName: ghcr.io/robbertvdzon/softwarefactory-dashboard-backend
-  newTag: sha-b52133b
-- name: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
-  newName: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
-  newTag: sha-b52133b
+- name: ghcr.io/robbertvdzon/software-factory-backend
+  newName: ghcr.io/robbertvdzon/software-factory-backend
+  newTag: main
+- name: ghcr.io/robbertvdzon/software-factory-frontend
+  newName: ghcr.io/robbertvdzon/software-factory-frontend
+  newTag: main

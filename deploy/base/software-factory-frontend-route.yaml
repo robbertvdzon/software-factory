@@ -1,14 +1,14 @@
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: softwarefactory-dashboard-frontend
+  name: software-factory-frontend
   labels:
-    app: softwarefactory-dashboard-frontend
+    app: software-factory-frontend
 spec:
   host: dashboard.vdzonsoftware.nl
   to:
     kind: Service
-    name: softwarefactory-dashboard-frontend
+    name: software-factory-frontend
   port:
     targetPort: http
   tls:

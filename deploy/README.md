@@ -2,11 +2,11 @@
 
 Dit deployt de volledige Software Factory in namespace `software-factory`:
 
-- `softwarefactory-dashboard-backend`: de factory zelf (orchestrator, tracker, pipeline, audits,
+- `software-factory-backend`: de factory zelf (orchestrator, tracker, pipeline, audits,
   Telegram, dashboard-API en Product Factory-integratie), gebouwd uit `softwarefactory/Dockerfile`.
   Het image bevat `gh`, `kubectl` en `oc`; de pod draait als ServiceAccount `sf-preview-cleanup`
   (robberts-infrastructure) en gebruikt de in-cluster credentials, dus geen kubeconfig.
-- `softwarefactory-dashboard-frontend`: Flutter web app served by nginx; `/api/*` is proxied to the backend service.
+- `software-factory-frontend`: Flutter web app served by nginx; `/api/*` is proxied to the backend service.
 - `database`: eigen PostgreSQL 16 (StatefulSet, PVC `software-factory-database-data`), zie `base/database.yaml`.
 - PVC `software-factory-attachments`: storybijlagen, gemount op `/var/lib/software-factory/attachments`.
 
@@ -24,7 +24,7 @@ from every bootstrap script/playbook on 2026-07-08; see
 
 ## Secrets
 
-Alle configuratie van de factory komt uit één Sealed Secret (`softwarefactory-dashboard-secrets`):
+Alle configuratie van de factory komt uit één Sealed Secret (`software-factory-secrets`):
 de `SF_*`-sleutels uit `deploy/secrets-cluster.env` (kopieer `deploy/secrets-cluster.env.example`)
 plus `deploy/projects-cluster.yaml`, dat als `projects.yaml` in de pod wordt gemount. Beide bestanden
 zijn gitignored; de repository is publiek en projects.yaml bevat chat-id's.
@@ -33,15 +33,15 @@ zijn gitignored; de repository is publiek en projects.yaml bevat chat-id's.
 ./deploy/seal-secrets.sh
 ```
 
-The generated `deploy/base/sealed-secret-dashboard.yaml` is encrypted for the current cluster and can be committed.
+The generated `deploy/base/sealed-secret.yaml` is encrypted for the current cluster and can be committed.
 Een wijziging in secrets of projectconfiguratie is dus: bestand aanpassen, opnieuw sealen, committen, ArgoCD syncen.
 
 ## Normal deploy
 
 `deploy/base` expects images in GHCR:
 
-- `ghcr.io/robbertvdzon/softwarefactory-dashboard-backend:main`
-- `ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend:main`
+- `ghcr.io/robbertvdzon/software-factory-backend:main`
+- `ghcr.io/robbertvdzon/software-factory-frontend:main`
 
 Apply with:
 
@@ -51,9 +51,9 @@ oc apply -k deploy/base
 
 ### How those images are built
 
-Both images are built and pushed by `.github/workflows/dashboard-backend-image.yml` (the factory,
+Both images are built and pushed by `.github/workflows/software-factory-backend-image.yml` (the factory,
 from `softwarefactory/Dockerfile`, with the commit baked in as `SF_BUILD_COMMIT`) and
-`.github/workflows/dashboard-frontend-image.yml` (the frontend workflow also builds and releases
+`.github/workflows/software-factory-frontend-image.yml` (the frontend workflow also builds and releases
 the Android APK). They start in two ways:
 
 - Automatically, on a successful `Repository verification` (`workflow_run`) run — but only when
@@ -70,7 +70,7 @@ manifest version bump is opened.
 
 The dashboard is HTTPS-only. Two settings enforce that across the Cloudflare/OpenShift boundary:
 
-- `deploy/base/softwarefactory-dashboard-frontend-route.yaml` deliberately has
+- `deploy/base/software-factory-frontend-route.yaml` deliberately has
   `insecureEdgeTerminationPolicy: Allow`. Cloudflare terminates public HTTPS and connects to the
   OpenShift router over HTTP; `Redirect` sends the client back to the same public HTTPS URL and
   breaks the dashboard. Public HTTP-to-HTTPS enforcement belongs at Cloudflare.
@@ -88,8 +88,8 @@ the HSTS header and verify the dashboard after every routing change.
 
 The SNO overlay is only for local testing when GHCR push is unavailable. It expects images loaded onto the single OpenShift node as:
 
-- `localhost/softwarefactory-dashboard-backend:main`
-- `localhost/softwarefactory-dashboard-frontend:main`
+- `localhost/software-factory-backend:main`
+- `localhost/software-factory-frontend:main`
 
 The overlay sets `imagePullPolicy: Never`:
 

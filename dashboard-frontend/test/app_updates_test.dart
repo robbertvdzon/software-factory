@@ -59,7 +59,7 @@ void main() {
         _download(
           repository: 'robbertvdzon/software-factory',
           projectKey: 'softwarefactory',
-          // Realistisch formaat (zie dashboard-frontend-image.yml): YYYYMMDD-HHMMSS + korte sha.
+          // Realistisch formaat (zie software-factory-frontend-image.yml): YYYYMMDD-HHMMSS + korte sha.
           name: 'software-factory-dashboard-20260715-103000-abc1234.apk',
           releaseTag: 'dashboard-apk-20260715-103000-abc1234',
           releaseUrl: 'https://github.com/x/releases/tag/dashboard-apk-20260715-103000-abc1234',

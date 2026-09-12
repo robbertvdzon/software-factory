@@ -3,10 +3,9 @@
 ## Componenten
 
 - `softwarefactory`: Spring Boot/Modulith-app met tracker, pipeline, Runtime-consumer, audits,
-  Telegram en maintenance.
-- `dashboard-backend`: Spring Boot API en in de huidige topologie een WebSocketbridge naar de
-  lokaal draaiende hoofdapp.
-- `dashboard-frontend`: Flutter-webapp.
+  Telegram, maintenance, de dashboard-API (Google-login) en de Product Factory-integratie. Dit is
+  de enige deployable en draait op OpenShift als `software-factory-backend`.
+- `dashboard-frontend`: Flutter-webapp (`software-factory-frontend`).
 - PostgreSQL: duurzame tracker-, run-, audit-, Telegram- en configuratiedata.
 - Agent Runtime v2: externe jobservice en workers voor AI, tijdelijke checkouts, verificatie,
   artifacts en Gitpublicatie.
@@ -53,7 +52,6 @@ credentials, attempts, leases, execution image, transcript, usage en kosten.
 
 ## Topologie
 
-Frontend en dashboard-backend draaien al op OpenShift; de hoofdapp draait in de huidige tussenfase
-nog lokaal en verbindt uitgaand via WebSocket. De aparte vervolgstap verhuist de hoofdappfunctionaliteit
-naar OpenShift, verwijdert de bridge en voert de rename uit. Dat werk staat in
+Hoofdapp, frontend en PostgreSQL draaien in namespace `software-factory` op OpenShift; alleen de
+Agent Runtime-worker staat buiten de cluster. De verhuizing staat beschreven in
 `docs/software-factory-v2/topologie-naar-openshift.md`.

@@ -15,16 +15,15 @@ voor exacte payloads.
 
 Machine-endpoints vereisen `SF_FACTORY_API_TOKEN` waar de controller dat voorschrijft.
 
-## Dashboard-backend
+## Dashboard-API (`/api/v1`)
 
 `/api/v1/*` levert stories, acties, agents, projecten, builds, audits, maintenance en settings aan
-de Flutterfrontend. Google OIDC/remember-cookie beschermt gebruikersroutes. Een 401 moet door de
-frontend naar de loginflow worden vertaald.
+de Flutterfrontend, rechtstreeks vanuit de hoofdapp (`web`-module). `POST /api/v1/auth/google`
+ruilt een Google-ID-token in voor een sessietoken; een interceptor eist dat token op alle overige
+`/api/v1`-routes (fail-closed), alleen `/api/v1/public/**` is vrij. `GET /api/v1/events` is het
+SSE-kanaal met `changed`-events. Een 401 moet door de frontend naar de loginflow worden vertaald.
 
-`/bridge` is de tijdelijke geauthenticeerde WebSocketverbinding met de lokaal draaiende hoofdapp.
-De backend weigert ontbrekende/foute hello-token, ontbrekende hello en dataverkeer vóór hello.
-
-## Product Factory (`/api/integrations/v1`)
+## Product Factory (`/api/integrations/v1` en `/api/integrations/v2`)
 
 - `GET /status`;
 - `POST /stories`;
@@ -41,9 +40,9 @@ Gebruik statuscodes als volgt:
 - `400`: invoer/contract ongeldig;
 - `401`: token ontbreekt of klopt niet;
 - `404`: story/target niet gevonden;
-- `502`: onbruikbaar factory-/bridgeantwoord;
-- `503`: factory in de huidige bridgetopologie offline;
-- `500`: echte backendfout.
+- `409`: conflict met een eerdere aanlevering (bijlage of idempotentiesleutel);
+- `500`: factoryfout (v2 meldt `retryable`);
+- `503`: factory niet bereikbaar, bijvoorbeeld tijdens een herstart.
 
 ## Agent Runtime v2 (uitgaand)
 

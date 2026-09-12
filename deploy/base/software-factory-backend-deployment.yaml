@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: softwarefactory-dashboard-backend
+  name: software-factory-backend
   labels:
-    app: softwarefactory-dashboard-backend
+    app: software-factory-backend
 spec:
-  replicas: 1
+  replicas: 0
   # Eén factory tegelijk: schedulers, Telegram-polling en de orchestrator verdragen geen tweede
   # instantie, dus nooit een nieuwe pod naast de oude.
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: softwarefactory-dashboard-backend
+      app: software-factory-backend
   template:
     metadata:
       labels:
-        app: softwarefactory-dashboard-backend
+        app: software-factory-backend
     spec:
       # Bestaande ServiceAccount uit robberts-infrastructure (sf-preview-cleanup-rbac.yaml): mag
       # preview-namespaces wissen; leesrechten op ArgoCD-Applications staan in sf-argocd-read-rbac.yaml.
@@ -27,18 +27,18 @@ spec:
           type: spc_t
       containers:
         - name: app
-          image: ghcr.io/robbertvdzon/softwarefactory-dashboard-backend:main
+          image: ghcr.io/robbertvdzon/software-factory-backend:main
           imagePullPolicy: Always
           envFrom:
             - secretRef:
-                name: softwarefactory-dashboard-secrets
+                name: software-factory-secrets
           env:
             - {name: TZ, value: Europe/Amsterdam}
             - {name: SF_PROJECTS_FILE, value: /etc/software-factory/projects.yaml}
             - {name: SF_TRACKER_ATTACHMENTS_DIR, value: /var/lib/software-factory/attachments}
             # gh leest het token uit GH_TOKEN; zelfde token als waarmee de factory PR's beheert.
             - name: GH_TOKEN
-              valueFrom: {secretKeyRef: {name: softwarefactory-dashboard-secrets, key: SF_GITHUB_TOKEN}}
+              valueFrom: {secretKeyRef: {name: software-factory-secrets, key: SF_GITHUB_TOKEN}}
           ports:
             - name: http
               containerPort: 8080
@@ -71,7 +71,7 @@ spec:
       volumes:
         - name: projects
           secret:
-            secretName: softwarefactory-dashboard-secrets
+            secretName: software-factory-secrets
             items:
               - {key: SF_PROJECTS_YAML, path: projects.yaml}
         - name: attachments

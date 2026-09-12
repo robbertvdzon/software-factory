@@ -7,10 +7,8 @@ commands:
     # baseBranch, git-fout) draait dit gewoon altijd; alleen een aantoonbaar niet-overlappende
     # diff mag skippen.
     pathPrefixes:
-      - factory-contracts/
       - factory-common/
       - softwarefactory/
-      - dashboard-backend/
       - pom.xml
       - .factory/verification.yaml
     argv:

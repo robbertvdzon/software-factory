@@ -1,4 +1,4 @@
-name: Build software factory image
+name: Build software factory backend image
 
 on:
   workflow_run:
@@ -14,11 +14,11 @@ permissions:
   statuses: write
 
 concurrency:
-  group: dashboard-backend-image-${{ github.ref }}
+  group: software-factory-backend-image-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/robbertvdzon/softwarefactory-dashboard-backend
+  IMAGE: ghcr.io/robbertvdzon/software-factory-backend
 
 jobs:
   build:
@@ -69,8 +69,8 @@ jobs:
             SF_BUILD_BRANCH=main
             SF_BUILD_COMMIT_SUBJECT=${{ steps.build.outputs.subject }}
             SF_BUILD_COMMIT_DATE=${{ steps.build.outputs.date }}
-          cache-from: type=gha,scope=softwarefactory-dashboard-backend
-          cache-to: type=gha,mode=max,scope=softwarefactory-dashboard-backend
+          cache-from: type=gha,scope=software-factory-backend
+          cache-to: type=gha,mode=max,scope=software-factory-backend
 
   bump-manifests:
     needs: [build]
@@ -85,9 +85,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           .github/scripts/bump-images.sh \
-            dashboard-backend \
+            software-factory-backend \
             "${{ github.event.workflow_run.id || github.run_id }}" \
             "${{ github.event.workflow_run.head_sha || github.sha }}" \
             deploy/base \
-            "ci: bump dashboard-backend to ${{ needs.build.outputs.tag }}" \
-            "ghcr.io/robbertvdzon/softwarefactory-dashboard-backend=ghcr.io/robbertvdzon/softwarefactory-dashboard-backend:${{ needs.build.outputs.tag }}"
+            "ci: bump software-factory-backend to ${{ needs.build.outputs.tag }}" \
+            "ghcr.io/robbertvdzon/software-factory-backend=ghcr.io/robbertvdzon/software-factory-backend:${{ needs.build.outputs.tag }}"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Maakt deploy/base/sealed-secret-dashboard.yaml: alle SF_*-sleutels uit deploy/secrets-cluster.env
+# Maakt deploy/base/sealed-secret.yaml: alle SF_*-sleutels uit deploy/secrets-cluster.env
 # plus projects.yaml (als sleutel SF_PROJECTS_YAML, door de Deployment als bestand gemount).
 # De repository is publiek en projects.yaml bevat chat-id's, daarom gaat ook dat bestand versleuteld
 # mee in plaats van als ConfigMap.
@@ -12,9 +12,9 @@ PROJECTS="${SF_SEAL_PROJECTS:-${DEPLOY_DIR}/projects-cluster.yaml}"
 # Het sealed-secrets public cert leeft alleen in robberts-infrastructure (gedeeld met alle apps);
 # een lokale kopie kon stil verouderen omdat de sealed-secrets-key periodiek roteert.
 CERT="${DEPLOY_DIR}/../../robberts-infrastructure/manifests/cluster-bootstrap/cluster-cert.pem"
-OUT="${DEPLOY_DIR}/base/sealed-secret-dashboard.yaml"
+OUT="${DEPLOY_DIR}/base/sealed-secret.yaml"
 NAMESPACE="${SF_DASHBOARD_NAMESPACE:-software-factory}"
-SECRET_NAME="${SF_DASHBOARD_SECRET_NAME:-softwarefactory-dashboard-secrets}"
+SECRET_NAME="${SF_SECRET_NAME:-software-factory-secrets}"
 
 command -v kubeseal >/dev/null 2>&1 || { echo "Error: kubeseal niet gevonden in PATH." >&2; exit 1; }
 [[ -f "$SRC" ]] || { echo "Error: secret source bestaat niet: $SRC (kopieer deploy/secrets-cluster.env.example)." >&2; exit 1; }

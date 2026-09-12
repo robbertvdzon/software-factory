@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: softwarefactory-dashboard-backend
+  name: software-factory-frontend
   labels:
-    app: softwarefactory-dashboard-backend
+    app: software-factory-frontend
 spec:
   selector:
-    app: softwarefactory-dashboard-backend
+    app: software-factory-frontend
   ports:
     - name: http
       port: 80

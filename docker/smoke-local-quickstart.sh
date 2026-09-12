@@ -47,7 +47,7 @@ for _ in {1..90}; do
   curl --silent --fail "http://localhost:$BACKEND_PORT/healthz" >/dev/null && break
   sleep 2
 done
-curl --silent --fail "http://localhost:$BACKEND_PORT/healthz" >/dev/null || { "${compose[@]}" logs softwarefactory-dashboard-backend | tail -80 >&2; exit 1; }
+curl --silent --fail "http://localhost:$BACKEND_PORT/healthz" >/dev/null || { "${compose[@]}" logs software-factory-backend | tail -80 >&2; exit 1; }
 
 unauth_code="$(curl --silent --output /dev/null --write-out '%{http_code}' "http://localhost:$BACKEND_PORT/api/v1/status")"
 [[ "$unauth_code" == 401 ]] || { echo "expected unauthenticated 401, got $unauth_code" >&2; exit 1; }

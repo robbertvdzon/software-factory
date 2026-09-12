@@ -56,9 +56,9 @@ spec:
           env:
             - {name: POSTGRESQL_DATABASE, value: software_factory}
             - name: POSTGRESQL_USER
-              valueFrom: {secretKeyRef: {name: softwarefactory-dashboard-secrets, key: SF_DATABASE_USER}}
+              valueFrom: {secretKeyRef: {name: software-factory-secrets, key: SF_DATABASE_USER}}
             - name: POSTGRESQL_PASSWORD
-              valueFrom: {secretKeyRef: {name: softwarefactory-dashboard-secrets, key: SF_DATABASE_PASSWORD}}
+              valueFrom: {secretKeyRef: {name: software-factory-secrets, key: SF_DATABASE_PASSWORD}}
           ports:
             - {name: postgres, containerPort: 5432}
           resources:

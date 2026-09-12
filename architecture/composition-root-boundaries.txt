@@ -1,5 +1,4 @@
 # exact-path|runtime|capability|reason
-dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/config/DashboardConfig.kt|dashboard-backend|environment|Dashboard composition root
 factory-common/src/main/kotlin/nl/vdzon/softwarefactory/git/services/ProcessRunner.kt|factory-tooling|process|Git command adapter
 factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt|factory-tooling|environment|GitHub CLI adapter credential boundary
 softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/audit/services/AuditJobsReader.kt|softwarefactory|environment|Legacy GitHub credential fallback owned by audit adapter

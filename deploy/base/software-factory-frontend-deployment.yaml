@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: softwarefactory-dashboard-frontend
+  name: software-factory-frontend
   labels:
-    app: softwarefactory-dashboard-frontend
+    app: software-factory-frontend
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: softwarefactory-dashboard-frontend
+      app: software-factory-frontend
   template:
     metadata:
       labels:
-        app: softwarefactory-dashboard-frontend
+        app: software-factory-frontend
     spec:
       containers:
         - name: app
-          image: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend:main
+          image: ghcr.io/robbertvdzon/software-factory-frontend:main
           imagePullPolicy: Always
           ports:
             - name: http

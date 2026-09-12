@@ -21,7 +21,7 @@ services:
       timeout: 5s
       retries: 12
 
-  softwarefactory-dashboard-backend:
+  software-factory-backend:
     build:
       context: ..
       dockerfile: softwarefactory/Dockerfile
@@ -48,7 +48,7 @@ services:
       postgres:
         condition: service_healthy
 
-  softwarefactory-dashboard-frontend:
+  software-factory-frontend:
     build:
       context: ../dashboard-frontend
       dockerfile: Dockerfile
@@ -61,7 +61,7 @@ services:
     ports:
       - "127.0.0.1:${SF_LOCAL_DASHBOARD_FRONTEND_PORT:-9080}:8080"
     depends_on:
-      - softwarefactory-dashboard-backend
+      - software-factory-backend
 
 volumes:
   software-factory-postgres-data:

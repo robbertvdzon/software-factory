@@ -5,7 +5,7 @@ ROOT="$(git rev-parse --show-toplevel)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-for workflow in dashboard-backend-image.yml dashboard-frontend-image.yml; do
+for workflow in software-factory-backend-image.yml software-factory-frontend-image.yml; do
   grep -A3 'name: Bump image tag in deploy/base' "$ROOT/.github/workflows/$workflow" | grep -q 'GH_TOKEN:' || {
     echo "$workflow must expose github.token to gh" >&2
     exit 1

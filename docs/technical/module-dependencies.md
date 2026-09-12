@@ -7,20 +7,18 @@ Deze pagina wordt deterministisch gegenereerd uit de `allowedDependencies` in de
 | Module | Verantwoordelijkheid | Toegestane publieke dependencies | Motivatie |
 |---|---|---|---|
 | `audit` | Planning en uitvoering van read-only audit-runs | `config`, `config :: time`, `core`, `core :: contracts`, `git` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
-| `bridge` | Bridge transportadapter naar application-API's | `config`, `contract`, `core :: contracts`, `dashboard`, `dashboard :: models`, `tracker` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `config` | Configuratie, secrets en composition-root wiring | `core`, `core :: contracts` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
-| `contract` | Supplierneutrale wirecontracten | — | Pure leafmodule zonder uitgaande moduledependency. |
 | `core` | Domeintypes en applicatiepoorten | — | Pure leafmodule zonder uitgaande moduledependency. |
-| `dashboard` | Dashboard use-cases en publieke read/write-poorten | `audit`, `audit :: models`, `audit :: repositories`, `audit :: services`, `audit :: types`, `config`, `config :: time`, `contract`, `core`, `core :: contracts`, `git`, `github`, `knowledge`, `knowledge :: models`, `maintenance`, `maintenance :: repositories`, `maintenance :: types`, `orchestrator`, `pipeline`, `pipeline :: models`, `preview`, `runtime`, `runtime :: models`, `runtime :: v2`, `support`, `telegram`, `telegram :: models`, `tracker`, `tracker :: errors` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
+| `dashboard` | Dashboard use-cases en publieke read/write-poorten | `audit`, `audit :: models`, `audit :: repositories`, `audit :: services`, `audit :: types`, `config`, `config :: time`, `core`, `core :: contracts`, `git`, `github`, `knowledge`, `knowledge :: models`, `maintenance`, `maintenance :: repositories`, `maintenance :: types`, `orchestrator`, `pipeline`, `pipeline :: models`, `preview`, `runtime`, `runtime :: models`, `runtime :: v2`, `support`, `telegram`, `telegram :: models`, `tracker`, `tracker :: errors` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `docs` | Factory-documentatie laden en installeren | `core` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `git` | Lokale Git-operaties | `support` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `github` | GitHub-integratie | `config`, `core`, `git`, `support` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `knowledge` | Persistente agentkennis | `config`, `core`, `git` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `merge` | Pull-request mergebeleid | `config`, `github` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `orchestrator` | Procescoördinatie en handmatige commando's | `config`, `core`, `core :: contracts`, `github`, `merge`, `preview`, `support`, `telegram`, `tracker`, `tracker :: errors` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
-| `pipeline` | Story- en subtaskfaseovergangen | `config`, `contract`, `core`, `core :: contracts`, `github`, `merge`, `preview`, `runtime`, `support`, `tracker` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
+| `pipeline` | Story- en subtaskfaseovergangen | `config`, `core`, `core :: contracts`, `github`, `merge`, `preview`, `runtime`, `support`, `tracker` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `preview` | Previewomgevingen | `config`, `git`, `support` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
-| `runtime` | Agent Runtime v2-dispatch, completion, events en retentie | `config`, `contract`, `core`, `core :: contracts`, `docs`, `git`, `github`, `knowledge`, `knowledge :: models`, `maintenance`, `maintenance :: repositories`, `maintenance :: types`, `support`, `tracker`, `verification` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
+| `runtime` | Agentprocessen, workspaces en completion | `config`, `core`, `core :: contracts`, `docs`, `git`, `github`, `knowledge`, `knowledge :: models`, `maintenance`, `maintenance :: repositories`, `maintenance :: types`, `support`, `tracker`, `verification` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `support` | Gedeelde technische primitives | — | Pure leafmodule zonder uitgaande moduledependency. |
 | `telegram` | Telegram-assistent en notificatieadapter | `config`, `core`, `core :: contracts`, `knowledge`, `knowledge :: models`, `runtime :: v2`, `support`, `tracker` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `tracker` | Issue-, comment- en attachmentpoorten | `config`, `core`, `core :: contracts` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
@@ -32,9 +30,7 @@ Deze pagina wordt deterministisch gegenereerd uit de `allowedDependencies` in de
 ```mermaid
 flowchart LR
     audit["audit"]
-    bridge["bridge"]
     config["config"]
-    contract["contract"]
     core["core"]
     dashboard["dashboard"]
     docs["docs"]
@@ -54,17 +50,12 @@ flowchart LR
     audit --> config
     audit --> core
     audit --> git
-    bridge --> config
-    bridge --> contract
-    bridge --> core
-    bridge --> dashboard
-    bridge --> tracker
     config --> core
     dashboard --> audit
     dashboard --> config
-    dashboard --> contract
     dashboard --> core
     dashboard --> git
+    dashboard --> github
     dashboard --> knowledge
     dashboard --> maintenance
     dashboard --> orchestrator
@@ -105,7 +96,6 @@ flowchart LR
     preview --> git
     preview --> support
     runtime --> config
-    runtime --> contract
     runtime --> core
     runtime --> docs
     runtime --> git
@@ -117,8 +107,8 @@ flowchart LR
     runtime --> verification
     telegram --> config
     telegram --> core
-    telegram --> git
     telegram --> knowledge
+    telegram --> runtime
     telegram --> support
     telegram --> tracker
     tracker --> config

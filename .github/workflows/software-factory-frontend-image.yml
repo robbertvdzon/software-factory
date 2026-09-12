@@ -1,4 +1,4 @@
-name: Build dashboard-frontend image
+name: Build software factory frontend image
 
 on:
   workflow_run:
@@ -14,11 +14,11 @@ permissions:
   statuses: write
 
 concurrency:
-  group: dashboard-frontend-image-${{ github.ref }}
+  group: software-factory-frontend-image-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
+  IMAGE: ghcr.io/robbertvdzon/software-factory-frontend
   FLUTTER_VERSION: '3.35.0'
   JDK_VERSION: '17'
   DASHBOARD_API_BASE_URL: https://dashboard.vdzonsoftware.nl
@@ -66,8 +66,8 @@ jobs:
             BUILD_SHA=${{ steps.sha.outputs.tag }}
             BUILD_TIMESTAMP=${{ steps.ts.outputs.ts }}
             GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }}
-          cache-from: type=gha,scope=softwarefactory-dashboard-frontend
-          cache-to: type=gha,mode=max,scope=softwarefactory-dashboard-frontend
+          cache-from: type=gha,scope=software-factory-frontend
+          cache-to: type=gha,mode=max,scope=software-factory-frontend
 
   build-apk:
     if: >-
@@ -176,9 +176,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           .github/scripts/bump-images.sh \
-            dashboard-frontend \
+            software-factory-frontend \
             "${{ github.event.workflow_run.id || github.run_id }}" \
             "${{ github.event.workflow_run.head_sha || github.sha }}" \
             deploy/base \
-            "ci: bump dashboard-frontend to ${{ needs.build.outputs.tag }}" \
-            "ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend=ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend:${{ needs.build.outputs.tag }}"
+            "ci: bump software-factory-frontend to ${{ needs.build.outputs.tag }}" \
+            "ghcr.io/robbertvdzon/software-factory-frontend=ghcr.io/robbertvdzon/software-factory-frontend:${{ needs.build.outputs.tag }}"

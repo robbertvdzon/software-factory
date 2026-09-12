@@ -141,13 +141,13 @@ projects:
     liveComponents:            # backend + frontend los volgen (deploy.type hieronder is rest-restart,
       - label: backend         # dus zonder deze lijst zou er geen OpenShift-live-status getoond worden)
         namespace: softwarefactory-prod
-        deployment: softwarefactory-dashboard-backend
-        consoleUrl: https://console-openshift-console.apps.example.com/topology/ns/softwarefactory-prod/deployments/softwarefactory-dashboard-backend
-        workflowName: Build dashboard-backend image
+        deployment: software-factory-backend
+        consoleUrl: https://console-openshift-console.apps.example.com/topology/ns/softwarefactory-prod/deployments/software-factory-backend
+        workflowName: Build software factory backend image
       - label: frontend
         namespace: softwarefactory-prod
-        deployment: softwarefactory-dashboard-frontend
-        workflowName: Build dashboard-frontend image
+        deployment: software-factory-frontend
+        workflowName: Build software factory frontend image
     deploy:
       type: rest-restart     # roep de restart aan en wacht tot /api/version een nieuwere commit toont
       restartUrl: https://factory.example.com/api/restart

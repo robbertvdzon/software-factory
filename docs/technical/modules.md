@@ -4,13 +4,11 @@
 
 | Module | Verantwoordelijkheid |
 | --- | --- |
-| `factory-contracts` | Wiretypes die hoofdapp en dashboard-backend delen. |
 | `factory-common` | Projectcatalogus, configuratie, GitHub-/previewprimitives en gedeeld domein. |
 | `softwarefactory` | Tracker, workflow, Runtime-consumer, Telegram, audits en maintenance. |
-| `dashboard-backend` | Dashboard-API, login en huidige WebSocketbridge. |
 
-`softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory` is de hoofdapp met 21 directe packages. De
-eerste in alfabetische volgorde zijn `audit`, `bridge`, `config`, `contract`, `core`; de
+`softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory` is de hoofdapp met 19 directe packages. De
+eerste in alfabetische volgorde zijn `audit`, `config`, `core`, `dashboard`, `docs`; de
 Modulithmodules hieronder vormen daarbinnen de bewaakte architectuurgrenzen.
 
 `dashboard-frontend` gebruikt een eigen Flutterbuild. Een lokale agentworker is geen module meer.
@@ -29,7 +27,7 @@ Modulithmodules hieronder vormen daarbinnen de bewaakte architectuurgrenzen.
 - `telegram`: meldingen, vragen en Runtime-assistent;
 - `knowledge`: herbruikbare agenttips;
 - `maintenance`: release-/packagecleanup en log;
-- `dashboard`/`bridge`/`web`: projectie en externe adapters;
+- `dashboard`/`web`: projectie, dashboard-API en Product Factory-integratie;
 - `verification`: verificatieconfig- en evidencevalidatie;
 - `support`: technische leafprimitives.
 
@@ -51,6 +49,5 @@ Docker-runtime, agentworkspace of result-file-completionpad meer.
 
 ## Dashboardgrens
 
-`dashboard-backend` is nu nog een remote makelaar: de hoofdapp levert state via de bridge. Het is
-niet een tweede frontend. `dashboard-frontend` is de enige webclient. Na het topologieplan worden
-backend/orchestrator samengevoegd en later hernoemd.
+De `web`-module van de hoofdapp levert de dashboard-API rechtstreeks uit de dashboard-poorten.
+`dashboard-frontend` is de enige webclient.
