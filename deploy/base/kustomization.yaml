@@ -9,6 +9,7 @@ resources:
 - attachments-pvc.yaml
 - software-factory-backend-deployment.yaml
 - software-factory-backend-service.yaml
+- software-factory-backend-compat-service.yaml
 - software-factory-frontend-deployment.yaml
 - software-factory-frontend-service.yaml
 - software-factory-frontend-route.yaml
