@@ -1,8 +1,8 @@
 # Software Factory — overstap naar Agent Runtime v2
 
-Status: implementatie op `main`; stap 5 (CI/CD en live acceptatie) in uitvoering
+Status: afgerond op `main`; CI/CD en live acceptatie zijn bewezen
 
-Peildatum: 2026-09-11
+Peildatum: 2026-09-12
 
 Doelrepository: `softwarefactory`
 

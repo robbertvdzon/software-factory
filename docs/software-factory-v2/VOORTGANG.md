@@ -1,6 +1,6 @@
 # Voortgang overstap naar Agent Runtime v2
 
-Laatst bijgewerkt: 2026-09-11
+Laatst bijgewerkt: 2026-09-12
 
 Deze file is de enige live voortgangsbron voor
 [`stappenplan.md`](stappenplan.md). Bewijs wordt alleen als afgerond gemarkeerd wanneer het
@@ -13,19 +13,20 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
   `repositoryResult`, aliasselectie en publicatiemodi.
 - Verificatie binnen de job: **beschikbaar**. Het verificatiedocument meldt volledige implementatie
   en productiecontrole; het productiecontract bevat `JobVerification` en `VerificationResult`.
-- Software Factory-refactor: **lokaal volledig geïmplementeerd op `main`**; CI/CD en live
-  acceptatie uit stap 5 worden met de eerstvolgende commit geactiveerd.
+- Software Factory-refactor: **afgerond, gepubliceerd en live bewezen**. De normale CI/CD,
+  OpenShift-deployment, echte story, hotfix, audit en Telegramacceptatie zijn groen. Er is geen
+  resterende gate binnen dit stappenplan.
 
 ## Stapstatus
 
 | Stap | Status | Bewijs | Volgende gate |
 |---:|---|---|---|
-| 0 | bezig | Productie-health is groen; execution options en repositoryaliases zijn op 2026-09-11 uitgelezen; een echte `STRUCTURED_GENERATION`-probe eindigde `SUCCEEDED` met job `3a2c4970-b6b3-426c-830a-488aa47ef8af`. | Mock- en repositoryprobes afronden. De allowlist bevat `test-repository`, maar er is nog geen online worker die die alias aanbiedt. |
-| 1 | afgerond | [`ontwerp-runtimevervanging.md`](ontwerp-runtimevervanging.md) legt vervanging, correlatie, prompts, Git-eigenaarschap, modelconfiguratie, quota en workspace-aannames vast. | Runtime-consumer bouwen. |
-| 2 | afgerond | De v2-adapter maakt idempotente jobs, bouwt volledige rolprompts en begrensde schema's, projecteert events/resultaten/artifacts/usage/status/fouten en gebruikt databasegestuurde modelkeuze. Refiner, planner en summarizer volgen het v2-pad, inclusief vragen en hervatting. De lokale acceptatieroundtrip gebruikt uitsluitend `mock/mock/MOCK`. | Repositoryketen in stap 3 afronden. |
-| 3 | lokaal afgerond | Storybranch, dispatch, repositorybewijs, verificatiebewijs en PR worden zonder lokale checkout verwerkt; projectmodelkeuze gebruikt de canonieke repositoryprojectnaam. Ook audits gebruiken een read-only Runtime-checkout en getypeerd resultaat. Alias, branch, publicatiemodus en actuele remote HEAD worden fail-closed getoetst; stale bewijs wordt zichtbaar geweigerd. De volledige lokale E2E-harness gebruikt hetzelfde branch-/completionprotocol. | Live story-, hotfix- en auditacceptatie in stap 5. |
+| 0 | afgerond | Productie-health, execution options en repositoryaliases zijn gecontroleerd. Zowel een echte `STRUCTURED_GENERATION`-job als muterende en read-only repositoryjobs op `test-repository` zijn geslaagd. | — |
+| 1 | afgerond | [`ontwerp-runtimevervanging.md`](ontwerp-runtimevervanging.md) legt vervanging, correlatie, prompts, Git-eigenaarschap, modelconfiguratie, quota en workspace-aannames vast. | — |
+| 2 | afgerond | De v2-adapter maakt idempotente jobs, bouwt volledige rolprompts en begrensde schema's, projecteert events/resultaten/artifacts/usage/status/fouten en gebruikt databasegestuurde modelkeuze. Refiner, planner en summarizer volgen het v2-pad, inclusief vragen en hervatting. De lokale acceptatieroundtrip gebruikt uitsluitend `mock/mock/MOCK`. | — |
+| 3 | afgerond | Storybranch, dispatch, repositorybewijs, verificatiebewijs en PR worden zonder lokale checkout verwerkt; projectmodelkeuze gebruikt de canonieke repositoryprojectnaam. Ook audits gebruiken een read-only Runtime-checkout en getypeerd resultaat. Alias, branch, publicatiemodus en actuele remote HEAD worden fail-closed getoetst; stale bewijs wordt zichtbaar geweigerd. Hetzelfde protocol is lokaal én met echte Runtime-jobs bewezen. | — |
 | 4 | afgerond | Agentworker, lokale Docker-runtime, storyworkspaces, resultbestandcontracten, lokale AI-routes, providercredentials en AI-level zijn verwijderd. Actuele documentatie beschrijft Runtime v2. | — |
-| 5 | bezig | Kwaliteitsratchet, volledige Maven-reactor, volledige Flutter-suite en `verify.yml` zijn groen. De dashboardimages `sha-8c1e42f` draaien `Synced`/`Healthy` op OpenShift. De Runtime-token is lokaal actief en de Product Factory v2-contractproef voor status/create/idempotent create/get/list/attachment/cancel is groen. | Een online, niet-productieve repositoryalias beschikbaar maken; daarna story-, hotfix-, audit- en Telegramacceptatie uitvoeren. |
+| 5 | afgerond | Kwaliteitsratchet, Maven, Flutter, GitHub Actions, images en OpenShift zijn groen. Een gewone story, hotfix en read-only audit inclusief automatisch voorgestelde en volledig afgeronde vervolgstory zijn via Runtime v2 uitgevoerd. Telegramdelivery, inkomende berichten en menselijke bediening zijn geaccepteerd. | — |
 
 ## Contractcontrole
 
@@ -35,28 +36,29 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 | Idempotente jobaanmaak | beschikbaar | `CreateJobRequest.idempotencyKey` is verplicht in het gepubliceerde `/v2`-contract. |
 | `APPLICATION_WORK` / `STRUCTURED_GENERATION` | bewezen | Productieprobe `3a2c4970-b6b3-426c-830a-488aa47ef8af` leverde gevalideerd JSON-resultaat en usage. |
 | `REPOSITORY_WORK` / `REPOSITORY_AGENT` | beschikbaar | Productie execution-options tonen online capaciteit voor alle aangeboden modellen. |
-| Bestaande branch via alias | beschikbaar | OpenAPI bevat `RepositoryCheckout(alias, branch, publicationMode)`; Runtime-document meldt uitvoering. |
-| Read-only branchjob | beschikbaar | Contract valideert `APPLICATION_WORK` + `REPOSITORY_AGENT` + `NONE`. |
-| Afzonderlijk AI- en repositoryresultaat | beschikbaar | `JobResultView.result` en `JobResultView.repositoryResult` zijn afzonderlijke velden. |
-| `NO_CHANGES` | beschikbaar | `RepositoryPublicationStatus.NO_CHANGES` staat in het productiecontract. |
-| `BRANCH_CHANGED` zonder force-push | beschikbaar | Normatieve Runtime-documentatie meldt productie-uitvoering; consumerafhandeling volgt in stap 3. |
-| Verificatie en herstelrondes | beschikbaar | Contract bevat `REPOSITORY_CONFIG`, `maxRepairAttempts` en getypeerd bewijs. |
+| Bestaande branch via alias | bewezen | Story-, hotfix- en vervolgstoryjobs checkten hun vooraf aangemaakte `ai/SF-*`-branch via alias uit. |
+| Read-only branchjob | bewezen | Reviewer-, tester- en auditjobs gebruikten `APPLICATION_WORK` + `REPOSITORY_AGENT` + `NONE`. |
+| Afzonderlijk AI- en repositoryresultaat | bewezen | De live completions bevatten afzonderlijk gevalideerd AI-resultaat en repositorybewijs. |
+| `NO_CHANGES` | bewezen | De documenter van `SF-2421` rondde zonder commit af met `NO_CHANGES`. |
+| `BRANCH_CHANGED` zonder force-push | beschikbaar | Runtime- en consumer-tests bewijzen fail-closed afhandeling zonder force-push. |
+| Verificatie en herstelrondes | bewezen | De muterende live jobs leverden getypeerd groen verificatiebewijs vóór publicatie. |
 | Resultaat bij terminale verificatiefout | beschikbaar | Resultaatendpoint documenteert gevalideerd resultaat plus bewijs bij terminale verificatiefout. |
-| Events, artifacts, usage en cancel | beschikbaar | Gepubliceerde endpoints en contracttypen aanwezig; consumerimplementatie volgt in stap 2. |
+| Events, artifacts, usage en cancel | bewezen | Consumerimplementatie en tests zijn groen; live runs leverden events en usage en de contractproef annuleerde een echte job. |
 | Repositoryaliascatalogus | bewezen | Productie meldde `software-factory` en de targetprojectaliases beschikbaar op één online worker. |
 | Mockuitvoering | lokaal bewezen | De Software Factory-consumer doorloopt create en getypeerd resultaat met uitsluitend `mock/mock/MOCK`; productie verbiedt mocks terecht. |
-| Tijdelijke repositoryketen | geblokkeerd voor live probe | `test-repository` is toegestaan maar niet beschikbaar op een online worker. Er wordt niet uitgeweken naar een productierepository. |
+| Tijdelijke repositoryketen | bewezen | `test-repository` is beschikbaar op de online Mac-worker. Muterende jobs pushten op één storybranch; read-only jobs gebruikten `NONE`; PR's `#1`, `#2` en `#3` zijn na groene verificatie gemerged. |
 
 ## Besluiten en blokkades
 
-- De ontbrekende online `test-repository`-alias blokkeert alleen de destructieve live probe uit
-  stap 0, niet de consumerimplementatie: dezelfde contracten zijn in Agent Runtime zelf getest en
-  productie toont de echte repositorycapaciteit.
+- Er zijn geen technische blokkades meer voor de Runtime-v2-refactor. De tijdelijke
+  `test-repository`-alias is op de online worker beschikbaar gemaakt en uitsluitend voor de
+  live-acceptatie gebruikt.
 - `SF_AGENT_RUNTIME_TOKEN` is op 2026-09-11 door de eigenaar in het bestaande gitignored
   `secrets.env` gezet. Na herstart accepteerden zowel Runtime als de Software Factory-integratie de
   credential; de tokenwaarde is nergens gelogd of gecommit.
 - Er komt geen lokale workaround, gedeelde checkout of netwerkvolume.
-- Commits tot en met stap 4 eindigen op `[skip ci]`; stap 5 activeert de normale pipeline.
+- Commits tot en met stap 4 eindigden op `[skip ci]`; stap 5 heeft de normale pipeline, imagebouw en
+  deployment aantoonbaar geactiveerd.
 
 ## Bewijslog
 
@@ -343,9 +345,8 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 - `mvn -B --no-transfer-progress clean verify` is groen voor de volledige reactor: contracts,
   common, de Software Factory met unit- en E2E-tests, en dashboard-backend. Alle 39 Flyway-
   migraties zijn daarbij ook vanaf een lege PostgreSQL-database uitgevoerd.
-- De volgende commit bevat bewust geen `[skip ci]` en start daarmee de normale verificatie- en
-  imageketen. Pipeline-, image-, deployment- en live-acceptatiebewijs worden daarna hier
-  toegevoegd.
+- De daaropvolgende opleveringscommit bevatte bewust geen `[skip ci]` en startte daarmee de normale
+  verificatie- en imageketen. Het resultaat daarvan staat in de volgende bewijssecties.
 
 ### 2026-09-11 — pipeline, images en huidige deployment groen
 
@@ -394,3 +395,73 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
   `available=false`. Daarom worden story-, hotfix- en auditacceptatie niet op een productierepository
   uitgevoerd. Telegramdelivery en menselijke reply-/commandinteractie blijven onderdeel van
   dezelfde resterende acceptatieronde.
+
+### 2026-09-11 — Runtime-contractcorrecties tijdens de live proef
+
+- De eerste echte repositoryruns brachten drie integratieverschillen aan het licht die niet in de
+  mockketen zichtbaar waren: strikte JSON-schema's mochten geen niet-ondersteunde keywords bevatten,
+  plannersubtaken moesten hun externe key duurzaam meenemen en het verificatiescript moest binnen
+  de execution-image uitvoerbaar zijn. De Software Factory-correcties staan in commits `fa6e340f`,
+  `ffec15e8` en `5edf908d`.
+- De generieke Runtime-execution-image miste een vaste Flutter-versie voor het dashboardproject.
+  Agent Runtime-commit `b3e3e35` legt die toolchain vast; de bijgewerkte productie-image is daarna
+  gepubliceerd en door de online worker gebruikt.
+- De correcties veranderen het afgesproken protocol niet: de factory maakt de ene remote branch en
+  de PR; de Runtime-worker checkt uit, verifieert, commit en pusht; de AI-agent voert zelf geen
+  muterende Gitacties uit.
+
+### 2026-09-11 — gewone story end-to-end en live Settings-deployment
+
+- De eerste proefstory `SF-2396` doorliep de echte repositoryketen en leverde PR `#1` in de tijdelijke
+  testrepository op; die is gemerged als commit `1cc05f2`. De tijdens deze proef ontdekte
+  contractverschillen zijn hierboven structureel gerepareerd. De afgebroken opvolgproeven
+  `SF-2403` en `SF-2404` publiceerden geen wijziging.
+- De definitieve functionele story `SF-2410` wijzigde een kleine toelichting in Settings. Alle rollen
+  `SF-2411` tot en met `SF-2416` zijn via Runtime v2 afgerond. Developerjob
+  `d41b7640-936b-4622-9c2c-26aa24c87c41` leverde de wijziging en groene verificatie.
+- Software Factory-PR `#493` bevat commits `64040bc2` en `bdb6789d` en is gemerged als
+  `654ba1b787526d0dbecefdd0fe29fe682a9c51cf`. De verplichte PR-checks, main-run `34641825494` en
+  image-runs `34642321580` en `34642321594` zijn groen.
+- De automatische manifest-PR's `#494` en `#495` zijn gemerged. Argo CD is `Synced` en `Healthy` op
+  revisie `96c7d9a4ddf8a8c33f8dc2e4379317d0522e2f95`; frontend en backend draaien image
+  `sha-654ba1b`. De publiek geladen JavaScriptbundle bevat beide nieuwe Settings-teksten. Daarmee is
+  niet alleen de pipeline, maar ook de daadwerkelijk geserveerde frontend gecontroleerd.
+
+### 2026-09-11 — hotfix end-to-end
+
+- Hotfixstory `SF-2417` kreeg exact de afgesproken developer-, merge- en deploysubtaken
+  (`SF-2418` tot en met `SF-2420`). De Runtime-worker wijzigde uitsluitend de welkomsttekst in de
+  tijdelijke testrepository en job `43a845ef-3cb1-4f1c-b794-34b44029e971` eindigde groen.
+- PR `#2` is na de verplichte `verify`-check gemerged als
+  `546f8c9fa9015d8b15cdc941d5a8924731948dab`. Alle drie subtaken staan op Done en de story is
+  deploy-approved; voor deze testrepository is deploy bewust een geconfigureerde skip.
+
+### 2026-09-11 — read-only audit en voorgestelde vervolgstory
+
+- De tijdelijke testrepository bevat onder `.factory/nightly/acceptance/` een deterministische,
+  read-only auditdefinitie. Commit `76bf672` voegde alleen die configuratie toe en was lokaal groen.
+- Auditjob `e9cbe665-391b-4d84-a740-aeecdc56b219` checkte alias `test-repository`, branch `main` en
+  commit `76bf672` uit met publicatiemodus `NONE`. De Runtime publiceerde geen repositorywijziging.
+  De audit gaf score 8, vond de bedoelde README-afwijking en stelde precies één vervolgstory voor:
+  `SF-2421`.
+- Die voorgestelde story is vanuit de normale wachtrij gestart. Developer, reviewer, tester,
+  summarizer en documenter (`SF-2422` tot en met `SF-2427`) zijn allemaal via Runtime v2 geslaagd;
+  de documenter rapporteerde terecht `NO_CHANGES`.
+- PR `#3` bevat alleen de bedoelde README-correctie en is na groene verificatie gemerged als
+  `424e380d5fdbeb37a628cf0d0a04cd2d7ee5d06a`. Alle subtaken staan op Done en de story is
+  deploy-approved. Daarmee zijn zowel read-only audituitvoering als voorstel, promotie en volledige
+  afhandeling van de vervolgstory bewezen.
+
+### 2026-09-12 — Telegramdelivery en menselijke acceptatie
+
+- Acceptatiestory `SF-2428` liet een echte refinerjob
+  `a17e44d6-b52d-4e48-a556-8842962b22c1` exact één bevestigingsvraag stellen. De story ging naar
+  `refined-with-questions`; de melding en openstaande vraag zijn duurzaam geregistreerd en in het
+  geconfigureerde Telegramkanaal afgeleverd.
+- Meerdere menselijke reacties zijn aantoonbaar door de Telegrampoller ontvangen en door de
+  conversationele Runtime-v2-assistent verwerkt. De gebruiker heeft daarna expliciet bevestigd dat
+  Telegram functioneel werkt en de bediening geaccepteerd.
+- Deze story was uitsluitend een niet-muterende acceptatieproef. Na de bevestiging is `SF-2428` via
+  het normale `@factory:command:delete`-pad als `(CANCELLED)` naar Done gezet. Er is geen branch of
+  PR voor `ai/SF-2428` gemaakt. De twee tijdelijk openstaande vraagkoppelingen en de
+  notificatieregistratie van deze test zijn opgeruimd.
