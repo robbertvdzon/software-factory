@@ -1,0 +1,20 @@
+# Primaire publieke host. De Cloudflare-wildcard *.vdzonsoftware.nl wijst naar de OpenShift-router;
+# deze Route claimt de hostnaam (zie robberts-infrastructure/docs/public-app-onboarding.md).
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: software-factory
+  labels:
+    app: software-factory-frontend
+spec:
+  host: softwarefactory.vdzonsoftware.nl
+  to:
+    kind: Service
+    name: software-factory-frontend
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    # Cloudflare terminates public HTTPS and reaches this Route over HTTP; Redirect would send the
+    # client back to the same public HTTPS URL (zie deploy/README.md).
+    insecureEdgeTerminationPolicy: Allow

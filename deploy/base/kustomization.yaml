@@ -12,6 +12,7 @@ resources:
 - software-factory-frontend-deployment.yaml
 - software-factory-frontend-service.yaml
 - software-factory-frontend-route.yaml
+- software-factory-route.yaml
 
 images:
 - name: ghcr.io/robbertvdzon/software-factory-backend

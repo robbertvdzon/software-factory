@@ -1,3 +1,5 @@
+# Oude host: nginx in de frontend stuurt browsers door naar softwarefactory.vdzonsoftware.nl;
+# de API-paden blijven op deze host werken voor oudere APK's en integraties.
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:

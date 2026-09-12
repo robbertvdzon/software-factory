@@ -21,7 +21,7 @@ env:
   IMAGE: ghcr.io/robbertvdzon/software-factory-frontend
   FLUTTER_VERSION: '3.35.0'
   JDK_VERSION: '17'
-  DASHBOARD_API_BASE_URL: https://dashboard.vdzonsoftware.nl
+  DASHBOARD_API_BASE_URL: https://softwarefactory.vdzonsoftware.nl
 
 jobs:
   build:
