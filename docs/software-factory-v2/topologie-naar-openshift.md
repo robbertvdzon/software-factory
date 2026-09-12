@@ -121,7 +121,8 @@ Onderzocht in de andere repo's onder `~/git` op 2026-09-12.
 - Postgres in namespace `software-factory` met de volledige inhoud van de lokale database.
 - Bijlagen op een PVC, met herschreven paden in de database.
 - Geen bridge meer: geen WebSocket, geen frames, geen `factory-contracts`-module.
-- Geen Stop-knop meer in het dashboard; Herstart blijft en betekent een pod-restart.
+- Geen Herstart- en Stop-knop meer in het dashboard. Die bestonden alleen om via de lokale loop een
+  nieuwe versie te starten; op de cluster doet de image-bump-deploy dat.
 - `software-factory-backend` en `software-factory-frontend` als namen van artifact, image,
   Deployment, Service en workflow.
 - `softwarefactory.vdzonsoftware.nl` als primaire host, met `dashboard.vdzonsoftware.nl` als redirect.
@@ -147,10 +148,15 @@ expliciet geregeld worden:
 - **Versie-informatie.** Het Dockerfile bakt de commit-sha en branch in het image, bijvoorbeeld als
   `SF_BUILD_COMMIT` en `SF_BUILD_BRANCH` via build-args uit de workflow, en `FactoryVersionService`
   valt daarop terug als er geen `.git` is.
-- **`projects.yaml` en de operationele secrets.** `projects.yaml` wordt een ConfigMap die als bestand
-  wordt gemount, met `SF_PROJECTS_FILE` naar dat pad. Secrets worden Sealed Secrets in dezelfde vorm
-  als het bestaande `deploy/base/sealed-secret-dashboard.yaml`, aangemaakt met
-  `deploy/seal-secrets.sh`.
+- **`projects.yaml` en de operationele secrets.** `projects.yaml` is nu gitignored, maar bevat geen
+  geheime waarden: alleen repo-URL's, Runtime-aliassen, Telegram-chat-id's, deploydoelen, namen van
+  omgevingsvariabelen en paden. Het wordt een tracked bestand `deploy/base/projects.yaml` dat via
+  een `configMapGenerator` als ConfigMap wordt gemount, met `SF_PROJECTS_FILE` naar dat pad. Een
+  wijziging in de projectconfiguratie is daarmee een commit plus ArgoCD-sync. De `private:`-lijsten
+  met absolute laptoppaden hebben geen aanroeper meer en vervallen. Er is geen plan om
+  `projects.yaml` naar de database te verhuizen; [stappenplan.md](stappenplan.md) legt vast dat het
+  bestand de bron blijft. Secrets worden Sealed Secrets in dezelfde vorm als het bestaande
+  `deploy/base/sealed-secret-dashboard.yaml`, aangemaakt met `deploy/seal-secrets.sh`.
 - **Bijlagen.** PVC `software-factory-attachments` van 2Gi op `local-path`, gemount op
   `/var/lib/software-factory/attachments`, met `SF_TRACKER_ATTACHMENTS_DIR` naar dat pad. Bij dit
   groeitempo is dat voor jaren voldoende.
@@ -161,8 +167,10 @@ expliciet geregeld worden:
   laptop.
 - **Geheugen.** De huidige limiet van 768Mi is voor de dunne backend. Start de volledige factory met
   512Mi request en 2Gi limit en stel bij op basis van de gemeten heap.
-- **Herstart en Stop.** Herstart blijft werken: de exit 0 wordt door Kubernetes als container-restart
-  afgehandeld. De Stop-knop, `requestStop`, het signaalbestand en de loop-afhandeling verdwijnen.
+- **Herstart en Stop.** Beide knoppen verdwijnen, met `FactoryProcessService`,
+  `FactoryProcessControl`, het signaalbestand en het endpoint `POST /api/restart`. Een nieuwe versie
+  komt via de image-bump-deploy binnen; een hangende pod herstart je met `oc rollout restart`.
+  `GET /api/version` blijft, want het dashboard toont de versie.
 - **Zelf-deploy.** In `projects.yaml` heeft het project `softwarefactory` nu drie deploydoelen: een
   `rest-restart`-doel `factory-self` dat via `/api/restart` de lokale loop opnieuw laat starten, en
   twee `openshift-watch`-doelen voor backend en frontend. Op de cluster vervalt `factory-self`: de
@@ -211,8 +219,9 @@ lokaal bewezen; de lokale factory draait ondertussen door op `main`.
 4. Verplaats `ProductFactoryMetadata` naar `softwarefactory` en verwijder de modules
    `factory-contracts` en `dashboard-backend` uit de root-pom, inclusief
    `docker/prepare-mini-reactor.sh`.
-5. Verwijder de Stop-knop uit de frontend, `requestStop` en het signaalbestand uit
-   `FactoryProcessService`, en de bridgestatus en offline-afhandeling uit de frontend.
+5. Verwijder de Herstart- en Stop-knop uit de frontend, `FactoryProcessService`,
+   `FactoryProcessControl`, het signaalbestand, `POST /api/restart` in `FactoryApiController`, en de
+   bridgestatus en offline-afhandeling uit de frontend.
 6. Verwijder `spring-boot-starter-websocket` uit `softwarefactory` als er geen andere gebruiker is,
    en verwijder de ongebruikte clone-, checkout-, commit- en pushmethoden uit `GitApi` en
    `GitCommandClient`, inclusief hun tests.
@@ -251,9 +260,10 @@ bestaan en bereikbaar zijn vanuit de namespace.
 2. Laat de factory-pod draaien als de bestaande ServiceAccount `sf-preview-cleanup`, en voeg in
    `robberts-infrastructure` een Role en RoleBinding toe in namespace `argocd` voor `get` en `list`
    op `applications.argoproj.io` voor die ServiceAccount.
-3. Zet `projects.yaml` om naar ConfigMap `software-factory-projects`, gemount als bestand. Haal
-   daarbij het deploydoel `factory-self` uit het project `softwarefactory`; de `openshift-watch` op
-   de backend-Deployment blijft als zelf-deploy.
+3. Neem `projects.yaml` op als `deploy/base/projects.yaml` met een `configMapGenerator`, gemount
+   als bestand. Haal daarbij het deploydoel `factory-self` uit het project `softwarefactory` (de
+   `openshift-watch` op de backend-Deployment blijft als zelf-deploy), schrap de `private:`-lijsten,
+   en haal `projects.yaml` uit `.gitignore`. Lokaal ontwikkelen leest hetzelfde bestand.
 4. Breid het Sealed Secret uit met alle sleutels uit `secrets.env` die de factory nodig heeft:
    tracker, GitHub, database, Agent Runtime, Google-login, Product Factory-token, Telegram en
    `SF_DASHBOARD_BASE_URL`. `SF_KUBECONFIG`, `SF_PREVIEW_CLEANUP_KUBECONFIG`, `SF_BRIDGE_TOKEN` en
@@ -350,7 +360,7 @@ vanaf de cluster werken.
 | Role en RoleBinding voor `get`/`list` op ArgoCD-Applications voor ServiceAccount `sf-preview-cleanup` | `robberts-infrastructure/manifests/root-app/apps/` | 3 |
 | ArgoCD-Application hernoemen | `robberts-infrastructure/manifests/root-app/apps/` | 5 |
 | DNS-record voor `softwarefactory.vdzonsoftware.nl` | Cloudflare | 6 |
-| Toegestane origin en redirect voor de nieuwe host | Google OAuth-console | 6 |
+| `https://softwarefactory.vdzonsoftware.nl` als Authorized JavaScript origin op de web-OAuth-client (Google Cloud Console, APIs & Services, Credentials); mag vooraf | Google Cloud Console | 6 |
 | Software Factory-host bijwerken | Product Factory-configuratie | 6 |
 
 De SCC voor Postgres bestaat al; de koppeling gebeurt met een RoleBinding in de eigen namespace en
