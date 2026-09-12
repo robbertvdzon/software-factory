@@ -26,9 +26,8 @@ from every bootstrap script/playbook on 2026-07-08; see
 
 De secrets van de factory komen uit één Sealed Secret (`software-factory-secrets`): de
 `SF_*`-sleutels uit `deploy/secrets-cluster.env` (kopieer `deploy/secrets-cluster.env.example`,
-gitignored). De projectcatalogus staat in de database en wordt via het dashboard beheerd; een
-`deploy/projects-cluster.yaml` wordt alleen nog als `SF_PROJECTS_YAML` gesealed en gemount om een
-lege database eenmalig te vullen.
+gitignored). De projectcatalogus staat in de database en wordt via het dashboard beheerd; bij een
+verse database vul je hem eenmalig via het Settings-scherm (of lokaal via `SF_PROJECTS_FILE`).
 
 ```bash
 ./deploy/seal-secrets.sh

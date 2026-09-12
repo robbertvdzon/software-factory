@@ -34,7 +34,6 @@ spec:
                 name: software-factory-secrets
           env:
             - {name: TZ, value: Europe/Amsterdam}
-            - {name: SF_PROJECTS_FILE, value: /etc/software-factory/projects.yaml}
             - {name: SF_TRACKER_ATTACHMENTS_DIR, value: /var/lib/software-factory/attachments}
             # gh leest het token uit GH_TOKEN; zelfde token als waarmee de factory PR's beheert.
             - name: GH_TOKEN
@@ -66,13 +65,7 @@ spec:
               cpu: "2"
               memory: 2Gi
           volumeMounts:
-            - {name: projects, mountPath: /etc/software-factory, readOnly: true}
             - {name: attachments, mountPath: /var/lib/software-factory/attachments}
       volumes:
-        - name: projects
-          secret:
-            secretName: software-factory-secrets
-            items:
-              - {key: SF_PROJECTS_YAML, path: projects.yaml}
         - name: attachments
           persistentVolumeClaim: {claimName: software-factory-attachments}

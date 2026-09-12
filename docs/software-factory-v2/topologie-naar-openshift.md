@@ -428,8 +428,9 @@ Niet onderdeel van dit plan, wel als idee vastgelegd op 2026-09-12:
   sealen, committen, ArgoCD-sync en pod-herstart; de tokens veranderen zelden en zijn daar prima
   op hun plek. Scope: één tabel met Flyway-migratie, een projectenscherm met de velden die nu per
   project in `projects.yaml` staan, `ProjectConfiguration` die uit de database leest en zonder
-  herstart wordt herladen, en een eenmalige import van de huidige catalogus. Daarna vervallen
-  `deploy/projects-cluster.yaml`, de sleutel `SF_PROJECTS_YAML` en de mount in de Deployment.
+  herstart wordt herladen, en een eenmalige import van de huidige catalogus. Daarna zijn
+  `deploy/projects-cluster.yaml`, de sleutel `SF_PROJECTS_YAML` en de mount in de Deployment
+  verwijderd (2026-09-12, catalogus geïmporteerd met 7 projecten).
   Verwijzingen naar secrets, zoals `tokenEnvVar`, blijven namen van omgevingsvariabelen. Er is al
   een patroon voor: de modelkeuze per agentrol en de auditinstellingen staan in de database met
   een scherm. `SecretsEnvLoader`, `FactorySecrets` en `deploy/seal-secrets.sh` blijven ongewijzigd.
