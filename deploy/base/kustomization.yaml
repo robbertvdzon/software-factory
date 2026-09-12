@@ -11,7 +11,6 @@ resources:
 - software-factory-backend-service.yaml
 - software-factory-frontend-deployment.yaml
 - software-factory-frontend-service.yaml
-- software-factory-frontend-route.yaml
 - software-factory-route.yaml
 
 images:
