@@ -21,4 +21,4 @@ images:
   newTag: sha-1cb2039
 - name: ghcr.io/robbertvdzon/software-factory-frontend
   newName: ghcr.io/robbertvdzon/software-factory-frontend
-  newTag: sha-f34e716
+  newTag: sha-faa84f9
