@@ -422,15 +422,17 @@ vraagt geen wijziging in de infrastructuurrepo.
 
 Niet onderdeel van dit plan, wel als idee vastgelegd op 2026-09-12:
 
-- **Projectconfiguratie en operationele secrets in de database, beheerd via het dashboard.** Dan
-  vervalt de cyclus sealen, committen en syncen voor elke wijziging in `projects.yaml` of een
-  token, en kan alles vanaf het dashboard worden beheerd. Er is al een patroon voor: de
-  modelconfiguratie per agentrol en de auditinstellingen staan in de database met een
-  dashboardscherm. Wat altijd buiten de database blijft, is de bootstrap: databasecredentials,
-  Google-client-id, e-mailallowlist en het remember-secret, want zonder die kun je niet inloggen om
-  de rest te beheren. Dat blijft één klein Sealed Secret. Dit is een echte ombouw van
-  `SecretsEnvLoader`, `FactorySecrets` en `ProjectConfiguration` plus een nieuw scherm, en hoort
-  daarom na de verhuizing, niet erin.
+- **Projectcatalogus in de database, beheerd via het dashboard.** Besloten op 2026-09-12: alleen
+  `projects.yaml` verhuist, de secrets blijven in het Sealed Secret. Dat bestand verandert
+  regelmatig (nieuw project, deploydoel, Telegram-kanaal) en gaat nu onnodig door de cyclus
+  sealen, committen, ArgoCD-sync en pod-herstart; de tokens veranderen zelden en zijn daar prima
+  op hun plek. Scope: één tabel met Flyway-migratie, een projectenscherm met de velden die nu per
+  project in `projects.yaml` staan, `ProjectConfiguration` die uit de database leest en zonder
+  herstart wordt herladen, en een eenmalige import van de huidige catalogus. Daarna vervallen
+  `deploy/projects-cluster.yaml`, de sleutel `SF_PROJECTS_YAML` en de mount in de Deployment.
+  Verwijzingen naar secrets, zoals `tokenEnvVar`, blijven namen van omgevingsvariabelen. Er is al
+  een patroon voor: de modelkeuze per agentrol en de auditinstellingen staan in de database met
+  een scherm. `SecretsEnvLoader`, `FactorySecrets` en `deploy/seal-secrets.sh` blijven ongewijzigd.
 
 ## Buiten scope
 
