@@ -146,7 +146,7 @@ abstract class OrchestratorTestHarness {
         retryAfter: OffsetDateTime? = null,
         description: String? = "Beschrijving voor $key",
         comments: List<TrackerComment> = emptyList(),
-        aiSupplier: String = "claude",
+        aiSupplier: String? = "claude",
         maxDeveloperLoopbacks: Int? = null,
         maxTestChainResets: Int? = null,
         type: String? = null,

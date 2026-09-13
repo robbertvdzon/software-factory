@@ -57,6 +57,18 @@ class OrchestratorSubtaskFlowTest : OrchestratorTestHarness() {
     }
 
     @Test
+    fun `development subtask zonder legacy AI-supplier op subtaak en parent start developer agent`() {
+        val sub = issue("PF-8", type = "Task", subtaskType = "development", aiSupplier = null)
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "PF-1", parentIssue = issue("PF-1", aiSupplier = null))
+        val runtime = FakeAgentRuntime(now)
+
+        val result = service(issueTracker, runtime = runtime).processIssue(sub)
+
+        assertEquals(AgentRole.DEVELOPER, (result as IssueProcessResult.Dispatched).role)
+        assertEquals(null, runtime.dispatches.single().aiSupplier)
+    }
+
+    @Test
     fun `development subtask after dev-approval starts reviewer`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "development", subtaskPhase = "development-approved")
         val runtime = FakeAgentRuntime(now)

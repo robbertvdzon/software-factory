@@ -41,13 +41,8 @@ class StoryPipelineService(
             recoverRetryableIssueError(currentIssue)?.let { return it }
             return IssueProcessResult.Skipped(currentIssue.key, "error")
         }
-        // Voor een STORY is de eigen supplier vereist. Een SUBTASK mag een lege supplier
-        // hebben en erft die van de parent — dat wordt bij de dispatch afgehandeld.
-        if (currentIssue.fields.issueType == IssueType.STORY &&
-            (currentIssue.fields.aiSupplier.isNullOrBlank() || currentIssue.fields.aiSupplier.equals("none", ignoreCase = true))
-        ) {
-            return IssueProcessResult.Skipped(currentIssue.key, "ai-supplier")
-        }
+        // Geen supplier-gate: sinds Runtime v2 kiest agent_role_execution_config de uitvoering per rol/project
+        // en slaan nieuwe stories geen AI-supplier meer op. Het legacy veld is alleen nog context.
 
         // Router op IssueType (afgeleid uit het `Type`-veld): story-refinementflow vs. subtask-pipeline.
         return when (currentIssue.fields.issueType) {

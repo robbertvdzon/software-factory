@@ -61,6 +61,20 @@ class OrchestratorRefinementFlowTest : OrchestratorTestHarness() {
     }
 
     @Test
+    fun `story zonder legacy AI-supplier wordt gewoon verfijnd`() {
+        // Sinds Runtime v2 bewaren nieuwe stories geen supplier meer; de rolconfiguratie kiest de uitvoering.
+        val story = issue("KAN-35", storyPhase = "start", aiSupplier = null)
+        val runtime = FakeAgentRuntime(now)
+
+        val result = service(FakeTrackerApi(listOf(story)), runtime = runtime).pollOnce()
+
+        assertEquals(
+            listOf(IssueProcessResult.Dispatched("KAN-35", AgentRole.REFINER, "factory-KAN-35-refiner")),
+            result.issueResults,
+        )
+    }
+
+    @Test
     fun `fase 2b story plan flow dispatches planner and is terminal on planning-approved`() {
         val issueTracker = FakeTrackerApi(
             listOf(

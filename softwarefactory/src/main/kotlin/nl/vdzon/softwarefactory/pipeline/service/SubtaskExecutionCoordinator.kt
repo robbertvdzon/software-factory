@@ -447,12 +447,6 @@ class SubtaskExecutionCoordinator(
         if (!parent.fields.error.isNullOrBlank()) {
             return IssueProcessResult.Skipped(subtask.key, "parent-error")
         }
-        // Supplier erven van de parent als de subtask er zelf geen heeft.
-        val effectiveSupplier = subtask.fields.aiSupplier?.takeIf { it.isNotBlank() && !it.equals("none", true) }
-            ?: parent.fields.aiSupplier?.takeIf { it.isNotBlank() && !it.equals("none", true) }
-        if (effectiveSupplier == null) {
-            return IssueProcessResult.Skipped(subtask.key, "ai-supplier")
-        }
         // Subtaken gebruiken de repo van hun parent-story (Repo-veld van de parent).
         val targetRepo = projectRepoResolver.resolve(parent.fields.repo)
         return dispatcher.dispatch(AgentDispatchContext(
