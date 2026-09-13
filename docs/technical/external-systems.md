@@ -23,8 +23,8 @@ Runtime krijgt alleen domeinminimale input. Voor repositorywerk is dat een gereg
 branch. Runtime beheert workerselectie, providercredential, Gitcredential, tijdelijke checkout,
 verificatie, commit/push, transcript, artifacts, usage en kosten.
 
-Agent Runtime v2 en zijn workers draaien als afzonderlijke externe component buiten de
-Software Factory-clusteropstelling.
+Agent Runtime v2 maakt als afzonderlijke externe component geen deel uit van deze
+Software Factory-deploy. De Runtime-worker staat buiten het cluster.
 
 ## GitHub
 

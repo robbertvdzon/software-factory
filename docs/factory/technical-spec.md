@@ -143,9 +143,10 @@ architectuurtests.
 
 ## Topologie
 
-De hoofdapp draait als enige deployable in namespace `software-factory` op OpenShift, onder de naam
-`software-factory-backend`. De Flutter-webclient draait daar als `software-factory-frontend` en
-gebruikt rechtstreeks de dashboard-API van de hoofdapp. PostgreSQL levert de duurzame factorydata.
-Agent Runtime v2 is een afzonderlijke externe jobservice met workers voor AI-uitvoering,
-tijdelijke checkouts, verificatie, artifacts en Gitpublicatie. Zie ook
+De hoofdapp draait in namespace `software-factory` op OpenShift onder de naam
+`software-factory-backend`. Het is de enige Maven-/backenddeployable. De Flutter-webclient draait
+daar als `software-factory-frontend` en gebruikt rechtstreeks de dashboard-API van de hoofdapp.
+PostgreSQL levert de duurzame factorydata. Agent Runtime v2 is een afzonderlijke externe jobservice;
+de Runtime-worker staat buiten het cluster en verzorgt AI-uitvoering, tijdelijke checkouts,
+verificatie, artifacts en Gitpublicatie. Zie ook
 [`../technical/overview.md`](../technical/overview.md) en [`../../runbook.md`](../../runbook.md).
