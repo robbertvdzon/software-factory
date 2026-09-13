@@ -6,9 +6,9 @@ voor exacte payloads.
 ## Hoofdapp (`softwarefactory`)
 
 - `/api/tracker/*`: story-, comment-, attachment-, antwoord- en commandoperaties;
+- `GET /api/version`: versie-informatie van de hoofdapp;
 - `/api/v1/public/changelog/*`: publieke changelogprojectie;
 - `/agent-knowledge` en `/agent-knowledge/update`: knowledgequery/upsert;
-- `/api/restart` en procesacties: huidige lokale procesbesturing;
 - `/completion/*`: beheer/retry van durable completion;
 - `/agent-run/complete`: legacy compatibility-ingang voor externe completion; nieuwe dispatch en
   normale completion gebruiken uitsluitend Runtime v2 en niet een resultbestand.

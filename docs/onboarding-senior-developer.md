@@ -36,7 +36,7 @@ storyworkspace meer.
 7. `runtime/services/AgentRunCompletionService.kt`: valideert/persisteert resultaat en beweegt de
    workflow.
 8. `github/` en `merge/`: branch, PR, checks en merge.
-9. `dashboard/`, `bridge/`, `telegram/`, `audit/`, `maintenance/`: gebruikers- en beheercapabilities.
+9. `dashboard/`, `telegram/`, `audit/`, `maintenance/`: gebruikers- en beheercapabilities.
 
 ## Domein versus Runtime
 
@@ -136,8 +136,7 @@ Lees [`factory/secrets-local.md`](factory/secrets-local.md). Belangrijk:
 - Software Factory heeft een Runtime-tenanttoken, geen AI-providercredential;
 - Runtime-worker bezit Git- en providercredentials;
 - targetproject-`secrets.env` blijft lokaal bij de eigenaar en wordt nooit gemount of verstuurd;
-- `SF_GITHUB_TOKEN` blijft nodig voor Factory-eigen branch/PR/merge;
-- de WebSocketbridge is tijdelijk en verdwijnt pas met het OpenShift-topologieplan.
+- `SF_GITHUB_TOKEN` blijft nodig voor Factory-eigen branch/PR/merge.
 
 ## Reviewchecklist
 
@@ -153,7 +152,6 @@ Lees [`factory/secrets-local.md`](factory/secrets-local.md). Belangrijk:
 
 ## Topologiegrens
 
-De Runtime-refactor maakt Software Factory onafhankelijk van lokale AI-uitvoering, maar verplaatst
-de orchestrator nog niet. Volg voor de volledige OpenShift-verhuizing, het slopen van de bridge,
-Postgresmigratie en de rename uitsluitend
-[`software-factory-v2/topologie-naar-openshift.md`](software-factory-v2/topologie-naar-openshift.md).
+De hoofdapp draait als `software-factory-backend` samen met de Flutter-frontend en PostgreSQL op
+OpenShift. Agent Runtime v2 blijft een afzonderlijke externe component en verzorgt buiten deze
+clusteropstelling de AI-uitvoering, tijdelijke repositorycheckouts, verificatie en Gitpublicatie.

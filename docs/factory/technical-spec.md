@@ -2,12 +2,11 @@
 
 ## Systeemgrenzen
 
-De repository bevat vier Mavenmodules en één Flutter-app:
+De repository bevat twee Mavenmodules en één zelfstandige Flutter-app:
 
-- `factory-contracts`: gedeelde wiretypes;
-- `factory-common`: projectconfiguratie en gedeelde integratiecode;
-- `softwarefactory`: hoofdapp en domeinworkflow;
-- `dashboard-backend`: remote dashboard-API/WebSocketbridge;
+- `factory-common`: gedeelde configuratie, projectcatalogus en integratieprimitives;
+- `softwarefactory`: hoofdapp met domeinworkflow, Runtime-consumer, dashboard-API en Product
+  Factory-integratie;
 - `dashboard-frontend`: Flutter-webclient.
 
 Alle AI- en repositoryjobuitvoering ligt achter Agent Runtime v2. De verwijderde lokale runner,
@@ -142,10 +141,12 @@ implementaties horen in subpackages. `telegram` mag de publieke `runtime`-API ge
 assistent. Zie [`../technical/module-dependencies.md`](../technical/module-dependencies.md) en de
 architectuurtests.
 
-## Huidige en toekomstige topologie
+## Topologie
 
-In de huidige tussenfase draait `softwarefactory` lokaal en verbindt hij uitgaand met
-`dashboard-backend` op OpenShift. Frontend en backend zijn al remote. Het verplaatsen van de
-orchestrator naar de backend, verwijderen van de socket/bridge, databasemigratie en rename naar
-`software-factory-backend`/`software-factory-frontend` wordt uitsluitend uitgevoerd via
-[`../software-factory-v2/topologie-naar-openshift.md`](../software-factory-v2/topologie-naar-openshift.md).
+De hoofdapp draait in namespace `software-factory` op OpenShift onder de naam
+`software-factory-backend`. Het is de enige Maven-/backenddeployable. De Flutter-webclient draait
+daar als `software-factory-frontend` en gebruikt rechtstreeks de dashboard-API van de hoofdapp.
+PostgreSQL levert de duurzame factorydata. Agent Runtime v2 is een afzonderlijke externe jobservice;
+de Runtime-worker staat buiten het cluster en verzorgt AI-uitvoering, tijdelijke checkouts,
+verificatie, artifacts en Gitpublicatie. Zie ook
+[`../technical/overview.md`](../technical/overview.md) en [`../../runbook.md`](../../runbook.md).
