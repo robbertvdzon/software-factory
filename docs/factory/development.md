@@ -9,13 +9,11 @@
 
 ## Modules
 
-De Maven-reactor bevat vier modules:
+De Maven-reactor bevat de twee modules uit de root-pom:
 
-- `factory-contracts`: bridge- en integratiewiretypes;
 - `factory-common`: gedeelde configuratie, projectcatalogus en integratieprimitives;
 - `softwarefactory`: orchestrator, tracker, pipeline, Runtime-consumer, Telegram, audits en
-  maintenance;
-- `dashboard-backend`: remote dashboard-API en huidige WebSocketbridge.
+  maintenance, inclusief de dashboard-API en Product Factory-integratie.
 
 `dashboard-frontend` is een zelfstandige Flutter-app. Er is geen `agentworker`-module en er worden
 geen lokale agentimages gebouwd.
@@ -26,7 +24,7 @@ geen lokale agentimages gebouwd.
 # alle snelle Maven-tests
 mvn -B --no-transfer-progress test
 
-# volledige reactor met integratietests en kwaliteitsgates
+# volledige Maven-reactor met Maven- en integratietests
 mvn -B --no-transfer-progress verify
 
 # alleen de hoofdapp plus afhankelijkheden
@@ -35,6 +33,8 @@ mvn -B --no-transfer-progress -pl softwarefactory -am test
 # frontend
 tools/verify-dashboard-frontend
 ```
+
+`mvn verify` is het vangnet voor de Maven- en integratietests van de reactor.
 
 Gerichte tests kunnen met `-Dtest=NaamVanTest -Dsurefire.failIfNoSpecifiedTests=false`. Database-
 en migratietests gebruiken Testcontainers.
@@ -49,9 +49,6 @@ en migratietests gebruiken Testcontainers.
 Of start `SoftwareFactoryApplication` vanuit de IDE. Configuratie wordt geladen uit
 `properties.default.env`, `properties.env`, `secrets.env` en ten slotte echte environmentvariabelen.
 Zie [`secrets-local.md`](secrets-local.md).
-
-`factory-loop.sh` is een tijdelijke lokale proceswrapper. Hij herstart de Spring-app na exit en
-bouwt geen agentimages. In het latere OpenShift-topologieplan verdwijnt ook deze hostafhankelijkheid.
 
 ## Agent Runtime tijdens ontwikkeling
 

@@ -1,6 +1,19 @@
 # Externe systemen
 
-## Agent Runtime v2
+## Clustercomponenten
+
+De actuele OpenShift-opstelling in namespace `software-factory` bestaat uit:
+
+- `software-factory-backend`: de hoofdapp (`softwarefactory`) met orchestrator, tracker, pipeline,
+  dashboard-API en Product Factory-integratie;
+- `software-factory-frontend`: de Flutter-webapp, die rechtstreeks de API van `softwarefactory`
+  gebruikt;
+- PostgreSQL: de bron van waarheid voor tracker, stories/subtaken, story-/agentruns, durable
+  completion, modelconfiguratie, inputuploads, audits, Telegram, knowledge en maintenance.
+
+Flyway migreert `SF_DATABASE_SCHEMA` bij het starten van de hoofdapp.
+
+## Agent Runtime v2 (extern)
 
 De hoofdapp gebruikt de Runtime `/v2`-API voor jobcreate/get/cancel, events, resultaten, artifacts,
 execution options, repositoryaliassen en hervatbare uploads. Authenticatie loopt met
@@ -10,11 +23,8 @@ Runtime krijgt alleen domeinminimale input. Voor repositorywerk is dat een gereg
 branch. Runtime beheert workerselectie, providercredential, Gitcredential, tijdelijke checkout,
 verificatie, commit/push, transcript, artifacts, usage en kosten.
 
-## PostgreSQL
-
-PostgreSQL is de bron van waarheid voor tracker, stories/subtaken, story-/agentruns, durable
-completion, modelconfiguratie, inputuploads, audits, Telegram, knowledge en maintenance. Flyway
-migreert `SF_DATABASE_SCHEMA` bij start.
+Agent Runtime v2 en zijn workers draaien als afzonderlijke externe component buiten de
+Software Factory-clusteropstelling.
 
 ## GitHub
 
@@ -24,14 +34,11 @@ en pushes; die credential wordt niet aan Factory verstrekt.
 
 Een apart `SF_GITHUB_PACKAGES_TOKEN` kan ghcr.io-cleanup minimaal scopen.
 
-## Dashboard en bridge
+## Dashboard en Product Factory
 
-`dashboard-frontend` praat met `dashboard-backend`. Zolang de hoofdapp nog lokaal draait, verbindt
-die uitgaand met de backend via de geauthenticeerde WebSocketbridge (`SF_BRIDGE_URLS` en
-`SF_BRIDGE_TOKEN`). Het Product Factory-contract loopt via dezelfde backendgrens met een eigen
+De Flutter-frontend gebruikt rechtstreeks de dashboard-API van `softwarefactory`. Het Product
+Factory-contract wordt eveneens door de hoofdapp aangeboden en gebruikt een eigen
 `SF_PRODUCT_FACTORY_TOKEN`.
-
-De bridge is tijdelijk en verdwijnt wanneer de hoofdapp naar OpenShift verhuist.
 
 ## Telegram
 
@@ -41,12 +48,9 @@ lokale downloadbestand wordt verwijderd.
 
 ## OpenShift/Kubernetes
 
-Frontend en dashboard-backend draaien op OpenShift. Software Factory kan daarnaast preview- en
+Hoofdapp, frontend en PostgreSQL draaien op OpenShift. Software Factory kan daarnaast preview- en
 deploymentstatus en cleanup beheren met `SF_KUBECONFIG` en optioneel een apart
 `SF_PREVIEW_CLEANUP_KUBECONFIG`. Deze credentials gaan nooit naar Runtime of AI.
-
-De Runtime-worker mag extern op een MacBook draaien; dat is onderdeel van Agent Runtime en geen
-lokale Software Factory-component.
 
 ## Google OIDC
 

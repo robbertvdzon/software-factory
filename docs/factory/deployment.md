@@ -7,23 +7,29 @@ preview_namespace_template: ""
 
 # Deployment
 
-De factory zelf draait lokaal op de laptop van de gebruiker:
+De Software Factory draait in namespace `software-factory` op OpenShift. De hoofdapp is daar als
+`software-factory-backend` de enige backenddeployable; de Flutter-webapp en PostgreSQL draaien als
+clustercomponenten ernaast. Agent Runtime v2 is een afzonderlijke externe component.
+
+[`../../deploy/README.md`](../../deploy/README.md) is de operationele bron voor manifests, images,
+database, PVC en secrets.
+
+## Lokale ontwikkeling
+
+Start voor lokale ontwikkeling de ondersteunende services en de hoofdapp vanuit de root van de
+repository:
 
 ```bash
-mvn -f softwarefactory/pom.xml spring-boot:run
+./factory local-services
+./factory start
 ```
 
-Later kan dit ook via een jar:
+Stop de ondersteunende services na afloop met:
 
 ```bash
-mvn -f softwarefactory/pom.xml package
-java -jar target/softwarefactory-0.0.1-SNAPSHOT.jar
+./factory local-services-stop
 ```
 
-Er is voor deze repo nog geen preview-deploy ingericht. De tester-flow die
-OpenShift preview namespaces gebruikt, is vooral bedoeld voor target-apps die
-door de factory gebouwd worden.
-
-Start de applicatie vanuit de root van de repo, zodat `./secrets.env` gevonden
-wordt. Voor afwijkende lokale runs kan `SF_SECRETS_FILE` naar een ander bestand
-wijzen.
+Vanuit de root wordt de lokale configuratie op de gebruikelijke locaties gevonden. Voor afwijkende
+lokale runs kan `SF_SECRETS_FILE` naar een ander bestand wijzen. Lokale starts zijn uitsluitend voor
+ontwikkeling en maken geen deel uit van de productieopstelling.

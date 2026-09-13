@@ -2,8 +2,8 @@
 
 Deze instructie installeert de Software Factory: één Spring-applicatie (`softwarefactory`) met
 orchestrator, dashboard-API en Product Factory-integratie, de Flutter-frontend, en alle
-AI-uitvoering via Agent Runtime v2. De verhuizing van dit proces naar OpenShift staat in
-[`software-factory-v2/topologie-naar-openshift.md`](software-factory-v2/topologie-naar-openshift.md).
+AI-uitvoering via Agent Runtime v2. Hoofdapp, frontend en PostgreSQL draaien op OpenShift; Agent
+Runtime v2 blijft een afzonderlijke externe component.
 
 ## Vereisten
 
@@ -82,15 +82,6 @@ mvn -B --no-transfer-progress test
 
 Flyway migreert het schema bij start. De hoofdapp luistert standaard op poort 8080.
 
-Voor een herstartende lokale proceswrapper:
-
-```bash
-./factory-loop.sh
-```
-
-Dit is geen agentworker: het script start alleen de Spring-app opnieuw. In de uiteindelijke
-OpenShift-topologie verdwijnt deze lokale wrapper.
-
 ## Dashboardfrontend
 
 ```bash
@@ -120,4 +111,5 @@ frontend opnieuw naar de loginflow kunnen navigeren.
 Gebruik secretobjects/environmentvariabelen in plaats van gecommitte `.env`-bestanden. Geef
 GitHub-, packagecleanup-, previewcleanup- en Runtime-tokens elk de kleinste eigen scope.
 
-De deployment staat onder `deploy/`; het topologieplan beschrijft de volledige uitrol op OpenShift.
+De actuele OpenShift-deployment en de bijbehorende operationele instructies staan in
+[`../deploy/README.md`](../deploy/README.md).

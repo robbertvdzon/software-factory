@@ -17,7 +17,6 @@ Lees voor actueel gedrag:
 De agentinstructies onder [`agents/`](agents/) zijn bronmateriaal voor de prompts. Targetprojecten
 kunnen eigen factorydocumentatie en `.factory/verification.yaml` toevoegen.
 
-De huidige app-/bridge-topologie is tijdelijk. De verhuizing van de orchestrator naar OpenShift en
-de rename staan in
-[`../software-factory-v2/topologie-naar-openshift.md`](../software-factory-v2/topologie-naar-openshift.md)
-en vallen buiten de Runtime-refactor.
+De hoofdapp draait als `software-factory-backend` samen met de Flutter-frontend en PostgreSQL op
+OpenShift. Agent Runtime v2 blijft een afzonderlijke externe component. Zie
+[`../../deploy/README.md`](../../deploy/README.md) voor de actuele deployment.
