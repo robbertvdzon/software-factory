@@ -4,6 +4,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../ai_catalog.dart';
 import '../api_client.dart';
 import '../app_state.dart';
+import '../browser_path.dart';
+import '../deep_link.dart';
 import '../main.dart';
 import '../pending_action.dart';
 import '../phase_stepper.dart';
@@ -117,6 +119,20 @@ class StoryDetailScreen extends StatefulWidget {
 class _StoryDetailScreenState extends State<StoryDetailScreen> {
   final _dataScreenKey = GlobalKey<DataScreenState>();
   var _busy = false;
+
+  // Adresbalk mee laten lopen (`/stories/<key>`), zodat een refresh of gedeelde link dit
+  // detail weer opent; bij sluiten komt het pad van het onderliggende scherm terug.
+  @override
+  void initState() {
+    super.initState();
+    BrowserPath.push(storyPathFor(widget.storyKey));
+  }
+
+  @override
+  void dispose() {
+    BrowserPath.pop(storyPathFor(widget.storyKey));
+    super.dispose();
+  }
 
   Future<void> _runAction(
     Future<void> Function() action, {

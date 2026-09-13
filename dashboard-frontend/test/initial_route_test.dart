@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:softwarefactory_dashboard/browser_path.dart';
 import 'package:softwarefactory_dashboard/deep_link.dart';
 import 'package:softwarefactory_dashboard/main.dart';
 
@@ -21,6 +22,7 @@ import 'package:softwarefactory_dashboard/main.dart';
 void main() {
   Future<List<MethodCall>> announcedRoutes(WidgetTester tester, String path) async {
     SharedPreferences.setMockInitialValues({'software_factory_dashboard_token': 'test-token'});
+    BrowserPath.reset();
     tester.binding.platformDispatcher.defaultRouteNameTestValue = path;
     addTearDown(tester.binding.platformDispatcher.clearDefaultRouteNameTestValue);
 
@@ -41,7 +43,7 @@ void main() {
     });
 
     await http.runWithClient(() async {
-      await tester.pumpWidget(SoftwareFactoryDashboard(initialDestination: parseDeepLink(path)));
+      await tester.pumpWidget(SoftwareFactoryDashboard(initialDestination: parseAppPath(path)));
       for (var i = 0; i < 5; i++) {
         await tester.pump(const Duration(milliseconds: 50));
       }
@@ -51,6 +53,11 @@ void main() {
     }, () => mockClient);
     return calls;
   }
+
+  List<String?> reportedUris(List<MethodCall> calls) => [
+    for (final call in calls)
+      if (call.method == 'routeInformationUpdated') (call.arguments as Map)['uri'] as String?,
+  ];
 
   String? reportedUri(List<MethodCall> calls) {
     for (final call in calls) {
@@ -65,6 +72,21 @@ void main() {
     final calls = await announcedRoutes(tester, '/changelog/demo');
 
     expect(reportedUri(calls), '/changelog/demo');
+  });
+
+  testWidgets('een story-deep-link opent het detail en houdt /stories/<key> in de adresbalk', (tester) async {
+    final calls = await announcedRoutes(tester, '/stories/SF-1');
+
+    // Eerst de Navigator met het gevraagde adres, dan de shell (/stories) en daarbovenop het
+    // gepushte detail (/stories/SF-1). Het afsluiten van de test sluit dat detail weer.
+    expect(reportedUri(calls), '/stories/SF-1');
+    expect(reportedUris(calls).skip(1), containsAllInOrder(['/stories', '/stories/SF-1']));
+  });
+
+  testWidgets('een sectie-deep-link houdt het sectiepad in de adresbalk', (tester) async {
+    final calls = await announcedRoutes(tester, '/settings');
+
+    expect(reportedUris(calls).last, '/settings');
   });
 
   testWidgets('de root-URL blijft ongewijzigd aangemeld als /', (tester) async {

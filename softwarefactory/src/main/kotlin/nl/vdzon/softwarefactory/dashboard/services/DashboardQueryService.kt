@@ -179,12 +179,14 @@ class DashboardQueryService(
         val quotaRetryAfterByStory = load(errors, emptyMap()) {
             quotaRetryAfterByStory(issueTrackerClient.findQuotaWaitingIssues())
         }
+        val blockedStoryKeys = load(errors, emptySet()) { issueTrackerClient.findStoryKeysWithErroredSubtasks() }
         return StoriesPageData(
             issues,
             runsByStory,
             errors,
             usageByStory = usageByStory,
             mergedStoryKeys = mergedStoryKeys,
+            blockedStoryKeys = blockedStoryKeys,
             projects = projects,
             repoNames = projectRepoResolver.projectNames(),
             quotaRetryAfterByStory = quotaRetryAfterByStory,

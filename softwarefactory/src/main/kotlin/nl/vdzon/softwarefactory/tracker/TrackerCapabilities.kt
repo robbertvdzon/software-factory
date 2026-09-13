@@ -36,6 +36,13 @@ interface IssueReader {
      */
     fun findQuotaWaitingIssues(): List<TrackerIssue> = emptyList()
     /**
+     * Keys van stories waarvan minstens één subtaak een gevulde [TrackerIssueFields.error] heeft.
+     * Read-only aggregatie voor het Stories-overzicht: een story blijft zelf op `in-progress`
+     * staan terwijl een subtaak (bijv. na een gecancelde Runtime-job) de keten blokkeert, en het
+     * overzicht laadt bewust géén subtaken (zie [findAllStories]).
+     */
+    fun findStoryKeysWithErroredSubtasks(): Set<String> = emptySet()
+    /**
      * Stories van [projectName] (= `repo`-veld, de `projects.yaml`-naam) met een niet-lege
      * [TrackerIssue.shortDescriptionSummary], nieuwste eerst — de bron voor de changelog-endpoint.
      */

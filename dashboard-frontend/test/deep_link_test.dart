@@ -36,6 +36,31 @@ void main() {
     });
   });
 
+  group('parseAppPath', () {
+    test('changelog-pad blijft de zelfstandige changelog-bestemming', () {
+      expect(parseAppPath('/changelog/demo'), const ChangelogDestination('demo'));
+    });
+
+    test('stories-pad met key opent het story-detail', () {
+      expect(parseAppPath('/stories/hkh-208'), const StoryDestination('hkh-208'));
+      expect(parseAppPath('/stories/SF-1?x=1'), const StoryDestination('SF-1'));
+      expect(parseAppPath(storyPathFor('SF-1')), const StoryDestination('SF-1'));
+    });
+
+    test('een sectiepad levert die sectie van de app-shell', () {
+      expect(parseAppPath('/stories'), const ShellDestination('stories'));
+      expect(parseAppPath('/settings'), const ShellDestination('settings'));
+      expect(parseAppPath('/my-actions/'), const ShellDestination('my-actions'));
+      expect(parseAppPath(sectionPathFor('audits')), const ShellDestination('audits'));
+    });
+
+    test('de root of een leeg pad is geen deep link', () {
+      expect(parseAppPath('/'), isNull);
+      expect(parseAppPath(''), isNull);
+      expect(parseAppPath('/?token=x'), isNull);
+    });
+  });
+
   group('changelogPathFor', () {
     test('encodeert de projectnaam', () {
       expect(changelogPathFor('software-factory'), '/changelog/software-factory');

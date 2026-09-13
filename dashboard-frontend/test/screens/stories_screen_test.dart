@@ -175,6 +175,46 @@ void main() {
   });
 
   testWidgets(
+    'storyoverzicht toont blocked als een subtaak in error staat',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final payload = {
+        'issues': [
+          {
+            'key': 'SF-1',
+            'issueType': 'STORY',
+            'summary': 'Story met gecancelde developer-job',
+            'status': 'open',
+            'fields': {
+              'storyPhase': 'in-progress',
+              'repo': 'software-factory',
+              'createdAt': '2026-08-02T10:00:00Z',
+            },
+          },
+        ],
+        'runsByStory': <String, dynamic>{},
+        'usageByStory': <String, dynamic>{},
+        'mergedStoryKeys': <String>[],
+        'blockedStoryKeys': ['SF-1'],
+        'quotaRetryAfterByStory': <String, dynamic>{},
+      };
+      final client = MockClient(
+        (request) async => http.Response(jsonEncode(payload), 200),
+      );
+
+      await http.runWithClient(() async {
+        await tester.pumpWidget(
+          MaterialApp(home: StoriesScreen(state: AppState(ApiClient()))),
+        );
+        await tester.pumpAndSettle();
+      }, () => client);
+
+      expect(find.text('blocked'), findsOneWidget);
+      expect(find.text('in-progress'), findsNothing);
+    },
+  );
+
+  testWidgets(
     'storyoverzicht toont quota-wachtstatus die van een subtaak is afgeleid',
     (tester) async {
       SharedPreferences.setMockInitialValues({});

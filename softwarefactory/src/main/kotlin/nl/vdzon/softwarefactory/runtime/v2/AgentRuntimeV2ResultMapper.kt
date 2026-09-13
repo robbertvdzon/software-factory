@@ -6,6 +6,7 @@ import nl.vdzon.softwarefactory.runtime.models.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.models.AgentRunKnowledgeUpdatePayload
 import nl.vdzon.softwarefactory.runtime.models.AgentRunSubtaskPayload
 import java.math.BigDecimal
+import java.time.Duration
 
 class AgentRuntimeV2ResultMapper {
     fun completed(
@@ -65,9 +66,24 @@ class AgentRuntimeV2ResultMapper {
             containerName = job.id.toString(),
             outcome = "error",
             summaryText = listOfNotNull(job.errorCode, job.errorMessage).joinToString(": ")
-                .ifBlank { "Agent Runtime job ended as ${job.status}" },
+                .ifBlank { endedWithoutDetails(job) },
             exitCode = 1,
         )
+
+    /**
+     * Een job die CANCELLED/TIMED_OUT eindigt zonder foutdetails is vrijwel altijd door de harde
+     * time-out van de factory afgebroken (`executionTimeoutSeconds` = `SF_AGENT_HARD_TIMEOUT_MINUTES`,
+     * zie AgentRuntimeV2Adapter). Zeg dat er dan bij, mét de looptijd, zodat de fout op de subtaak
+     * direct te duiden is i.p.v. alleen "ended as CANCELLED".
+     */
+    private fun endedWithoutDetails(job: RuntimeJobView): String {
+        val base = "Agent Runtime job ended as ${job.status}"
+        if (job.status != RuntimeJobStatus.CANCELLED && job.status != RuntimeJobStatus.TIMED_OUT) return base
+        val endedAt = job.completedAt ?: job.updatedAt
+        val minutes = Duration.between(job.createdAt, endedAt).toMinutes()
+        return "$base after $minutes min — most likely the factory's hard timeout " +
+            "(SF_AGENT_HARD_TIMEOUT_MINUTES); retry the subtask or raise the timeout."
+    }
 
     private fun RuntimeUsageSummary.metric(name: String): Int =
         metrics.firstOrNull { it.metric == name }?.quantity?.toInt() ?: 0

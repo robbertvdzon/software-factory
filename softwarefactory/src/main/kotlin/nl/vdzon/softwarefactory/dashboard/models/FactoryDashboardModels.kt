@@ -150,6 +150,12 @@ data class StoriesPageData(
     val usageByStory: Map<String, UiStoryUsage> = emptyMap(),
     // Story-keys die (al) gemerged zijn — voor de merged-indicator in het overzicht.
     val mergedStoryKeys: Set<String> = emptySet(),
+    /**
+     * Story-keys met een subtaak in error. De story zelf heeft dan meestal géén eigen error en
+     * staat nog op `in-progress`, terwijl de keten feitelijk stilstaat; het overzicht toont
+     * hiermee dezelfde "blocked"-badge als het detailscherm (dat wél de subtaken heeft).
+     */
+    val blockedStoryKeys: Set<String> = emptySet(),
     // Voor het "Nieuwe story"-formulier: keuzelijsten.
     val projects: List<TrackerProject> = emptyList(),
     val repoNames: List<String> = emptyList(),

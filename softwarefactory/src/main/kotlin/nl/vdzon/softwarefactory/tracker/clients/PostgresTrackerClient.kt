@@ -296,6 +296,16 @@ class PostgresTrackerClient(
             subtaskKey,
         ).firstOrNull()
 
+    override fun findStoryKeysWithErroredSubtasks(): Set<String> =
+        jdbcTemplate.queryForList(
+            """
+            SELECT DISTINCT parent_key
+            FROM $schema.issues
+            WHERE parent_key IS NOT NULL AND error IS NOT NULL AND error <> ''
+            """.trimIndent(),
+            String::class.java,
+        ).toSet()
+
     override fun subtasksOf(parentKey: String): List<TrackerIssue> =
         // Aanmaakvolgorde = insertievolgorde = id ASC.
         jdbcTemplate.query(

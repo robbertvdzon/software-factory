@@ -211,6 +211,12 @@ class _StoriesScreenState extends State<StoriesScreen> {
         final merged = (data['mergedStoryKeys'] as List? ?? [])
             .map((e) => e.toString())
             .toSet();
+        // Stories met een subtaak in error: de story zelf staat dan nog op in-progress, maar de
+        // keten staat stil. Zonder dit toonde de lijst "in-progress" terwijl het detailscherm
+        // (dat de subtaken wél heeft) "blocked" liet zien.
+        final blocked = (data['blockedStoryKeys'] as List? ?? [])
+            .map((e) => e.toString())
+            .toSet();
         if (allIssues.isEmpty) {
           return const EmptyState('Geen stories gevonden.');
         }
@@ -349,6 +355,7 @@ class _StoriesScreenState extends State<StoriesScreen> {
                 state: widget.state,
                 issue: issue,
                 merged: merged.contains(issue['key']),
+                blocked: blocked.contains(issue['key']),
                 run: Map<String, dynamic>.from(
                   runsByStory[issue['key']] as Map? ?? {},
                 ),
@@ -370,6 +377,9 @@ class _StoryTile extends StatelessWidget {
   final AppState state;
   final Map<String, dynamic> issue;
   final bool merged;
+
+  /// Een subtaak van deze story staat in error (zie `blockedStoryKeys` in de API).
+  final bool blocked;
   final Map<String, dynamic> run;
   final StoryUsage usage;
   final String quotaRetryAfter;
@@ -377,6 +387,7 @@ class _StoryTile extends StatelessWidget {
     required this.state,
     required this.issue,
     required this.merged,
+    this.blocked = false,
     required this.run,
     required this.usage,
     required this.quotaRetryAfter,
@@ -429,7 +440,7 @@ class _StoryTile extends StatelessWidget {
                         const Spacer(),
                         if (retryAfter.isNotEmpty)
                           const StatusBadge('quota-wacht', BadgeTone.warn)
-                        else if (error.isNotEmpty)
+                        else if (error.isNotEmpty || blocked)
                           const StatusBadge('blocked', BadgeTone.bad)
                         else if (finished)
                           // storyPhase blijft na de refinement/planningfase bewust op 'in-progress'

@@ -326,6 +326,12 @@ internal object DashboardApiFixtures {
         override fun findQuotaWaitingIssues(): List<TrackerIssue> =
             (issues ?: error("tracker niet bereikbaar (test)")).filter { it.fields.retryAfter != null }
 
+        override fun findStoryKeysWithErroredSubtasks(): Set<String> =
+            (issues ?: error("tracker niet bereikbaar (test)"))
+                .filter { it.parentKey != null && !it.fields.error.isNullOrBlank() }
+                .mapNotNull { it.parentKey }
+                .toSet()
+
         override fun listIssueAttachments(issueKey: String): List<TrackerAttachment> = attachments
 
         override fun downloadAttachmentBytes(attachment: TrackerAttachment): ByteArray? = attachmentBytes[attachment.id]

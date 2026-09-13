@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'app_state.dart';
+import 'browser_path.dart';
+import 'deep_link.dart';
 import 'screens/app_updates_screen.dart';
 import 'screens/builds_screen.dart';
 import 'screens/my_actions_screen.dart';
@@ -10,9 +12,12 @@ import 'text_scale_preference.dart';
 
 class _NavEntry {
   final String label;
+
+  /// Slug in de adresbalk (`/<section>`), zie [BrowserPath] en [parseAppPath].
+  final String section;
   final IconData icon;
   final WidgetBuilder builder;
-  const _NavEntry(this.label, this.icon, this.builder);
+  const _NavEntry(this.label, this.section, this.icon, this.builder);
 }
 
 /// App-shell: Stories is het startscherm. Bottom-navigatie op smalle
@@ -21,7 +26,10 @@ class _NavEntry {
 class AppShell extends StatefulWidget {
   final AppState state;
   final TextScalePreference textScale;
-  const AppShell({super.key, required this.state, required this.textScale});
+
+  /// Sectie-slug uit het opgevraagde adres (bijv. `settings`); onbekend of `null` → Stories.
+  final String? initialSection;
+  const AppShell({super.key, required this.state, required this.textScale, this.initialSection});
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -30,22 +38,39 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   var selectedIndex = 0;
 
+  @override
+  void initState() {
+    super.initState();
+    final all = [..._primaryEntries, ..._secondaryEntries];
+    final requested = all.indexWhere((entry) => entry.section == widget.initialSection);
+    if (requested >= 0) selectedIndex = requested;
+    BrowserPath.showRoot(sectionPathFor(all[selectedIndex].section));
+  }
+
+  /// Wisselt van sectie én zet de adresbalk op het pad van die sectie, zodat een refresh
+  /// dezelfde sectie weer opent.
+  void _select(int index) {
+    final all = [..._primaryEntries, ..._secondaryEntries];
+    setState(() => selectedIndex = index);
+    BrowserPath.showRoot(sectionPathFor(all[index].section));
+  }
+
   // Stories is het eerste item en dus ook het scherm dat bij het openen van de app meteen
   // laadt (selectedIndex start op 0) — op gebruikersverzoek i.p.v. de oorspronkelijke
   // "My actions als startscherm"-keuze uit §9 van het ontwerp.
   List<_NavEntry> get _primaryEntries => [
-    _NavEntry('Stories', Icons.list_alt_outlined, (_) => StoriesScreen(state: widget.state)),
-    _NavEntry('My actions', Icons.inbox_outlined, (_) => MyActionsScreen(state: widget.state)),
-    _NavEntry('Agents', Icons.smart_toy_outlined, (_) => AgentsScreen(state: widget.state)),
+    _NavEntry('Stories', storiesPathSegment, Icons.list_alt_outlined, (_) => StoriesScreen(state: widget.state)),
+    _NavEntry('My actions', 'my-actions', Icons.inbox_outlined, (_) => MyActionsScreen(state: widget.state)),
+    _NavEntry('Agents', 'agents', Icons.smart_toy_outlined, (_) => AgentsScreen(state: widget.state)),
   ];
 
   List<_NavEntry> get _secondaryEntries => [
-    _NavEntry('Projects', Icons.folder_outlined, (_) => ProjectsScreen(state: widget.state)),
-    _NavEntry('Builds', Icons.construction_outlined, (_) => BuildsScreen(state: widget.state)),
-    _NavEntry('App-updates', Icons.system_update_outlined, (_) => AppUpdatesScreen(state: widget.state)),
-    _NavEntry('Audits', Icons.fact_check_outlined, (_) => AuditScreen(state: widget.state)),
-    _NavEntry('Opruimen', Icons.cleaning_services_outlined, (_) => MaintenanceScreen(state: widget.state)),
-    _NavEntry('Settings', Icons.settings_outlined, (_) => SettingsScreen(state: widget.state, textScale: widget.textScale)),
+    _NavEntry('Projects', 'projects', Icons.folder_outlined, (_) => ProjectsScreen(state: widget.state)),
+    _NavEntry('Builds', 'builds', Icons.construction_outlined, (_) => BuildsScreen(state: widget.state)),
+    _NavEntry('App-updates', 'app-updates', Icons.system_update_outlined, (_) => AppUpdatesScreen(state: widget.state)),
+    _NavEntry('Audits', 'audits', Icons.fact_check_outlined, (_) => AuditScreen(state: widget.state)),
+    _NavEntry('Opruimen', 'cleanup', Icons.cleaning_services_outlined, (_) => MaintenanceScreen(state: widget.state)),
+    _NavEntry('Settings', 'settings', Icons.settings_outlined, (_) => SettingsScreen(state: widget.state, textScale: widget.textScale)),
   ];
 
   @override
@@ -64,7 +89,7 @@ class _AppShellState extends State<AppShell> {
                   children: [
                     NavigationRail(
                       selectedIndex: selectedIndex,
-                      onDestinationSelected: (index) => setState(() => selectedIndex = index),
+                      onDestinationSelected: _select,
                       labelType: NavigationRailLabelType.all,
                       destinations: [
                         for (final entry in all) NavigationRailDestination(icon: _navIcon(entry), label: Text(entry.label)),
@@ -85,7 +110,7 @@ class _AppShellState extends State<AppShell> {
                   if (index == primary.length) {
                     _openMoreSheet(context);
                   } else {
-                    setState(() => selectedIndex = index);
+                    _select(index);
                   }
                 },
                 destinations: [
@@ -129,7 +154,7 @@ class _AppShellState extends State<AppShell> {
                 title: Text(_secondaryEntries[i].label),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
-                  setState(() => selectedIndex = primaryCount + i);
+                  _select(primaryCount + i);
                 },
               ),
           ],

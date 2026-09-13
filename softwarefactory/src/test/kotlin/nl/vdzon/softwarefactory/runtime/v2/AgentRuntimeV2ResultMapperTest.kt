@@ -124,6 +124,28 @@ class AgentRuntimeV2ResultMapperTest {
         completedAt = OffsetDateTime.parse("2026-09-11T07:00:00Z"),
     )
 
+    @Test
+    fun `gecancelde job zonder foutdetails noemt de looptijd en de harde time-out`() {
+        val jobId = UUID.fromString("44444444-4444-4444-4444-444444444444")
+        val cancelled = job(jobId, RuntimeJobStatus.CANCELLED).copy(
+            completedAt = OffsetDateTime.parse("2026-09-11T08:00:13Z"),
+        )
+
+        val request = mapper.failed("SF-42", AgentRole.DEVELOPER, cancelled)
+
+        assertEquals("error", request.outcome)
+        assertTrue(request.summaryText!!.startsWith("Agent Runtime job ended as CANCELLED after 60 min"), request.summaryText)
+        assertTrue(request.summaryText!!.contains("SF_AGENT_HARD_TIMEOUT_MINUTES"), request.summaryText)
+    }
+
+    @Test
+    fun `gefaalde job met foutdetails houdt die details als samenvatting`() {
+        val jobId = UUID.fromString("55555555-5555-5555-5555-555555555555")
+        val failed = job(jobId, RuntimeJobStatus.FAILED).copy(errorCode = "WORKER_CRASH", errorMessage = "oom")
+
+        assertEquals("WORKER_CRASH: oom", mapper.failed("SF-42", AgentRole.DEVELOPER, failed).summaryText)
+    }
+
     private fun job(id: UUID, status: RuntimeJobStatus) = RuntimeJobView(
         id = id,
         tenantId = "software-factory",

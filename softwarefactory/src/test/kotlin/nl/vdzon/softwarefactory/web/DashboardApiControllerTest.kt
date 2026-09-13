@@ -141,6 +141,20 @@ class DashboardApiControllerTest {
     }
 
     @Test
+    fun `stories markeert een story met een subtaak in error als blocked`() {
+        val story = issue("SF-1")
+        val subtask = issue("SF-2").copy(
+            parentKey = story.key,
+            fields = issue("SF-2").fields.copy(type = "Task", error = "[DEVELOPER] Agent Runtime job ended as CANCELLED"),
+        )
+        val h = harness(issues = listOf(story, subtask, issue("SF-3")))
+
+        val body = h.getJson("/api/v1/stories")
+
+        assertEquals(listOf(story.key), body.path("blockedStoryKeys").map { it.asText() })
+    }
+
+    @Test
     fun `my-actions count en lijst leveren de inbox`() {
         val h = harness(issues = emptyList())
 

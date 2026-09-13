@@ -10,14 +10,16 @@ import 'app_state.dart';
 import 'deep_link.dart';
 import 'google_signin_button_stub.dart' if (dart.library.html) 'google_signin_button_web.dart' as gis_button;
 import 'screens/changelog_screen.dart';
+import 'screens/story_detail_screen.dart';
 import 'text_scale_preference.dart';
 import 'url_strategy_stub.dart' if (dart.library.html) 'url_strategy_web.dart' as url_strategy;
 
 void main() {
   // Eerst de pad-gebaseerde URL-strategie (web), daarna het gevraagde pad éénmalig lezen:
-  // een koude laadbeurt op /changelog/<project> moet direct die changelog tonen (SF-2087).
+  // een koude laadbeurt op /changelog/<project>, /stories/<key> of /<sectie> moet direct
+  // dat scherm tonen (de adresbalk loopt daarna mee via BrowserPath).
   url_strategy.useBookmarkableUrls();
-  runApp(SoftwareFactoryDashboard(initialDestination: kIsWeb ? parseDeepLink(Uri.base.path) : null));
+  runApp(SoftwareFactoryDashboard(initialDestination: kIsWeb ? parseAppPath(Uri.base.path) : null));
 }
 
 const buildSha = String.fromEnvironment('BUILD_SHA', defaultValue: 'dev');
@@ -32,7 +34,7 @@ const googleClientId = String.fromEnvironment('GOOGLE_CLIENT_ID', defaultValue: 
 /// (het login-scherm heeft nog geen `AppState`).
 class SoftwareFactoryDashboard extends StatefulWidget {
   /// Bestemming uit het opgevraagde adres (deep link), of `null` voor het normale app-shell-gedrag.
-  final ChangelogDestination? initialDestination;
+  final AppDestination? initialDestination;
   const SoftwareFactoryDashboard({super.key, this.initialDestination});
 
   @override
@@ -157,7 +159,7 @@ class RootScreen extends StatefulWidget {
   /// Deep-link-bestemming uit het opgevraagde adres. Wordt vastgehouden zolang de app draait,
   /// zodat ze zowel bij een herstelde sessie als na een verse Google-login behouden blijft
   /// (de gebruiker belandt dus niet alsnog op het standaard dashboard).
-  final ChangelogDestination? destination;
+  final AppDestination? destination;
   const RootScreen({super.key, required this.textScale, this.destination});
 
   @override
@@ -175,6 +177,10 @@ class _RootScreenState extends State<RootScreen> {
   var loading = false;
   String? error;
   StreamSubscription<GoogleSignInAccount?>? _authSub;
+
+  /// Een `/stories/<key>`-deep-link opent het detailscherm één keer bovenop de shell, zodra de
+  /// gebruiker binnen is; daarna gedraagt de app zich normaal (terug-knop naar het overzicht).
+  var _storyDeepLinkOpened = false;
 
   @override
   void initState() {
@@ -281,14 +287,31 @@ class _RootScreenState extends State<RootScreen> {
     if (!initialized) return _loadingView();
     if (api.token == null || appState == null) return _loginView();
     final destination = widget.destination;
-    if (destination != null) {
+    if (destination is ChangelogDestination) {
       // Zelfstandige pagina: geen AppShell-navigatie eromheen en geen terug-knop (dit scherm
       // is de root van de navigator, dus er is geen vorige pagina om naar terug te keren).
       return ChangelogScreen(state: appState!, projectName: destination.projectName);
     }
+    if (destination is StoryDestination && !_storyDeepLinkOpened) {
+      _storyDeepLinkOpened = true;
+      final state = appState!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => StoryDetailScreen(state: state, storyKey: destination.storyKey),
+          ),
+        );
+      });
+    }
     return AppShell(
       state: appState!,
       textScale: widget.textScale,
+      initialSection: switch (destination) {
+        ShellDestination(:final section) => section,
+        StoryDestination() => storiesPathSegment,
+        _ => null,
+      },
     );
   }
 
