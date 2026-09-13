@@ -19,4 +19,4 @@ images:
   newTag: sha-b3f017c
 - name: ghcr.io/robbertvdzon/software-factory-frontend
   newName: ghcr.io/robbertvdzon/software-factory-frontend
-  newTag: sha-1795381
+  newTag: sha-b3f017c
