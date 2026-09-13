@@ -29,7 +29,9 @@ object OrchestratorSettingsFactory {
                     default = OrchestratorSettings.DEFAULT_MAX_TEST_CHAIN_RESETS,
                 ),
             maxTransientRetries = environment.int("SF_MAX_TRANSIENT_RETRIES", default = 2),
-            hardTimeout = Duration.ofMinutes(environment.long("SF_AGENT_HARD_TIMEOUT_MINUTES", default = 60)),
+            // 180 min: een agent-run mag lang duren en een Runtime-retry (bijv. na een router-reload
+            // tijdens een deploy) krijgt via runtimeAttemptStartedAt bovendien verse tijd.
+            hardTimeout = Duration.ofMinutes(environment.long("SF_AGENT_HARD_TIMEOUT_MINUTES", default = 180)),
             activePhaseRecoveryDelay =
                 Duration.ofMillis(environment.long("SF_ACTIVE_PHASE_RECOVERY_DELAY_MS", default = 60000)),
             blockedQueueWarnThreshold =

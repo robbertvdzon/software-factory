@@ -378,6 +378,14 @@ vanaf de cluster werken.
 - **Aandachtspunt:** elke push naar `main` bouwt en herdeployt de factory zelf (Recreate), ook
   midden in een lopende story. De recovery van actieve agent-runs vangt dat op, maar plan
   documentatie-commits niet tijdens een gevoelige story.
+- **Les van 2026-09-13 (hkh-208):** zo'n deploy herlaadt ook de gedeelde OpenShift-router, en
+  die stuurt daarbij GOAWAY naar alle open HTTP/2-verbindingen — ook die van de Agent
+  Runtime-worker op de MacBook. Eén mislukte heartbeat brak daar een developer-run van 46 minuten
+  af als WORKER_ERROR; de Runtime-retry begon op nul en werd door de harde time-out van 60 minuten
+  afgekapt. Opgelost aan twee kanten: de worker overbrugt zo'n storing nu tot vijf minuten terwijl
+  de container doorwerkt (agent-runtime `ee0bcb6`), en de factory telt de harde time-out sindsdien
+  per Runtime-poging (`agent_runtime_jobs.attempt_started_at`, migratie V41) met een default van
+  180 minuten (`SF_AGENT_HARD_TIMEOUT_MINUTES`).
 
 - **2026-09-12, stap 7 uitgevoerd.** Story SF-2429 op `test-repository` is volledig vanaf de
   cluster doorlopen en gemerged (PR #4); de tester wees vier rondes af op een ontbrekende

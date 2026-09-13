@@ -99,6 +99,39 @@ class OrchestratorSubtaskRecoveryTest : OrchestratorTestHarness() {
     }
 
     @Test
+    fun `hard timeout counts from the dispatch when the runtime never retried`() {
+        val sub = issue("PF-7", type = "Task", subtaskType = "summary", subtaskPhase = "summarizing", agentStartedAt = now.minusMinutes(61))
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "PF-1", subtasks = listOf(sub), parentIssue = issue("PF-1"))
+        val storyRuns = InMemoryStoryRunRepository()
+        val agentRuns = InMemoryAgentRunRepository()
+        val storyRun = storyRuns.openOrCreate("PF-1", "repo")
+        agentRuns.recordStarted(storyRun.id, AgentRole.SUMMARIZER, "job-1", null, null, null, null, subtaskKey = "PF-7")
+
+        val result = service(issueTracker, storyRuns = storyRuns, agentRuns = agentRuns).pollOnce()
+
+        val errored = result.issueResults.single() as IssueProcessResult.Errored
+        assertTrue(errored.message.contains("Hard timeout"), errored.message)
+    }
+
+    @Test
+    fun `hard timeout counts from the latest runtime attempt so a retry gets fresh time`() {
+        // Dispatch ruim over de time-out, maar de Runtime begon 10 minuten geleden een nieuwe
+        // poging (bijv. na een WORKER_ERROR door een router-reload): niet afbreken, wachten.
+        val sub = issue("PF-7", type = "Task", subtaskType = "summary", subtaskPhase = "summarizing", agentStartedAt = now.minusMinutes(61))
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "PF-1", subtasks = listOf(sub), parentIssue = issue("PF-1"))
+        val storyRuns = InMemoryStoryRunRepository()
+        val agentRuns = InMemoryAgentRunRepository()
+        val storyRun = storyRuns.openOrCreate("PF-1", "repo")
+        agentRuns.recordStarted(storyRun.id, AgentRole.SUMMARIZER, "job-1", null, null, null, null, subtaskKey = "PF-7")
+        agentRuns.markRuntimeAttempt("job-1", startedAt = now.minusMinutes(10))
+
+        val result = service(issueTracker, storyRuns = storyRuns, agentRuns = agentRuns).pollOnce()
+
+        assertEquals(IssueProcessResult.Skipped("PF-7", "awaiting-agent-completion"), result.issueResults.single())
+        assertTrue(issueTracker.updates.values.flatten().none { TrackerField.ERROR in it.values })
+    }
+
+    @Test
     fun `subtask recovery waits while a finished agent completion is still being processed`() {
         // Lang geleden gestart (tijd-grace verlopen) + geen draaiende container, MAAR de laatste
         // agent-run is nog niet afgerond (endedAt == null): de container stopte, maar de completion

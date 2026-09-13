@@ -240,6 +240,8 @@ interface AgentRunRepository {
         phase: String,
         errorCode: String? = null,
         errorMessage: String? = null,
+        /** Pogingenteller van de Runtime; een hogere waarde dan bekend markeert een nieuwe pogingstart. */
+        attemptCount: Int? = null,
     ) = Unit
 
     fun storeRuntimeJobResult(
@@ -292,7 +294,22 @@ data class AgentRunRecord(
     val rateLimit: AgentRunRateLimit? = null,
     /** Issue waarop het agentresultaat moet landen; null betekent de parent-story zelf. */
     val subtaskKey: String? = null,
+    /**
+     * Start van de laatste Runtime-poging (alleen gevuld als de Runtime na een WORKER_ERROR opnieuw
+     * begon). De harde time-out telt vanaf dit moment i.p.v. vanaf de eerste dispatch.
+     */
+    val runtimeAttemptStartedAt: OffsetDateTime? = null,
 )
+
+/**
+ * Startmoment waarvandaan de harde time-out telt: de dispatch ([dispatchedAt], = AGENT_STARTED_AT),
+ * tenzij de nog lopende [latestRun] daarna een nieuwe Runtime-poging begon — dan telt die start.
+ * Een retry na een WORKER_ERROR krijgt zo de volledige time-out i.p.v. alleen de resterende tijd.
+ */
+fun hardTimeoutStart(dispatchedAt: OffsetDateTime?, latestRun: AgentRunRecord?): OffsetDateTime? {
+    val attemptStartedAt = latestRun?.takeIf { it.endedAt == null }?.runtimeAttemptStartedAt
+    return listOfNotNull(dispatchedAt, attemptStartedAt).maxOrNull()
+}
 
 data class AgentRunRateLimit(
     val status: String = "",

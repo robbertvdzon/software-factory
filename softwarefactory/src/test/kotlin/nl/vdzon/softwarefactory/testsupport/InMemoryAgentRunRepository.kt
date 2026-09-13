@@ -87,6 +87,13 @@ class InMemoryAgentRunRepository : AgentRunRepository {
     override fun countForRoleAndSubtask(storyRunId: Long, role: AgentRole, subtaskKey: String): Int =
         runs.count { it.storyRunId == storyRunId && it.role == role && subtaskKeys[it.id] == subtaskKey }
 
+    /** Seed-helper: markeert de lopende run met [containerName] als opnieuw begonnen Runtime-poging. */
+    fun markRuntimeAttempt(containerName: String, startedAt: OffsetDateTime) {
+        val index = runs.indexOfFirst { it.containerName == containerName }
+        check(index >= 0) { "geen run met containerName $containerName" }
+        runs[index] = runs[index].copy(runtimeAttemptStartedAt = startedAt)
+    }
+
     /** Seed-helper: registreert een al-afgeronde agent-run met de gegeven outcome/summary. */
     fun addEnded(
         storyRunId: Long,

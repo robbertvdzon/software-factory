@@ -44,6 +44,7 @@ class AgentRuntimeV2CompletionPoller(
             phase = job.phase,
             errorCode = job.errorCode,
             errorMessage = job.errorMessage,
+            attemptCount = job.attemptCount,
         )
         // Audits hebben geen trackerissue. AuditGatewayAdapter leest hetzelfde getypeerde
         // Runtime-resultaat en publiceert rapport/vraag/vervolgstory via de audit-pipeline.

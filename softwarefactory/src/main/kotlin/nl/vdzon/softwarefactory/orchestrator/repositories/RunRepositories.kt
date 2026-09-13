@@ -453,10 +453,11 @@ class JdbcAgentRunRepository(
     override fun activeRuns(): List<AgentRunRecord> =
         jdbcTemplate.query(
             """
-            SELECT id, story_run_id, role, container_name, started_at, ended_at, outcome, summary_text,
-                   model, effort, level, workspace_path, rate_limit_status, rate_limit_resets_at,
-                   rate_limit_overage_resets_at, subtask_key
-            FROM ${factorySecrets.factoryDatabaseSchema}.agent_runs
+            SELECT r.id, r.story_run_id, r.role, r.container_name, r.started_at, r.ended_at, r.outcome, r.summary_text,
+                   r.model, r.effort, r.level, r.workspace_path, r.rate_limit_status, r.rate_limit_resets_at,
+                   r.rate_limit_overage_resets_at, r.subtask_key, j.attempt_started_at AS runtime_attempt_started_at
+            FROM ${factorySecrets.factoryDatabaseSchema}.agent_runs r
+            LEFT JOIN ${factorySecrets.factoryDatabaseSchema}.agent_runtime_jobs j ON j.agent_run_id = r.id
             WHERE ended_at IS NULL
             ORDER BY started_at ASC, id ASC
             """.trimIndent(),
@@ -491,10 +492,11 @@ class JdbcAgentRunRepository(
         }
         return jdbcTemplate.query(
             """
-            SELECT id, story_run_id, role, container_name, started_at, ended_at, outcome, summary_text,
-                   model, effort, level, workspace_path, rate_limit_status, rate_limit_resets_at,
-                   rate_limit_overage_resets_at, subtask_key
-            FROM ${factorySecrets.factoryDatabaseSchema}.agent_runs
+            SELECT r.id, r.story_run_id, r.role, r.container_name, r.started_at, r.ended_at, r.outcome, r.summary_text,
+                   r.model, r.effort, r.level, r.workspace_path, r.rate_limit_status, r.rate_limit_resets_at,
+                   r.rate_limit_overage_resets_at, r.subtask_key, j.attempt_started_at AS runtime_attempt_started_at
+            FROM ${factorySecrets.factoryDatabaseSchema}.agent_runs r
+            LEFT JOIN ${factorySecrets.factoryDatabaseSchema}.agent_runtime_jobs j ON j.agent_run_id = r.id
             WHERE story_run_id = ? AND role = ?
             $quotaFilter
             ORDER BY started_at DESC, id DESC
@@ -603,17 +605,24 @@ class JdbcAgentRunRepository(
         phase: String,
         errorCode: String?,
         errorMessage: String?,
+        attemptCount: Int?,
     ) {
+        // Een hogere pogingenteller dan bekend = de Runtime is opnieuw begonnen: attempt_started_at
+        // op nu, zodat de harde time-out vanaf die nieuwe start telt (zie AgentRunRecord).
         jdbcTemplate.update(
             """
             UPDATE ${factorySecrets.factoryDatabaseSchema}.agent_runtime_jobs
-            SET runtime_status = ?, runtime_phase = ?, last_error_code = ?, last_error_message = ?, updated_at = now()
+            SET runtime_status = ?, runtime_phase = ?, last_error_code = ?, last_error_message = ?, updated_at = now(),
+                attempt_started_at = CASE WHEN ? > attempt_count THEN now() ELSE attempt_started_at END,
+                attempt_count = GREATEST(attempt_count, ?)
             WHERE runtime_job_id = ?::uuid
             """.trimIndent(),
             status,
             phase,
             errorCode,
             errorMessage,
+            attemptCount ?: 1,
+            attemptCount ?: 1,
             runtimeJobId,
         )
     }
@@ -661,6 +670,7 @@ private fun ResultSet.toAgentRunRecord(): AgentRunRecord =
         workspacePath = getString("workspace_path"),
         rateLimit = toAgentRunRateLimit(),
         subtaskKey = getString("subtask_key"),
+        runtimeAttemptStartedAt = getObject("runtime_attempt_started_at", OffsetDateTime::class.java),
     )
 
 private fun ResultSet.toAgentRunRateLimit(): AgentRunRateLimit? {

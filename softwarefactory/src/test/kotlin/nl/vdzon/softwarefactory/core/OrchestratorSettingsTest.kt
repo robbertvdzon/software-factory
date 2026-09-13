@@ -23,7 +23,7 @@ class OrchestratorSettingsTest {
         assertEquals(OrchestratorSettings.DEFAULT_MAX_DEVELOPER_LOOPBACKS, settings.maxDeveloperLoopbacks)
         assertEquals(OrchestratorSettings.DEFAULT_MAX_TEST_CHAIN_RESETS, settings.maxTestChainResets)
         assertEquals(2, settings.maxTransientRetries)
-        assertEquals(Duration.ofMinutes(60), settings.hardTimeout)
+        assertEquals(Duration.ofMinutes(180), settings.hardTimeout)
         assertEquals(Duration.ofMillis(60000), settings.activePhaseRecoveryDelay)
         assertEquals(Duration.ofMillis(300000), settings.costMonitorInterval)
         assertEquals(Duration.ofMinutes(30), settings.creditsPauseDefault)

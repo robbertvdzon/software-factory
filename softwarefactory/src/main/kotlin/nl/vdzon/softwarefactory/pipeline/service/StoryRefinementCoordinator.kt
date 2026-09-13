@@ -20,6 +20,7 @@ import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.hardTimeoutStart
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -381,7 +382,8 @@ class StoryRefinementCoordinator(
 
         val storyRun = storyRunRepository.openOrCreate(issue.key, issue.fields.targetRepo.orEmpty())
         val latestRun = agentRunRepository.latestForRole(storyRun.id, role)
-        val startedAt = issue.fields.agentStartedAt
+        // Zie hardTimeoutStart: een nieuwe Runtime-poging krijgt verse time-outtijd.
+        val startedAt = hardTimeoutStart(issue.fields.agentStartedAt, latestRun)
         val now = OffsetDateTime.now(clock)
 
         // Default-eindstatus bij succes en de reset-status bij retry, per stap.

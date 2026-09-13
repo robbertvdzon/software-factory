@@ -16,6 +16,7 @@ import nl.vdzon.softwarefactory.core.contracts.CompletionProgress
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.hardTimeoutStart
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import nl.vdzon.softwarefactory.config.ProjectRepositoryCatalog
 import org.slf4j.LoggerFactory
@@ -491,9 +492,12 @@ class SubtaskExecutionCoordinator(
      */
     private fun recoverActiveSubtaskPhase(subtask: TrackerIssue, active: SubtaskPhase): IssueProcessResult {
         val parentKey = issueTrackerClient.parentStoryKey(subtask.key)
-        val startedAt = subtask.fields.agentStartedAt
         val now = OffsetDateTime.now(clock)
-        // Hard timeout (per subtask-run): hangende agent → permanente Error (stalt de keten).
+        val storyRun = parentKey?.let { storyRunRepository.openOrCreate(it, subtask.fields.targetRepo.orEmpty()) }
+        val latestRun = storyRun?.let { run -> active.activeRole?.let { agentRunRepository.latestForRole(run.id, it) } }
+        // Hard timeout (per Runtime-poging, zie hardTimeoutStart): hangende agent → permanente
+        // Error (stalt de keten).
+        val startedAt = hardTimeoutStart(subtask.fields.agentStartedAt, latestRun)
         if (startedAt != null && startedAt.plus(settings.hardTimeout).isBefore(now)) {
             parentKey?.let { runCatching { agentRuntime.killForStory(it) } }
             val message = "[ORCHESTRATOR] Hard timeout: subtask hangt langer dan " +
@@ -510,8 +514,6 @@ class SubtaskExecutionCoordinator(
         // als 'hangend' beschouwen. De container kan al gestopt zijn terwijl de completion-poller
         // het resultaat nog niet heeft ingelezen; in dat gat is de tracker-fase nog "developing".
         if (parentKey != null) {
-            val storyRun = storyRunRepository.openOrCreate(parentKey, subtask.fields.targetRepo.orEmpty())
-            val latestRun = agentRunRepository.latestForRole(storyRun.id, role)
             if (latestRun != null && latestRun.endedAt == null) {
                 return IssueProcessResult.Skipped(subtask.key, "awaiting-agent-completion")
             }
