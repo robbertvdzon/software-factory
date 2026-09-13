@@ -19,4 +19,4 @@ images:
   newTag: sha-f91408e
 - name: ghcr.io/robbertvdzon/software-factory-frontend
   newName: ghcr.io/robbertvdzon/software-factory-frontend
-  newTag: sha-b3f017c
+  newTag: sha-f91408e
