@@ -19,4 +19,4 @@ images:
   newTag: sha-8a6b12c
 - name: ghcr.io/robbertvdzon/software-factory-frontend
   newName: ghcr.io/robbertvdzon/software-factory-frontend
-  newTag: sha-8a6b12c
+  newTag: sha-b1e438e
