@@ -90,7 +90,9 @@ class TestAgentRuntime(
             remote.latestCommitSha(branch).let { it to null }
         }
         return result.copy(
-            runtimeRepositoryResult = RuntimeRepositoryResult(
+            // Net als de echte Runtime: bij een rode verificatie wordt niets gecommit en ontbreekt
+            // het repositoryResult volledig.
+            runtimeRepositoryResult = if (verificationFailed) null else RuntimeRepositoryResult(
                 alias = RUNTIME_ALIAS,
                 branch = branch,
                 checkoutCommitSha = checkoutSha,

@@ -61,6 +61,8 @@ import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import nl.vdzon.softwarefactory.runtime.v2.RuntimePublicationStatus
 import nl.vdzon.softwarefactory.runtime.v2.RuntimeRepositoryResult
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeVerificationCommandResult
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeVerificationCommandStatus
 import nl.vdzon.softwarefactory.runtime.v2.RuntimeVerificationResult
 import nl.vdzon.softwarefactory.runtime.v2.RuntimeVerificationStatus
 
@@ -144,6 +146,71 @@ class AgentRunCompletionServiceTest {
 
         assertTrue(issueTracker.updates.single().values[TrackerField.ERROR].toString().contains("repositoryalias"))
         assertFalse(issueTracker.updates.any { TrackerField.SUBTASK_PHASE in it.values || TrackerField.AI_PHASE in it.values })
+    }
+
+    @Test
+    fun `runtime push with only path-skipped verification commands is accepted`() {
+        val issueTracker = FakeTrackerApi()
+        val pullRequests = FakeGitHubApi()
+        val service = runtimeCompletionService(
+            runs = FakeAgentRunRepository(workspacePath = null),
+            issueTracker = issueTracker,
+            pullRequests = pullRequests,
+            projectCatalog = FakeProjectCatalog("sample-build-project"),
+        )
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "developer",
+                containerName = "11111111-1111-1111-1111-111111111111",
+                outcome = "developed",
+                phase = "developed",
+                runtimeRepositoryResult = pushedRepositoryResult(),
+                runtimeVerificationResult = RuntimeVerificationResult(
+                    status = RuntimeVerificationStatus.SKIPPED,
+                    configVersion = 1,
+                    agentRounds = 1,
+                    commands = listOf(skippedCommand("backend-maven-verify"), skippedCommand("frontend-flutter-test")),
+                ),
+            ),
+        )
+
+        assertFalse(issueTracker.updates.any { it.values[TrackerField.ERROR] != null })
+        assertTrue(issueTracker.updates.any { it.values[TrackerField.SUBTASK_PHASE] == "developed" })
+        assertEquals(1, pullRequests.remotePrRequests.size)
+    }
+
+    @Test
+    fun `red developer verification without repository result loops back to development-rejected`() {
+        val issueTracker = FakeTrackerApi()
+        val pullRequests = FakeGitHubApi()
+        val service = runtimeCompletionService(
+            runs = FakeAgentRunRepository(workspacePath = null),
+            issueTracker = issueTracker,
+            pullRequests = pullRequests,
+            projectCatalog = FakeProjectCatalog("sample-build-project"),
+        )
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "developer",
+                containerName = "11111111-1111-1111-1111-111111111111",
+                outcome = "development-rejected",
+                phase = "development-rejected",
+                runtimeRepositoryResult = null,
+                runtimeVerificationResult = RuntimeVerificationResult(
+                    status = RuntimeVerificationStatus.FAILED,
+                    configVersion = 1,
+                    agentRounds = 4,
+                ),
+            ),
+        )
+
+        assertFalse(issueTracker.updates.any { it.values[TrackerField.ERROR] != null })
+        assertTrue(issueTracker.updates.any { it.values[TrackerField.SUBTASK_PHASE] == "development-rejected" })
+        assertTrue(pullRequests.remotePrRequests.isEmpty())
     }
 
     @Test
@@ -923,6 +990,13 @@ class AgentRunCompletionServiceTest {
         checkoutCommitSha = "a".repeat(40),
         publicationStatus = RuntimePublicationStatus.PUSHED,
         commitSha = "b".repeat(40),
+    )
+
+    private fun skippedCommand(id: String) = RuntimeVerificationCommandResult(
+        id = id,
+        argv = listOf("true"),
+        status = RuntimeVerificationCommandStatus.SKIPPED,
+        durationMillis = 0,
     )
 
     private fun passedRuntimeVerification() = RuntimeVerificationResult(

@@ -17,20 +17,33 @@ class AgentRuntimeV2ResultMapper {
         result: RuntimeJobResultView,
     ): AgentRunCompleteRequest {
         val payload = result.result
-        val verificationFailed = result.verificationResult?.status in FAILED_VERIFICATION_STATUSES
-        val phase = if (verificationFailed && role == AgentRole.DEVELOPER) {
-            "development-rejected"
-        } else {
-            payload.text("phase")
-        }
+        val verification = result.verificationResult
+        val verificationFailed = verification?.blocksPublication() == true
+        // Alleen de developer heeft een domeinloopback (development-rejected). Voor andere muterende
+        // rollen (documenter) is een rode verificatie een gewone mislukte run met zichtbare Error:
+        // de agentfase ("documented") mag niet doorschuiven terwijl er niets gepusht is.
+        val developerLoopback = verificationFailed && role == AgentRole.DEVELOPER
+        val verificationFailure = verificationFailed && !developerLoopback
         return AgentRunCompleteRequest(
             storyKey = storyKey,
             role = role.markerKeyPart,
             containerName = runtimeJobId,
-            phase = phase,
-            outcome = if (verificationFailed) "development-rejected" else payload.text("outcome") ?: job.status.name.lowercase(),
-            summaryText = verificationSummary(summaryWithQuestions(payload), result.verificationResult),
-            exitCode = if (job.status == RuntimeJobStatus.SUCCEEDED || verificationFailed) 0 else 1,
+            phase = when {
+                developerLoopback -> "development-rejected"
+                verificationFailure -> null
+                else -> payload.text("phase")
+            },
+            outcome = when {
+                developerLoopback -> "development-rejected"
+                verificationFailure -> "verification-failed"
+                else -> payload.text("outcome") ?: job.status.name.lowercase()
+            },
+            summaryText = if (verificationFailure) {
+                verificationFailureSummary(runtimeJobId, requireNotNull(verification))
+            } else {
+                verificationSummary(summaryWithQuestions(payload), verification)
+            },
+            exitCode = if (!verificationFailure && (job.status == RuntimeJobStatus.SUCCEEDED || developerLoopback)) 0 else 1,
             inputTokens = result.usageSummary.metric("INPUT_TOKENS"),
             outputTokens = result.usageSummary.metric("OUTPUT_TOKENS"),
             cacheReadInputTokens = result.usageSummary.metric("CACHE_READ_INPUT_TOKENS"),
@@ -104,6 +117,20 @@ class AgentRuntimeV2ResultMapper {
         return listOfNotNull(summary, evidence).joinToString("\n\n")
     }
 
+    /**
+     * Bewust zonder output-tails: die belanden in het Error-veld en de faalclassificatie
+     * (AgentFailurePolicy) zou op willekeurige woorden als "quota" of "rate limit" in buildoutput
+     * kunnen aanslaan. De volledige tails staan in het opgeslagen Runtime-resultaat van de job.
+     */
+    private fun verificationFailureSummary(runtimeJobId: String, verification: RuntimeVerificationResult): String {
+        val red = verification.commands
+            .filter { it.status == RuntimeVerificationCommandStatus.FAILED || it.status == RuntimeVerificationCommandStatus.TIMEOUT }
+            .joinToString(", ") { "${it.id} (${it.status}, exitCode=${it.exitCode ?: "none"})" }
+            .ifBlank { "geen commando-details" }
+        return "Repositoryverificatie bleef ${verification.status} na ${verification.agentRounds} agentronde(s); " +
+            "er is niets gecommit of gepusht. Rood: $red. Output staat in het Runtime-resultaat van job $runtimeJobId."
+    }
+
     private fun summaryWithQuestions(payload: JsonNode): String? {
         val summary = payload.text("summaryText")
         val questions = payload.path("questions").mapNotNull { it.asText().takeIf(String::isNotBlank) }
@@ -112,14 +139,5 @@ class AgentRuntimeV2ResultMapper {
             summary,
             questions.joinToString(prefix = "Vragen:\n- ", separator = "\n- "),
         ).joinToString("\n\n")
-    }
-
-    companion object {
-        private val FAILED_VERIFICATION_STATUSES = setOf(
-            RuntimeVerificationStatus.FAILED,
-            RuntimeVerificationStatus.CONFIG_MISSING,
-            RuntimeVerificationStatus.CONFIG_INVALID,
-            RuntimeVerificationStatus.TIMEOUT,
-        )
     }
 }

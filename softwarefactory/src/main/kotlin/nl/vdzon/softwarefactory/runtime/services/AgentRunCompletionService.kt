@@ -32,7 +32,6 @@ import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
 import nl.vdzon.softwarefactory.core.contracts.StoryRunPullRequestUpdate
 import nl.vdzon.softwarefactory.runtime.v2.RuntimePublicationStatus
 import nl.vdzon.softwarefactory.runtime.v2.RuntimeArtifactApi
-import nl.vdzon.softwarefactory.runtime.v2.RuntimeVerificationStatus
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.beans.factory.annotation.Autowired
@@ -382,11 +381,14 @@ class AgentRunCompletionService(
     ): Boolean {
         val storyRun = storyRunRepository.get(completed.storyRunId)
             ?: return repositoryFailure(request, role, "Story-run ${completed.storyRunId} ontbreekt")
+        val verification = request.runtimeVerificationResult
         val repository = request.runtimeRepositoryResult
-            ?: return if (request.isSuccessful()) {
-                repositoryFailure(request, role, "Agent Runtime leverde geen repositoryResult")
-            } else {
+            ?: return if (!request.isSuccessful() || verification?.blocksPublication() == true) {
+                // Bij een rode verificatie publiceert de Runtime niets en stuurt hij ook geen
+                // repositoryResult mee; de developer-loopback (development-rejected) moet dan door.
                 true
+            } else {
+                repositoryFailure(request, role, "Agent Runtime leverde geen repositoryResult")
             }
         if (!hasExpectedRuntimeAlias(storyRun.targetRepo, repository.alias)) {
             return repositoryFailure(request, role, "Runtime rapporteerde onverwachte repositoryalias '${repository.alias}'")
@@ -405,9 +407,8 @@ class AgentRunCompletionService(
             return validateReadOnlyRuntimeRepository(request, completed, role)
         }
 
-        val verification = request.runtimeVerificationResult
         if (!request.isSuccessful()) {
-            return if (verification?.status != RuntimeVerificationStatus.PASSED &&
+            return if (verification?.permitsPublication() != true &&
                 repository.publicationStatus == RuntimePublicationStatus.PUSHED
             ) {
                 repositoryFailure(request, role, "Runtime pushte ondanks mislukte job of rode verificatie")
@@ -415,7 +416,7 @@ class AgentRunCompletionService(
                 true
             }
         }
-        if (verification?.status != RuntimeVerificationStatus.PASSED) {
+        if (verification?.permitsPublication() != true) {
             if (repository.publicationStatus == RuntimePublicationStatus.PUSHED) {
                 return repositoryFailure(request, role, "Runtime pushte ondanks rode of ontbrekende verificatie")
             }

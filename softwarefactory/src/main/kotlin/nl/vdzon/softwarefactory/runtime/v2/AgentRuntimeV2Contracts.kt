@@ -167,7 +167,28 @@ data class RuntimeVerificationResult(
     val configVersion: Int? = null,
     val agentRounds: Int,
     val commands: List<RuntimeVerificationCommandResult> = emptyList(),
-)
+) {
+    /** Rode verificatie: de Runtime commit/pusht dan niets en levert geen repositoryResult. */
+    fun blocksPublication(): Boolean = status in BLOCKING_STATUSES
+
+    /**
+     * Mag er gepubliceerd zijn? PASSED, of SKIPPED doordat geen enkel commando bij de gewijzigde
+     * paden hoorde (bv. alleen docs/worklog). De Runtime publiceert in beide gevallen.
+     */
+    fun permitsPublication(): Boolean = status == RuntimeVerificationStatus.PASSED ||
+        (status == RuntimeVerificationStatus.SKIPPED &&
+            commands.isNotEmpty() &&
+            commands.all { it.status == RuntimeVerificationCommandStatus.SKIPPED })
+
+    private companion object {
+        val BLOCKING_STATUSES = setOf(
+            RuntimeVerificationStatus.FAILED,
+            RuntimeVerificationStatus.CONFIG_MISSING,
+            RuntimeVerificationStatus.CONFIG_INVALID,
+            RuntimeVerificationStatus.TIMEOUT,
+        )
+    }
+}
 
 data class RuntimeVerificationCommandResult(
     val id: String,

@@ -53,6 +53,45 @@ class AgentRuntimeV2ResultMapperTest {
     }
 
     @Test
+    fun `rode documenterverificatie wordt een zichtbare mislukte run zonder fasewissel`() {
+        val jobId = UUID.fromString("33333333-3333-3333-3333-333333333333")
+        val result = mapper.completed(
+            storyKey = "SF-43",
+            role = AgentRole.DOCUMENTER,
+            runtimeJobId = jobId.toString(),
+            job = job(jobId, RuntimeJobStatus.FAILED),
+            result = RuntimeJobResultView(
+                jobId = jobId,
+                result = json.readTree("""{"phase":"documented","outcome":"Documentatie bijgewerkt","summaryText":"Klaar"}"""),
+                verificationResult = RuntimeVerificationResult(
+                    status = RuntimeVerificationStatus.FAILED,
+                    configVersion = 1,
+                    agentRounds = 4,
+                    commands = listOf(
+                        RuntimeVerificationCommandResult(
+                            id = "admin-flutter-analyze",
+                            argv = listOf("flutter", "analyze"),
+                            status = RuntimeVerificationCommandStatus.FAILED,
+                            exitCode = 1,
+                            durationMillis = 50,
+                            outputTail = "rate limit quota noise",
+                        ),
+                    ),
+                ),
+                usageSummary = RuntimeUsageSummary(1, "MEASURED"),
+                completedAt = OffsetDateTime.parse("2026-09-11T07:00:00Z"),
+            ),
+        )
+
+        assertEquals(null, result.phase)
+        assertEquals("verification-failed", result.outcome)
+        assertEquals(1, result.exitCode)
+        assertTrue(!result.isSuccessful())
+        assertTrue(result.summaryText.orEmpty().contains("admin-flutter-analyze (FAILED, exitCode=1)"), result.summaryText)
+        assertTrue(!result.summaryText.orEmpty().contains("quota"), result.summaryText)
+    }
+
+    @Test
     fun `result artifacts blijven als immutable objectrefs beschikbaar voor completion`() {
         val jobId = UUID.fromString("33333333-3333-3333-3333-333333333333")
         val artifact = RuntimeOutputObject(
