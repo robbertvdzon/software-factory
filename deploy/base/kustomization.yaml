@@ -17,6 +17,6 @@ images:
   newTag: sha-cc6db36
 - name: ghcr.io/robbertvdzon/software-factory-frontend
   newName: ghcr.io/robbertvdzon/software-factory-frontend
-  newTag: sha-bca50d5
+  newTag: sha-cc6db36
 patches:
 - path: agent-access-patch.yaml
