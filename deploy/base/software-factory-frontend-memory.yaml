@@ -1,0 +1,15 @@
+# Container memory includes heap, metaspace, stacks and native buffers.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: software-factory-frontend
+spec:
+  template:
+    spec:
+      containers:
+      - name: app
+        resources:
+          requests:
+            memory: 32Mi
+          limits:
+            memory: 64Mi

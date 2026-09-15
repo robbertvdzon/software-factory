@@ -1,0 +1,18 @@
+# Container memory includes heap, metaspace, stacks and native buffers.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: software-factory-backend
+spec:
+  template:
+    spec:
+      containers:
+      - name: app
+        resources:
+          requests:
+            memory: 384Mi
+          limits:
+            memory: 640Mi
+        env:
+        - name: JAVA_TOOL_OPTIONS
+          value: -Xmx256m -XX:+UseG1GC

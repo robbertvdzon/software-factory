@@ -20,3 +20,5 @@ images:
   newTag: sha-1ead0a4
 patches:
 - path: agent-access-patch.yaml
+- path: backend-memory.yaml
+- path: software-factory-frontend-memory.yaml
