@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: software-factory-backend
+spec:
+  template:
+    metadata:
+      labels:
+        postgres.vdzonsoftware.nl/client: 'true'
+    spec:
+      containers:
+      - name: app
+        env:
+        - name: SF_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: central-postgres
+              key: custom-url
+            configMapKeyRef: null
+          value: null
+        - name: SF_DATABASE_USER
+          valueFrom:
+            secretKeyRef:
+              name: central-postgres
+              key: username
+            configMapKeyRef: null
+          value: null
+        - name: SF_DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: central-postgres
+              key: password
+            configMapKeyRef: null
+          value: null
+        - name: SPRING_DATASOURCE_URL
+          valueFrom:
+            secretKeyRef:
+              name: central-postgres
+              key: url
+            configMapKeyRef: null
+          value: null
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: central-postgres
+              key: username
+            configMapKeyRef: null
+          value: null
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: central-postgres
+              key: password
+            configMapKeyRef: null
+          value: null
+        - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
+          value: '5'
+        - name: SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE
+          value: '1'
+        volumeMounts:
+        - name: central-postgres-ca
+          mountPath: /etc/postgres-ca
+          readOnly: true
+      volumes:
+      - name: central-postgres-ca
+        secret:
+          secretName: central-postgres
+          items:
+          - key: ca.crt
+            path: ca.crt

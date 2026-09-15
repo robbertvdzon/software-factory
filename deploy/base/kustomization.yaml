@@ -11,6 +11,7 @@ resources:
 - software-factory-frontend-service.yaml
 - software-factory-route.yaml
 - sealed-secret-ai-access.yaml
+- sealed-central-postgres.yaml
 images:
 - name: ghcr.io/robbertvdzon/software-factory-backend
   newName: ghcr.io/robbertvdzon/software-factory-backend
@@ -22,3 +23,5 @@ patches:
 - path: agent-access-patch.yaml
 - path: backend-memory.yaml
 - path: software-factory-frontend-memory.yaml
+- path: central-postgres-patch.yaml
+- path: sf_prod-retired-database.yaml
