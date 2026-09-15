@@ -14,7 +14,7 @@ resources:
 images:
 - name: ghcr.io/robbertvdzon/software-factory-backend
   newName: ghcr.io/robbertvdzon/software-factory-backend
-  newTag: sha-b1e438e
+  newTag: sha-22664ae
 - name: ghcr.io/robbertvdzon/software-factory-frontend
   newName: ghcr.io/robbertvdzon/software-factory-frontend
   newTag: sha-b1e438e
