@@ -1,0 +1,17 @@
+# Preserve the existing dashboard hostname as a managed alias.
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: software-factory-frontend
+spec:
+  host: dashboard.vdzonsoftware.nl
+  port:
+    targetPort: http
+  tls:
+    insecureEdgeTerminationPolicy: Allow
+    termination: edge
+  to:
+    kind: Service
+    name: software-factory-frontend
+    weight: 100
+  wildcardPolicy: None

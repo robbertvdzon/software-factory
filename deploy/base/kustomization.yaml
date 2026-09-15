@@ -12,6 +12,7 @@ resources:
 - software-factory-route.yaml
 - sealed-secret-ai-access.yaml
 - sealed-central-postgres.yaml
+- route-dashboard-alias.yaml
 images:
 - name: ghcr.io/robbertvdzon/software-factory-backend
   newName: ghcr.io/robbertvdzon/software-factory-backend
