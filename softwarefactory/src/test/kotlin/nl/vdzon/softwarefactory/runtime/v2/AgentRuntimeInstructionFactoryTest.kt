@@ -82,6 +82,16 @@ class AgentRuntimeInstructionFactoryTest {
         assertFalse(summarizer.at("/additionalProperties").asBoolean(true))
     }
 
+    @Test
+    fun `outcome kan geen akkoordrapport met nul errors als fout laten classificeren`() {
+        RUNTIME_ROLES.forEach { role ->
+            val allowed = factory.resultSchema(role).at("/properties/outcome/enum").map { it.asText() }
+            assertEquals(listOf("success", "error"), allowed)
+            assertFalse("Alle criteria akkoord, 0 failures/errors" in allowed)
+            assertTrue(factory.instruction(request(role)).contains("nooit een samenvatting"))
+        }
+    }
+
     private fun assertStrictObject(schema: com.fasterxml.jackson.databind.JsonNode) {
         val properties = schema.path("properties").fieldNames().asSequence().toSet()
         val required = schema.path("required").map { it.asText() }.toSet()

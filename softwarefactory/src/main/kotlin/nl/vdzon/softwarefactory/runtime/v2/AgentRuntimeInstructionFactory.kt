@@ -73,7 +73,10 @@ class AgentRuntimeInstructionFactory(
     fun resultSchema(role: AgentRole): JsonNode {
         val properties = objectMapper.createObjectNode().apply {
             set<JsonNode>("phase", phaseSchema(role))
-            set<JsonNode>("outcome", stringSchema())
+            set<JsonNode>("outcome", objectMapper.createObjectNode().apply {
+                put("type", "string")
+                set<JsonNode>("enum", objectMapper.valueToTree(listOf("success", "error")))
+            })
             set<JsonNode>("summaryText", stringSchema(maxLength = 200_000))
             set<JsonNode>("questions", arraySchema(stringSchema(maxLength = 4_000), 50))
             set<JsonNode>("knowledgeUpdates", arraySchema(knowledgeUpdateSchema(), 100))
@@ -109,6 +112,7 @@ class AgentRuntimeInstructionFactory(
         appendLine("- Antwoorden uit relevante issue-comments zijn leidend wanneer ze botsen met oudere context.")
         appendLine("- Zet herbruikbare nieuwe kennis in `knowledgeUpdates`; gebruik een lege lijst als er niets is.")
         appendLine("- Vul altijd `phase`, `outcome` en een concrete `summaryText` in volgens het resultaatschema.")
+        appendLine("- `outcome` is uitsluitend de technische status `success` of `error`, nooit een samenvatting. Gebruik `success` als de opdracht is uitgevoerd, ook bij een inhoudelijke afkeuring: die staat in `phase` (bijvoorbeeld `test-rejected`). Gebruik `error` als uitvoering door een fout of ontbrekende testvoorwaarde blokkeert. Zet aantallen fouten en alle toelichting uitsluitend in `summaryText`.")
         if (request.role in REPOSITORY_ROLES) {
             appendLine("- Werk uitsluitend in de door Agent Runtime voorbereide checkout.")
             appendLine("- Laat relevante tests groen achter.")
