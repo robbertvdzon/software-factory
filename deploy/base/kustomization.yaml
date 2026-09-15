@@ -17,6 +17,6 @@ images:
   newTag: sha-22664ae
 - name: ghcr.io/robbertvdzon/software-factory-frontend
   newName: ghcr.io/robbertvdzon/software-factory-frontend
-  newTag: sha-22664ae
+  newTag: sha-bca50d5
 patches:
 - path: agent-access-patch.yaml
