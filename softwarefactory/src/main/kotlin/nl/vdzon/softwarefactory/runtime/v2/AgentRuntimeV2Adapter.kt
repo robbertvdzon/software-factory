@@ -53,7 +53,7 @@ class AgentRuntimeV2Adapter(
                 } else {
                     null
                 },
-                environmentKeys = emptyList(),
+                environmentKeys = TestAccessPolicy.selected(request.role, request.targetRepo, runtimeSettings.testAccessKeys),
                 executionTimeoutSeconds = settings.hardTimeout.seconds.toInt().coerceIn(600, 86_400),
             ),
         )

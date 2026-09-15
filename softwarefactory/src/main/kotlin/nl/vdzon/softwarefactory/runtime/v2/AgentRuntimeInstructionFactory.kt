@@ -25,6 +25,12 @@ class AgentRuntimeInstructionFactory(
         request.aiEffort?.takeIf(String::isNotBlank)?.let { appendLine("Gevraagde effort: `$it`") }
         appendLine()
         appendLine(commonRules(request))
+        if (request.role == AgentRole.TESTER) {
+            appendLine("Test functioneel uitsluitend in de toegewezen preview of acceptatieomgeving. Productie is beperkt tot publieke, alleen-lezen smokechecks; geen login, testdata of database-/clustertoegang als omweg.")
+            appendLine("Controleer eerst doel-URL, draaiende revision, testidentiteit/rol en benodigde integraties. Ontbrekende omgeving, login of integratie is een blokkade: keur niet goed en beweer geen productbug zonder bewijs.")
+            appendLine("Gebruik docs/agent-access.md en alleen de toegewezen niet-productiecredential uit /job/secrets/secrets.env. Print of log tokens nooit. Controleer de revision ook na de test: een tussentijdse deployment maakt het bewijs ongeldig.")
+            appendLine("Gebruik deterministische integratiefixtures voor previewtests; controleer echte Europeana-toegang apart op acceptatie. Vraag deployment via de factory/control plane; gebruik geen eigen cluster- of GitHub-credential.")
+        }
         appendLine()
         appendLine(AgentRuntimeRoleInstructions.forRole(request.role, request.questionsAllowed))
         request.developerLoopbackReason?.takeIf(String::isNotBlank)?.let {

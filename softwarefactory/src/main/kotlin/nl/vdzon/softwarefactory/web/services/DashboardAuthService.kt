@@ -59,6 +59,12 @@ class DashboardAuthService(
      * Valideert het Bearer-sessietoken en geeft de identiteit (het allowlisted e-mailadres) terug.
      * Gooit HTTP 401 bij een ontbrekend, ongeldig, verlopen of niet-allowlisted token.
      */
+    fun loginForAgent(email: String): DashboardLogin {
+        if (email !in secrets.allowedEmails) throw ResponseStatusException(HttpStatus.FORBIDDEN, "Identity is not allowed")
+        val expiresAt = Instant.now().plusSeconds(3600).epochSecond
+        return DashboardLogin(token = token(signingSecret() ?: throw ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE), email, expiresAt), username = email)
+    }
+
     fun requireAuthorization(header: String?): String {
         if (header == null || !header.startsWith("Bearer ")) {
             throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing bearer token")

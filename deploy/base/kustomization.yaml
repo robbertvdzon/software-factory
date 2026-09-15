@@ -1,8 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-
 namespace: software-factory
-
 resources:
 - sealed-secret.yaml
 - database.yaml
@@ -12,7 +10,7 @@ resources:
 - software-factory-frontend-deployment.yaml
 - software-factory-frontend-service.yaml
 - software-factory-route.yaml
-
+- sealed-secret-ai-access.yaml
 images:
 - name: ghcr.io/robbertvdzon/software-factory-backend
   newName: ghcr.io/robbertvdzon/software-factory-backend
@@ -20,3 +18,5 @@ images:
 - name: ghcr.io/robbertvdzon/software-factory-frontend
   newName: ghcr.io/robbertvdzon/software-factory-frontend
   newTag: sha-b1e438e
+patches:
+- path: agent-access-patch.yaml

@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: software-factory-backend
+spec:
+  template:
+    metadata:
+      annotations:
+        ai-access.vdzonsoftware.nl/config-version: '2026-09-15'
+    spec:
+      containers:
+      - name: app
+        env:
+        - name: AI_ACCESS_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: ai-access
+              key: AI_ACCESS_TOKEN
+        - name: AI_ACCESS_EMAILS
+          valueFrom:
+            secretKeyRef:
+              name: ai-access
+              key: AI_ACCESS_EMAILS
+        - name: AI_ACCESS_ALLOWED_ORIGINS
+          valueFrom:
+            secretKeyRef:
+              name: ai-access
+              key: AI_ACCESS_ALLOWED_ORIGINS
+        - name: SF_TEST_ACCESS_KEYS
+          value: robbertvdzon/hkh=HKH__PREVIEW_AGENT_TOKEN,robbertvdzon/hkh-autopilot=HKH_AUTOPILOT__PREVIEW_AGENT_TOKEN,robbertvdzon/pvdd=PVDD__ACCEPTANCE_AGENT_TOKEN,robbertvdzon/product-factory=PRODUCT_FACTORY__ACCEPTANCE_AGENT_TOKEN,robbertvdzon/robberts-assistent=ROBBERTS_ASSISTENT__PREVIEW_AGENT_TOKEN,robbertvdzon/personal-news-feed-by-claude-code=PERSONAL_NEWS_FEED_BY_CLAUDE_CODE__PREVIEW_AGENT_TOKEN

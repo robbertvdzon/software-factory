@@ -42,7 +42,7 @@ class FactoryVersionService(
     }
 
     private fun capture(): FactoryVersionInfo =
-        if (Files.isDirectory(root.resolve(".git"))) captureFromGit() else captureFromBuildInfo()
+        if (Files.exists(root.resolve(".git"))) captureFromGit() else captureFromBuildInfo()
 
     private fun captureFromGit(): FactoryVersionInfo {
         // %h=short sha, %s=subject, %ci=commit-datum; velden gescheiden door unit-separator (0x1f).

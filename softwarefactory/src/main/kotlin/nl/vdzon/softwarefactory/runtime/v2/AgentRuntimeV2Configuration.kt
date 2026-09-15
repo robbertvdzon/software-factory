@@ -13,6 +13,7 @@ data class AgentRuntimeV2Settings(
     val token: String?,
     val pollInterval: Duration,
     val maxRepairAttempts: Int,
+    val testAccessKeys: Map<String, String> = emptyMap(),
 )
 
 @Configuration
@@ -27,6 +28,7 @@ class AgentRuntimeV2Configuration {
             pollInterval = Duration.ofMillis(
                 values["SF_AGENT_RUNTIME_POLL_MS"]?.toLongOrNull()?.takeIf { it >= 250 } ?: 2_000,
             ),
+            testAccessKeys = TestAccessPolicy.parse(values["SF_TEST_ACCESS_KEYS"].orEmpty()),
             maxRepairAttempts = values["SF_AGENT_RUNTIME_MAX_REPAIR_ATTEMPTS"]
                 ?.toIntOrNull()?.coerceIn(0, 5) ?: 3,
         )
