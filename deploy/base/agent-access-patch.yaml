@@ -27,4 +27,4 @@ spec:
               name: ai-access
               key: AI_ACCESS_ALLOWED_ORIGINS
         - name: SF_TEST_ACCESS_KEYS
-          value: robbertvdzon/hkh=HKH__PREVIEW_AGENT_TOKEN,robbertvdzon/hkh-autopilot=HKH_AUTOPILOT__PREVIEW_AGENT_TOKEN,robbertvdzon/pvdd=PVDD__ACCEPTANCE_AGENT_TOKEN,robbertvdzon/product-factory=PRODUCT_FACTORY__ACCEPTANCE_AGENT_TOKEN,robbertvdzon/robberts-assistent=ROBBERTS_ASSISTENT__PREVIEW_AGENT_TOKEN,robbertvdzon/personal-news-feed-by-claude-code=PERSONAL_NEWS_FEED_BY_CLAUDE_CODE__PREVIEW_AGENT_TOKEN
+          value: robbertvdzon/hkh=HKH__PREVIEW_AGENT_TOKEN,robbertvdzon/hkh-autopilot=HKH_AUTOPILOT__PREVIEW_AGENT_TOKEN,robbertvdzon/pvdd=PVDD__ACCEPTANCE_AGENT_TOKEN,robbertvdzon/product-factory=PF__ACCEPTANCE_AGENT_TOKEN,robbertvdzon/robberts-assistent=ROBBERTS_ASSISTENT__PREVIEW_AGENT_TOKEN,robbertvdzon/personal-news-feed-by-claude-code=PERSONAL_FEED__PREVIEW_AGENT_TOKEN
