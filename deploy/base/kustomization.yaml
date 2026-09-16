@@ -19,7 +19,7 @@ images:
   newTag: sha-e9f5238
 - name: ghcr.io/robbertvdzon/software-factory-frontend
   newName: ghcr.io/robbertvdzon/software-factory-frontend
-  newTag: sha-1ead0a4
+  newTag: sha-e9f5238
 patches:
 - path: agent-access-patch.yaml
 - path: backend-memory.yaml
