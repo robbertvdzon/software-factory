@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# Byte-ordening pinnen: de sort- en comm-stappen hieronder gaan uit van bytevolgorde, niet van de
+# collatie van de omgeving.
+export LC_ALL=C
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 REGISTER=architecture/composition-root-boundaries.txt

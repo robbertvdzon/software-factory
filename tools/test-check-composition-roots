@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Contracttest voor tools/check-composition-roots en het bijbehorende register.
 set -euo pipefail
+# Byte-ordening pinnen: de controle verderop legt de OPGESLAGEN ordening van het register naast een
+# verse `sort`. Onder en_US.UTF-8 negeert glibc interpunctie op het primaire niveau, waardoor
+# github/ voor git/ sorteert en een correct gesorteerd register als "niet alfabetisch" faalt.
+export LC_ALL=C
 root="$(cd "$(dirname "$0")/.." && pwd)"
 script="$root/tools/check-composition-roots"
 register="$root/architecture/composition-root-boundaries.txt"
