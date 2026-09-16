@@ -84,5 +84,11 @@ packagecache zonder een shell-string in `.factory/verification.yaml`.
 - Kotlin- en Dartproductiecode krijgt gerichte tests.
 - Module-API's staan in de moduleroot of als benoemde interface; implementaties blijven intern.
 - Gebruik `ConfigApi` in plaats van verspreide `System.getenv`-calls.
+- Shellscripts onder `tools/` die sorteren of geordende uitvoer vergelijken, pinnen de bytevolgorde
+  met `export LC_ALL=C` direct ná `set -euo pipefail`; anders bepaalt de locale van de omgeving de
+  uitkomst. Onder `en_US.UTF-8` negeert glibc interpunctie op het primaire niveau, waardoor een
+  vergelijking van een opgeslagen ordening met een verse `sort` een correct byte-gesorteerd bestand
+  als "niet alfabetisch" afkeurt. Pin ook scripts die vandaag beide kanten vers sorteren, zodat alle
+  gatescripts dezelfde ordening aanhouden.
 - Voeg nooit providercredentials of targetprojectsecrets aan prompts, logs, artifacts of tests toe.
 - Houd `docs/software-factory-v2/VOORTGANG.md` bij voor migratiebewijs en concrete gates.
