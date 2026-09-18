@@ -33,6 +33,9 @@ data class AgentDispatchRequest(
     val branchPrefix: String? = null,
     val prNumber: Int? = null,
     val previewUrl: String? = null,
+    val previewUrlTemplate: String? = null,
+    /** Alleen namen van toegewezen niet-productiesleutels, nooit waarden. */
+    val testerEnvironmentKeys: List<String> = emptyList(),
     val previewNamespace: String? = null,
     val previewDbUrl: String? = null,
     val developerLoopbackReason: String? = null,

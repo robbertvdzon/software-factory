@@ -505,6 +505,8 @@ class TelegramNotificationService(
             NotifyCategory.APPROVAL -> lines += listOf("", "↩️ Reply \"approve\" om goed te keuren, of typ feedback om terug te sturen.")
             NotifyCategory.MANUAL -> if (event.sourcePhase == SubtaskPhase.MANUAL_APPROVE_NEEDED.trackerValue) {
                 lines += listOf("", "↩️ Reply \"approve\" om goed te keuren, of typ een reden om af te keuren en de story opnieuw te starten.")
+            } else if (event.sourcePhase == SubtaskPhase.TEST_DECISION_NEEDED.trackerValue) {
+                lines += listOf("", "Open de story in het dashboard: bekijk het testrapport en kies toch doorgaan, gericht herstel of parkeren.")
             } else {
                 lines += listOf("", "↩️ Reply op dit bericht om als klaar te markeren.")
             }

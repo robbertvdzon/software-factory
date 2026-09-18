@@ -41,7 +41,9 @@ class AgentRuntimeV2Adapter(
                 jobKind = mapping.jobKind,
                 taskType = mapping.taskType,
                 execution = execution,
-                input = jobContent.input(idempotencyKey, request),
+                input = jobContent.input(idempotencyKey, request.copy(
+                    testerEnvironmentKeys = TestAccessPolicy.selected(AgentRole.TESTER, request.targetRepo, runtimeSettings.testAccessKeys),
+                )),
                 output = jobContent.output(request.role),
                 repositoryCheckout = repositoryCheckout,
                 verification = if (mapping.mutating) {

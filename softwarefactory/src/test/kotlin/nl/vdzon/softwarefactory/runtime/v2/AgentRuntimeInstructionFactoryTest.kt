@@ -14,6 +14,22 @@ class AgentRuntimeInstructionFactoryTest {
     private val factory = AgentRuntimeInstructionFactory(jacksonObjectMapper(), mock(KnowledgeApi::class.java))
 
     @Test
+    fun `testability contract survives questions disabled and includes configured preview capability`() {
+        val prompt = factory.instruction(request(AgentRole.TESTER).copy(questionsAllowed = false))
+        assertTrue(prompt.contains("test-decision-needed"))
+        assertTrue(prompt.contains("tested-with-limitations"))
+        assertTrue(prompt.contains("test-environment-repair"))
+        assertFalse(prompt.contains("keur niet goed"))
+        val phases = factory.resultSchema(AgentRole.TESTER).path("properties").path("phase").path("enum").map { it.asText() }
+        assertTrue(phases.containsAll(listOf("test-decision-needed", "tested-with-limitations", "test-environment-repair")))
+        assertFalse(phases.contains("test-repair-requested"))
+        val refinement = factory.instruction(request(AgentRole.REFINER).copy(previewUrlTemplate = "https://pr-{pr}.test"))
+        assertTrue(refinement.contains("https://pr-{pr}.test"))
+        assertTrue(refinement.contains("Testaanpak"))
+        assertTrue(refinement.contains("vóór merge"))
+    }
+
+    @Test
     fun `alle rolcontracten behouden hun kritieke gedragsregels`() {
         val expected = mapOf(
             AgentRole.REFINER to listOf("proposed-summary:start", "proposed-description:start"),

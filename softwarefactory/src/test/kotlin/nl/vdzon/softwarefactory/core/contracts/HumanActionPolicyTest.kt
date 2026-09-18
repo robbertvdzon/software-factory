@@ -9,6 +9,16 @@ import org.junit.jupiter.api.Test
 
 /** SF-1261 — as 2 (Goedkeuring): [HumanActionPolicy.autoApproveActive] op de nieuwe [ApprovalMode]-as. */
 class HumanActionPolicyTest {
+    @Test
+    fun `test decision is always manual while sufficient alternative evidence follows approval mode`() {
+        val decision = subtask(subtaskType = "test", subtaskPhase = "test-decision-needed")
+        assertEquals(HumanGate.MANUAL, HumanActionPolicy.gateFor(decision))
+        assertTrue(HumanActionPolicy.awaitsHuman(decision, autoApproveActive = true))
+        val limited = subtask(subtaskType = "test", subtaskPhase = "tested-with-limitations")
+        assertFalse(HumanActionPolicy.awaitsHuman(limited, autoApproveActive = true))
+        assertTrue(HumanActionPolicy.awaitsHuman(limited, autoApproveActive = false))
+    }
+
 
     @Test
     fun `story gebruikt het eigen approvalMode-veld`() {

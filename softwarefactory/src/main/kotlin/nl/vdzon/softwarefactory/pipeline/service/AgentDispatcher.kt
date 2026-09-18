@@ -235,6 +235,7 @@ class AgentDispatcher(
             branchPrefix = storyRun.branchPrefix,
             prNumber = storyRun.prNumber,
             previewUrl = previewUrl,
+            previewUrlTemplate = storyRun.previewUrlTemplate,
             previewNamespace = previewNamespace,
             // v2-subtaakflow geeft 'm expliciet mee (sourcePhase is daar altijd null); anders de
             // legacy story-niveau AiPhase-afleiding.

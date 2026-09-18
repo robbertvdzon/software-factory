@@ -178,6 +178,7 @@ internal object DashboardApiFixtures {
             orchestratorApi = orchestrator,
             repository = repository,
             previewApi = FakePreviewApi(),
+            testDecisions = org.mockito.Mockito.mock(nl.vdzon.softwarefactory.dashboard.services.TestDecisionService::class.java),
         )
         val projectResolver = ProjectConfiguration(emptyMap())
         val deployClient = ProjectDeployClient()

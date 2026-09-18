@@ -465,3 +465,23 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
   het normale `@factory:command:delete`-pad als `(CANCELLED)` naar Done gezet. Er is geen branch of
   PR voor `ai/SF-2428` gemaakt. De twee tijdelijk openstaande vraagkoppelingen en de
   notificatieregistratie van deze test zijn opgeruimd.
+
+## 2026-09-18 — Testbeperkingen en menselijke beslissingen
+
+- Refiner, planner, developer en tester delen een testaanpak: methode en middelen per criterium,
+  haalbare voorzieningen binnen de story, alternatief bewijs en eventuele controles na deployment.
+  De prompt bevat de previewconfiguratie en uitsluitend namen van toegekende niet-productiesleutels.
+- Testeruitkomsten onderscheiden aangetoonde fouten, herstelbare testvoorwaarden, voldoende
+  alternatief bewijs en structurele beperkingen. De derde afwijzing/herstelopdracht vraagt een
+  menselijke beslissing; structurele beperkingen doen dat direct. Vragen/quota/jobfouten tellen niet mee.
+- Het dashboard toont het rapport met Toch doorgaan, Gericht herstel aanvragen en Parkeren.
+  Doorgaan vereist een reden en een ongewijzigde remote commit; het besluit vermeldt testrun en SHA.
+  Gericht herstel geeft het rapport plus de menselijke opdracht aan één nieuwe ontwikkelronde mee.
+- V42 bewaart inhoudelijke fase en checkout-SHA naast de technische runstatus, inclusief backfill
+  uit bestaande Runtime-resultaten. Een PostgreSQL-migratietest controleert upgrade, tellen per
+  testsubtaak en behoud na het opruimen van completion-payloads.
+- Verificatie: volledige `mvn verify` geslaagd (905 app-unit-/componenttests en 91 integratietests,
+  plus factory-common-tests), Flutter-analyse en alle 191 frontendtests groen, documentatie-audit
+  geslaagd. Ketentests dekken de derde afwijzing plus menselijke vrijgave en een directe
+  structurele beperking gevolgd door gericht herstel en voldoende alternatief bewijs.
+  Geen bestaande productiestory automatisch vrijgegeven of herstart.

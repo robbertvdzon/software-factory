@@ -12,7 +12,7 @@ import nl.vdzon.softwarefactory.core.AgentRole
  *
  * De agent produceert altijd de "kale" eindfasen (`refined`, `developed`, `reviewed`, `tested`,
  * `summarized`); de **approve/reject-gate** ligt daarna bij de orchestrator (auto-approve) of de
- * gebruiker (via de UI). Rejects worden dus via de UI gedreven, niet via dit script.
+ * gebruiker (via de UI). Testerafwijzingen en beperkingen kunnen via testerPhases worden gescript; overige rejects komen via de UI.
  *
  * De `attempt`-teller telt per `(serializationKey, role)` op vanaf 1 (bijgehouden door
  * [TestAgentRuntime]), zodat dezelfde rol eerst een vraag kan stellen en bij de vervolg-dispatch
@@ -26,6 +26,7 @@ class AgentScript {
     var developerAsksQuestion: Boolean = true
     var reviewerAsksQuestion: Boolean = false
     var testerAsksQuestion: Boolean = false
+    var testerPhases: List<String> = emptyList()
     var summarizerAsksQuestion: Boolean = false
     var documenterAsksQuestion: Boolean = false
 
@@ -80,7 +81,7 @@ class AgentScript {
             AgentRole.REVIEWER ->
                 base.withQuestionOr(reviewerAsksQuestion, attempt, "reviewed-with-questions", "Is deze review-aanpak akkoord?", resolved = "reviewed")
             AgentRole.TESTER ->
-                base.withQuestionOr(testerAsksQuestion, attempt, "tested-with-questions", "Welke testdekking verwacht je precies?", resolved = "tested")
+                base.withQuestionOr(testerAsksQuestion, attempt, "tested-with-questions", "Welke testdekking verwacht je precies?", resolved = testerPhases.getOrNull(attempt - 1) ?: testerPhases.lastOrNull() ?: "tested")
             AgentRole.SUMMARIZER ->
                 base.withQuestionOr(summarizerAsksQuestion, attempt, "summary-with-questions", "Moet de samenvatting ook de openstaande risico's bevatten?", resolved = "summarized")
             AgentRole.DOCUMENTER ->

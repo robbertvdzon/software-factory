@@ -44,6 +44,7 @@ class InMemoryAgentRunRepository : AgentRunRepository {
             effort = effort,
             level = level,
             workspacePath = workspacePath,
+            subtaskKey = subtaskKey,
         )
         return id
     }
@@ -102,6 +103,8 @@ class InMemoryAgentRunRepository : AgentRunRepository {
         summary: String,
         subtaskKey: String? = null,
         endedAt: OffsetDateTime = OffsetDateTime.now(),
+        resultPhase: String? = null,
+        checkoutCommitSha: String? = null,
     ) {
         val id = nextId++
         subtaskKeys[id] = subtaskKey
@@ -114,6 +117,9 @@ class InMemoryAgentRunRepository : AgentRunRepository {
             endedAt = endedAt,
             outcome = outcome,
             summaryText = summary,
+            subtaskKey = subtaskKey,
+            resultPhase = resultPhase,
+            checkoutCommitSha = checkoutCommitSha,
         )
     }
 }

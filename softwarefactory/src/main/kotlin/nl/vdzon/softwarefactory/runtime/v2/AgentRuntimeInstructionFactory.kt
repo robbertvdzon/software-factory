@@ -25,11 +25,21 @@ class AgentRuntimeInstructionFactory(
         request.aiEffort?.takeIf(String::isNotBlank)?.let { appendLine("Gevraagde effort: `$it`") }
         appendLine()
         appendLine(commonRules(request))
+        if (request.role in setOf(AgentRole.REFINER, AgentRole.PLANNER, AgentRole.DEVELOPER, AgentRole.TESTER)) {
+            appendLine("## Testmogelijkheden voor deze opdracht")
+            appendLine("- De tester kan de storybranch lezen en bestaande tests uitvoeren; hij wijzigt geen code, tests of infrastructuur. De developer levert testvoorzieningen.")
+            appendLine("- Previewconfiguratie: ${request.previewUrlTemplate ?: "geen template aangeleverd; ga niet uit van een beschikbare preview"}.")
+            appendLine("- Voor de tester geconfigureerde niet-productiecredentialnamen: ${request.testerEnvironmentKeys.joinToString().ifBlank { "geen" }}. De aanwezigheid van een sleutelnaam bewijst niet dat een integratie bereikbaar is.")
+            appendLine("- Toegewezen preview: ${request.previewUrl ?: "nog geen URL; dit bewijst niet dat er later geen preview kan zijn"}.")
+            appendLine("- Acceptatie, fixtures, externe koppelingen en tooling zijn alleen beschikbaar voor zover de projectcontext dit bevestigt. Controleer repositorydocs en bestaande tests waar een checkout beschikbaar is; markeer anders de onbekenden.")
+            appendLine("- Een acceptatieomgeving die main volgt bevat de storywijziging pas na merge. Gebruik vóór merge passend lokaal/integratiebewijs en beschrijf een eventuele controle na deployment.")
+            appendLine("- Automatische tests krijgen geen productielogin of productiegegevens. De nieuwe uitkomsten geven geen extra toegangsrechten.")
+        }
         if (request.role == AgentRole.TESTER) {
-            appendLine("Test functioneel uitsluitend in de toegewezen preview of acceptatieomgeving. Productie is beperkt tot publieke, alleen-lezen smokechecks; geen login, testdata of database-/clustertoegang als omweg.")
-            appendLine("Controleer eerst doel-URL, draaiende revision, testidentiteit/rol en benodigde integraties. Ontbrekende omgeving, login of integratie is een blokkade: keur niet goed en beweer geen productbug zonder bewijs.")
+            appendLine("Test op een gedeelde omgeving uitsluitend in de toegewezen preview of acceptatieomgeving; lokale geïsoleerde tests in de Runtime-checkout zijn ook geldig gedragsbewijs. Productie is beperkt tot publieke, alleen-lezen smokechecks; geen login, testdata of database-/clustertoegang als omweg.")
+            appendLine("Controleer eerst doel-URL, draaiende revision, testidentiteit/rol en benodigde integraties. Ontbrekende omgeving, login of integratie is een testbeperking: beoordeel alternatief bewijs, vraag gericht herstel of een menselijke beslissing. Beweer geen productbug zonder bewijs.")
             appendLine("Gebruik docs/agent-access.md en alleen de toegewezen niet-productiecredential uit /job/secrets/secrets.env. Print of log tokens nooit. Controleer de revision ook na de test: een tussentijdse deployment maakt het bewijs ongeldig.")
-            appendLine("Gebruik deterministische integratiefixtures voor previewtests; controleer echte Europeana-toegang apart op acceptatie. Vraag deployment via de factory/control plane; gebruik geen eigen cluster- of GitHub-credential.")
+            appendLine("Gebruik deterministische integratiefixtures; controleer echte externe integraties alleen waar de story en toegewezen omgeving dat mogelijk maken. Vraag deployment via de factory/control plane; gebruik geen eigen cluster- of GitHub-credential.")
         }
         appendLine()
         appendLine(AgentRuntimeRoleInstructions.forRole(request.role, request.questionsAllowed))
@@ -112,7 +122,7 @@ class AgentRuntimeInstructionFactory(
         appendLine("- Antwoorden uit relevante issue-comments zijn leidend wanneer ze botsen met oudere context.")
         appendLine("- Zet herbruikbare nieuwe kennis in `knowledgeUpdates`; gebruik een lege lijst als er niets is.")
         appendLine("- Vul altijd `phase`, `outcome` en een concrete `summaryText` in volgens het resultaatschema.")
-        appendLine("- `outcome` is uitsluitend de technische status `success` of `error`, nooit een samenvatting. Gebruik `success` als de opdracht is uitgevoerd, ook bij een inhoudelijke afkeuring: die staat in `phase` (bijvoorbeeld `test-rejected`). Gebruik `error` als uitvoering door een fout of ontbrekende testvoorwaarde blokkeert. Zet aantallen fouten en alle toelichting uitsluitend in `summaryText`.")
+        appendLine("- `outcome` is uitsluitend de technische status `success` of `error`, nooit een samenvatting. Gebruik `success` als de opdracht is uitgevoerd, ook bij een inhoudelijke afkeuring: die staat in `phase` (bijvoorbeeld `test-rejected`). Gebruik `error` uitsluitend bij een technische uitvoeringsfout. Een beoordeelde testbeperking is een inhoudelijke uitkomst met `success`. Zet aantallen fouten en alle toelichting uitsluitend in `summaryText`.")
         if (request.role in REPOSITORY_ROLES) {
             appendLine("- Werk uitsluitend in de door Agent Runtime voorbereide checkout.")
             appendLine("- Laat relevante tests groen achter.")
@@ -168,7 +178,7 @@ class AgentRuntimeInstructionFactory(
             AgentRole.PLANNER to listOf("planned", "planned-with-questions"),
             AgentRole.DEVELOPER to listOf("developed", "developed-with-questions"),
             AgentRole.REVIEWER to listOf("reviewed", "review-rejected", "reviewed-with-questions"),
-            AgentRole.TESTER to listOf("tested", "test-rejected", "tested-with-questions"),
+            AgentRole.TESTER to listOf("tested", "tested-with-limitations", "test-rejected", "test-environment-repair", "test-decision-needed", "tested-with-questions"),
             AgentRole.SUMMARIZER to listOf("summarized", "summary-with-questions"),
             AgentRole.DOCUMENTER to listOf("documented", "documentation-with-questions"),
             AgentRole.AUDITOR to listOf("audited", "audit-questions"),

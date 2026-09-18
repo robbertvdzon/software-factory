@@ -146,7 +146,11 @@ class _ActionItemTile extends StatelessWidget {
         issueKey: issueKey,
         isStory: isStory,
         action: action,
-        question: action.kind == PendingKind.question ? question : null,
+        question:
+            (action.kind == PendingKind.question ||
+                action.kind == PendingKind.testDecision)
+            ? question
+            : null,
         agentGaveNoDecision: boolValue(item['agentGaveNoDecision']),
         onDone: onDone,
       ),

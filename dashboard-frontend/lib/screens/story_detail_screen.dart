@@ -464,7 +464,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 issueKey: widget.storyKey,
                 isStory: isStory,
                 action: myPendingAction,
-                question: myPendingAction.kind == PendingKind.question
+                question:
+                    (myPendingAction.kind == PendingKind.question ||
+                        myPendingAction.kind == PendingKind.testDecision)
                     ? myQuestion
                     : null,
                 agentGaveNoDecision: noDecision.contains(widget.storyKey),
@@ -481,7 +483,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                   issueKey: pending.key,
                   isStory: false,
                   action: pending.action,
-                  question: pending.action.kind == PendingKind.question
+                  question:
+                      (pending.action.kind == PendingKind.question ||
+                          pending.action.kind == PendingKind.testDecision)
                       ? pending.question
                       : null,
                   agentGaveNoDecision: pending.agentGaveNoDecision,

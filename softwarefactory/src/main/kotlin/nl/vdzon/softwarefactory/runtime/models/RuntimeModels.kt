@@ -38,6 +38,8 @@ data class AgentRunCompleteRequest(
         outcome, inputTokens, outputTokens, cacheReadInputTokens, cacheCreationInputTokens,
         numTurns, durationMs, costUsdEst, summaryText,
         rateLimit,
+        resultPhase = phase.takeIf { isSuccessful() },
+        checkoutCommitSha = runtimeRepositoryResult?.checkoutCommitSha,
     )
 }
 

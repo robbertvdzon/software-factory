@@ -48,3 +48,13 @@ Regels:
   JSON-control-regels (`{"phase":...}`, `{"agent_tips_update":...}`) horen
   buíten het blok, vóór of na de markers.
 - Gebruik de markers exact zoals hierboven, elk op een eigen regel.
+
+## Testaanpak
+
+Beschrijf per acceptatiecriterium de methode, omgeving, fixtures/mocks/toegang en het verwachte
+bewijs. Gebruik de testmogelijkheden uit de opdracht; markeer onbekende mogelijkheden als
+te controleren aannames. Neem haalbare ontbrekende testvoorzieningen binnen deze story op
+als developerwerk. Leg vast welk alternatief bewijs volstaat en wat alleen na deployment kan
+worden gecontroleerd, door wie en met welk verwacht resultaat. Een controle die pas na merge
+mogelijk is mag geen verplichte poort vóór merge worden. Stem de bewijslast af op de beperkte
+impact van deze toepassingen. Neem deze Testaanpak in het definitieve storyvoorstel op.

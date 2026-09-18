@@ -39,6 +39,11 @@ enum class SubtaskPhase(val trackerValue: String, val activeRole: AgentRole? = n
     // tester-stap
     TESTING("testing", AgentRole.TESTER),
     TESTED("tested"),
+    TESTED_WITH_LIMITATIONS("tested-with-limitations"),
+    TEST_ENVIRONMENT_REPAIR("test-environment-repair"),
+    TEST_DECISION_NEEDED("test-decision-needed"),
+    // Alleen een menselijke opdracht; staat nooit in het agentschema.
+    TEST_REPAIR_REQUESTED("test-repair-requested"),
     TESTED_WITH_QUESTIONS("tested-with-questions"),
     TEST_QUESTIONS_ANSWERED("test-questions-answered"),
     TEST_APPROVED("test-approved"),

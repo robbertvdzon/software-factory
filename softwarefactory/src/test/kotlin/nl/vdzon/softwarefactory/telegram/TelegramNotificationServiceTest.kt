@@ -1030,6 +1030,7 @@ class TelegramNotificationServiceTest {
         orchestratorApi = StubOrchestrator,
         repository = FactoryDashboardRepository(JdbcTemplate(), secrets),
         previewApi = StubPreview,
+        testDecisions = org.mockito.Mockito.mock(nl.vdzon.softwarefactory.dashboard.services.TestDecisionService::class.java),
     ) {
         override fun mergeReady(storyKey: String): MergeReadyInfo? = mergeReadyByKey[storyKey]
         override fun testerReportFor(storyKey: String): String? = testerReportsByKey[storyKey]

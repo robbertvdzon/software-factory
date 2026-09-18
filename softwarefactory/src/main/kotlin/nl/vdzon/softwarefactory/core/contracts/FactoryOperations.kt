@@ -39,6 +39,10 @@ interface FactoryOperations {
     /** Zet de subtaak-fase (post een comment + schuif de fase), zoals het dashboard. */
     fun setSubtaskPhase(subtaskKey: String, phase: String, comment: String?)
 
+    fun decideTest(subtaskKey: String, phase: String, reason: String) {
+        throw UnsupportedOperationException("Testbeslissingen niet beschikbaar")
+    }
+
     /** Zet een commando (approve/reject/merge/…) in de wachtrij voor de orchestrator. */
     fun queueCommand(storyKey: String, command: FactoryCommand, reason: String? = null)
 }

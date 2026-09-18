@@ -303,65 +303,71 @@ class OrchestratorSubtaskChainTest : OrchestratorTestHarness() {
     }
 
     @Test
-    fun `test-chain reset cap stops the chain with an error instead of resetting again`() {
+    fun `third rejection requests a human even with a raised legacy reset limit`() {
         val test = issue(key = "SF-1-sub2", type = "Task", subtaskType = "test", subtaskPhase = "test-rejected")
+            .let { it.copy(fields = it.fields.copy(aiMaxTestChainResets = 10)) }
         val parent = issue(key = "SF-1", description = "Story-omschrijving")
-        val issueTracker = FakeTrackerApi(listOf(test, parent), parentKey = "SF-1", subtasks = listOf(test))
+        val tracker = FakeTrackerApi(listOf(test, parent), parentKey = "SF-1", subtasks = listOf(test))
         val storyRuns = InMemoryStoryRunRepository()
-        val storyRun = storyRuns.openOrCreate("SF-1", "git@example/repo.git")
+        val run = storyRuns.openOrCreate("SF-1", "git@example/repo.git")
         val agentRuns = InMemoryAgentRunRepository().apply {
-            // Default-cap = 3 -> blokkeren vanaf de 4e TESTER-run.
-            repeat(4) { addEnded(storyRun.id, AgentRole.TESTER, outcome = "test-rejected", summary = "bevinding") }
+            repeat(3) { addEnded(run.id, AgentRole.TESTER, "success", "Concrete fout",
+                subtaskKey = test.key, resultPhase = "test-rejected") }
         }
-
-        val result = service(issueTracker, storyRuns = storyRuns, agentRuns = agentRuns).processIssue(test)
-
-        assertTrue(result is IssueProcessResult.Errored, "verwacht Errored bij overschrijden cap, kreeg $result")
-        // De error staat op de test-subtaak zelf (zoals de developer-loopback-cap) zodat de top-level
-        // error-guard 'm daarna skipt.
-        val error = issueTracker.lastUpdate("SF-1-sub2").values[TrackerField.ERROR] as String
-        assertTrue(error.contains("Test-chain reset cap bereikt"))
-        // De triage-melding noemt de werkende herstelpaden: `resume` (verhoogt sinds V17 de
-        // per-issue limiet), pauzeren of re-implement. Alleen `Error` legen blijft een doodlopend
-        // pad (teller daalt niet) en mag dus niet als oplossing beloofd worden.
-        assertTrue(error.contains("resume"), "triage-melding moet resume als werkende escape noemen")
-        assertTrue(error.contains("Paused = true"), "triage-melding moet pauzeren als werkende escape noemen")
-        assertTrue(error.contains("re-implement"), "triage-melding moet re-implement als werkende escape noemen")
-        assertTrue(
-            error.contains("Alleen `Error` legen helpt niet"),
-            "triage-melding moet waarschuwen dat alleen Error legen niets herstart",
-        )
-        // Geen reset: noch de story noch de subtaak is terug naar de todo-lane gezet en er is geen
-        // test-feedback weggeschreven.
-        assertFalse(issueTracker.transitions.contains("SF-1" to "Open"))
-        assertTrue(issueTracker.descriptionUpdates.isEmpty())
+        val result = service(tracker, storyRuns = storyRuns, agentRuns = agentRuns).processIssue(test)
+        assertEquals(IssueProcessResult.Recovered(test.key, "test-decision-needed"), result)
+        assertEquals("test-decision-needed", tracker.lastUpdate(test.key).values[TrackerField.SUBTASK_PHASE])
+        assertFalse(tracker.transitions.contains("SF-1" to "Open"))
+        assertTrue(tracker.descriptionUpdates.getValue("SF-1").contains("Concrete fout"))
     }
 
     @Test
-    fun `raised per-issue test reset limit lets the chain reset past the default cap`() {
-        // Het `resume`-pad heeft AI Max Test Chain Resets op de subtaak verhoogd (default 3 → 5):
-        // met 4 TESTER-runs is de default-cap bereikt, maar de per-issue limiet laat de reset toe.
-        val test = issue(
-            key = "SF-1-sub2",
-            type = "Task",
-            subtaskType = "test",
-            subtaskPhase = "test-rejected",
-            maxTestChainResets = 5,
-        )
-        val parent = issue(key = "SF-1", description = "Story-omschrijving")
-        val issueTracker = FakeTrackerApi(listOf(test, parent), parentKey = "SF-1", subtasks = listOf(test))
+    fun `questions technical failures and other test subtasks do not consume rejection allowance`() {
+        val test = issue(key = "SF-1-sub2", type = "Task", subtaskType = "test", subtaskPhase = "test-environment-repair")
+        val parent = issue(key = "SF-1", description = "Story")
+        val tracker = FakeTrackerApi(listOf(test, parent), parentKey = "SF-1", subtasks = listOf(test))
         val storyRuns = InMemoryStoryRunRepository()
-        val storyRun = storyRuns.openOrCreate("SF-1", "git@example/repo.git")
+        val run = storyRuns.openOrCreate("SF-1", "git@example/repo.git")
         val agentRuns = InMemoryAgentRunRepository().apply {
-            repeat(4) { addEnded(storyRun.id, AgentRole.TESTER, outcome = "test-rejected", summary = "bevinding") }
+            repeat(5) { addEnded(run.id, AgentRole.TESTER, "error", "quota", subtaskKey = test.key) }
+            addEnded(run.id, AgentRole.TESTER, "success", "Vraag", subtaskKey = test.key, resultPhase = "tested-with-questions")
+            repeat(3) { addEnded(run.id, AgentRole.TESTER, "success", "Andere test", subtaskKey = "SF-1-other", resultPhase = "test-rejected") }
+            repeat(2) { addEnded(run.id, AgentRole.TESTER, "success", "Maak instelbare mock", subtaskKey = test.key, resultPhase = "test-environment-repair") }
         }
+        assertEquals(2, agentRuns.countTestRejections(run.id, test.key))
+        val result = service(tracker, storyRuns = storyRuns, agentRuns = agentRuns).processIssue(test)
+        assertTrue(result is IssueProcessResult.Chained)
+        assertTrue(tracker.descriptionUpdates.getValue("SF-1").contains("Maak instelbare mock"))
+    }
 
-        val result = service(issueTracker, storyRuns = storyRuns, agentRuns = agentRuns).processIssue(test)
+    @Test
+    fun `structural test limitation waits immediately even with automatic approval and questions disabled`() {
+        val test = issue(key = "SF-1-sub2", type = "Task", subtaskType = "test", subtaskPhase = "test-decision-needed")
+            .let { it.copy(fields = it.fields.copy(questionsAllowed = false)) }
+        val tracker = FakeTrackerApi(listOf(test), parentKey = "SF-1", subtasks = listOf(test))
+        val runtime = FakeAgentRuntime(now)
+        val result = service(tracker, runtime = runtime).processIssue(test)
+        assertEquals(IssueProcessResult.Skipped(test.key, "waiting-for-test-decision"), result)
+        assertTrue(runtime.dispatches.isEmpty())
+        assertTrue(tracker.updates.isEmpty())
+    }
 
-        assertFalse(result is IssueProcessResult.Errored, "verhoogde limiet moet de cap-error voorkomen, kreeg $result")
-        val subtaskErrors = issueTracker.updates["SF-1-sub2"].orEmpty()
-            .mapNotNull { it.values[TrackerField.ERROR] as? String }
-        assertTrue(subtaskErrors.isEmpty(), "geen cap-error op de subtaak bij verhoogde limiet: $subtaskErrors")
+    @Test
+    fun `human repair request restarts once with the report and concrete instruction`() {
+        val test = issue(key = "SF-1-sub2", type = "Task", subtaskType = "test", subtaskPhase = "test-repair-requested")
+            .copy(comments = listOf(TrackerComment("decision", "robbert", "Robbert", "[TEST DECISION] Maak de mock instelbaar", now)))
+        val parent = issue(key = "SF-1", description = "Story")
+        val tracker = FakeTrackerApi(listOf(test, parent), parentKey = "SF-1", subtasks = listOf(test))
+        val storyRuns = InMemoryStoryRunRepository()
+        val run = storyRuns.openOrCreate("SF-1", "git@example/repo.git")
+        val agents = InMemoryAgentRunRepository().apply {
+            repeat(4) { addEnded(run.id, AgentRole.TESTER, "success", "Geen passende fixture", test.key, resultPhase = "test-rejected") }
+        }
+        val result = service(tracker, storyRuns = storyRuns, agentRuns = agents).processIssue(test)
+        assertTrue(result is IssueProcessResult.Chained)
+        val feedback = tracker.descriptionUpdates.getValue("SF-1")
+        assertTrue(feedback.contains("Maak de mock instelbaar"))
+        assertTrue(feedback.contains("Geen passende fixture"))
     }
 
     @Test

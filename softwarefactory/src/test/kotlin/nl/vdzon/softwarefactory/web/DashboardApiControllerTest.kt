@@ -292,7 +292,7 @@ class DashboardApiControllerTest {
 
     @Test
     fun `subtask-phase routeert naar setSubtaskPhase`() {
-        val h = harness()
+        val h = harness(issues = listOf(issue("SF-2")))
 
         h.postJson("/api/v1/subtasks/SF-2/phase", """{"phase":"developing"}""")
 

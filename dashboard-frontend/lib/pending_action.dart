@@ -7,7 +7,7 @@ import 'widgets/common.dart';
 /// Soort actie waarop een mens moet reageren — 1-op-1 met core/HumanActionPolicy.kt's HumanGate,
 /// plus een aparte kind voor de manual-approve-poort (die via het commando-mechanisme loopt in
 /// plaats van een fase-write, zie SubtaskExecutionCoordinator/ManualCommandService).
-enum PendingKind { question, approval, manualGate, manualApprove }
+enum PendingKind { question, approval, manualGate, manualApprove, testDecision }
 
 /// Wat er moet gebeuren om een wachtend issue verder te helpen: welk soort actie, welke
 /// doelfase(n) (of commando's bij [PendingKind.manualApprove]), en de tekst voor de kaart.
@@ -149,6 +149,17 @@ PendingAction? pendingActionFor({
         approveTarget: 'review-approved',
         rejectTarget: 'review-rejected',
       );
+    case 'test-decision-needed':
+      return const PendingAction(
+        kind: PendingKind.testDecision,
+        label: 'Menselijke beslissing nodig',
+        note:
+            'De tester kan niet verder of heeft de story drie keer afgewezen. '
+            'Bekijk het bewijs en de beperkingen hieronder. Je beslissing geldt voor de beoordeelde versie.',
+        approveTarget: 'test-approved',
+        rejectTarget: 'test-repair-requested',
+      );
+    case 'tested-with-limitations':
     case 'tested':
       return const PendingAction(
         kind: PendingKind.approval,
@@ -222,7 +233,11 @@ class _PendingActionCardState extends State<PendingActionCard> {
 
   Future<void> _submit(String target, {required bool isReject}) async {
     final comment = _controller.text.trim();
-    if (widget.action.kind == PendingKind.question && comment.isEmpty) return;
+    if ((widget.action.kind == PendingKind.question ||
+            widget.action.kind == PendingKind.testDecision) &&
+        comment.isEmpty) {
+      return;
+    }
     if (widget.action.kind == PendingKind.manualApprove &&
         isReject &&
         comment.isEmpty) {
@@ -230,10 +245,16 @@ class _PendingActionCardState extends State<PendingActionCard> {
     }
     setState(() => _busy = true);
     try {
-      if (widget.action.kind == PendingKind.manualApprove) {
+      if (widget.action.kind == PendingKind.manualApprove ||
+          target == 'pause') {
         await widget.state.api.postJson(
           '/api/v1/stories/${widget.issueKey}/command/$target',
           {if (comment.isNotEmpty) 'reason': comment},
+        );
+      } else if (widget.action.kind == PendingKind.testDecision) {
+        await widget.state.api.postJson(
+          '/api/v1/subtasks/${widget.issueKey}/test-decision',
+          {'phase': target, 'comment': comment},
         );
       } else {
         await widget.state.api.postJson(
@@ -260,6 +281,7 @@ class _PendingActionCardState extends State<PendingActionCard> {
     final action = widget.action;
     final isQuestion = action.kind == PendingKind.question;
     final isManualGate = action.kind == PendingKind.manualGate;
+    final isTestDecision = action.kind == PendingKind.testDecision;
     final stranded = isQuestion && widget.agentGaveNoDecision;
     final rol = action.role ?? 'agent';
     final label = stranded ? 'Geen besluit van de $rol' : action.label;
@@ -296,9 +318,13 @@ class _PendingActionCardState extends State<PendingActionCard> {
             minLines: 2,
             maxLines: 4,
             enabled: !_busy,
-            onChanged: isQuestion ? (_) => setState(() {}) : null,
+            onChanged: isQuestion || isTestDecision
+                ? (_) => setState(() {})
+                : null,
             decoration: InputDecoration(
-              hintText: isQuestion
+              hintText: isTestDecision
+                  ? 'Reden om door te gaan of concrete herstelopdracht (verplicht)'
+                  : isQuestion
                   ? 'Jouw antwoord'
                   : (isManualGate
                         ? 'Notitie (optioneel)'
@@ -306,9 +332,30 @@ class _PendingActionCardState extends State<PendingActionCard> {
             ),
           ),
           const SizedBox(height: 8),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              if (isQuestion)
+              if (isTestDecision) ...[
+                FilledButton(
+                  onPressed: _busy || _controller.text.trim().isEmpty
+                      ? null
+                      : () => _submit(action.approveTarget, isReject: false),
+                  child: const Text('Toch doorgaan'),
+                ),
+                OutlinedButton(
+                  onPressed: _busy || _controller.text.trim().isEmpty
+                      ? null
+                      : () => _submit(action.rejectTarget!, isReject: true),
+                  child: const Text('Gericht herstel aanvragen'),
+                ),
+                TextButton(
+                  onPressed: _busy || _controller.text.trim().isEmpty
+                      ? null
+                      : () => _submit('pause', isReject: false),
+                  child: const Text('Parkeren'),
+                ),
+              ] else if (isQuestion)
                 FilledButton(
                   onPressed: _busy || _controller.text.trim().isEmpty
                       ? null

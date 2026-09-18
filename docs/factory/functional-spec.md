@@ -50,7 +50,7 @@ Software Factory valideert `verificationResult` onafhankelijk van agentproza. Mi
 timeout, non-zero exitcode, incomplete evidence of een revisionmismatch kan niet passeren.
 Reviewer- en testerresultaten bevatten `checkoutCommitSha`; een latere push maakt dat bewijs stale.
 
-De bestaande developer/reviewer/testerloopbacks en caps blijven gelden. Na de cap verschijnt een
+De developer/reviewerloopbacks en caps blijven gelden. Na hun cap verschijnt een
 blokkerende fout en start merge/deploy niet.
 
 ## Modelkeuze en kosten
@@ -130,3 +130,29 @@ Telegram, bridge/Product Factory en waar nodig OpenShiftbeheer.
 - Idempotente branch-, job-, PR-, completion- en Product Factory-operaties.
 - Eén story kan geen repositoryalias, branch of bewijs van een ander project publiceren.
 - Errors en wachtstatussen zijn zichtbaar en mogen niet stil als succes doorgaan.
+
+## Testbaarheid en menselijke beslissingen
+
+De refiner beschrijft per criterium hoe, waar en met welke middelen het wordt getest. De planner
+behoudt die afspraken; de developer levert haalbare ontbrekende fixtures en mocks binnen de story.
+Controle die pas na merge mogelijk is wordt niet als verplichte poort vóór merge gepland.
+
+De tester rapporteert `tested`, `tested-with-limitations` (voldoende alternatief bewijs),
+`test-rejected` (aangetoonde fout), `test-environment-repair` (concrete herstelopdracht), of
+`test-decision-needed` (structurele beperking met onvoldoende bewijs). Dit zijn geslaagde
+beoordelingen (`outcome=success`), geen technische jobfouten. Algemene verduidelijkingsvragen
+blijven `tested-with-questions`. De publicatieverificatie van muterende jobs blijft ongewijzigd.
+
+Bij de derde afwijzing of herstelopdracht op dezelfde testsubtaak en story-run komt er altijd
+een menselijke beslissing, ook met auto-approve aan en vragen uit. Technische fouten, quota,
+vragen en runs van andere testsubtaken tellen niet mee. Een lagere bestaande resetlimiet mag
+eerder stoppen. Een structurele beperking gaat direct naar deze gate.
+
+De dashboardkaart toont het rapport en biedt Toch doorgaan, Gericht herstel aanvragen en
+Parkeren, met een reden. Doorgaan legt de menselijke beslissing, testrun en beoordeelde commit
+vast; de branch moet nog op die commit staan. Het testrapport blijft intact. Herstel geeft de
+developer de testfeedback plus de menselijke opdracht en staat één nieuwe ontwikkelronde toe.
+Parkeren gebruikt de bestaande pauzefunctie. Telegram verwijst voor deze gate naar het dashboard.
+De overige stappen en mergecontroles blijven gelden.
+
+Bestaande stories met een oude test-cap-error worden niet automatisch vrijgegeven of herstart.

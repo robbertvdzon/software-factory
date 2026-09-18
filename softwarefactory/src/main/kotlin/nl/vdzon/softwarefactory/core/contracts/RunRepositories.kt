@@ -212,6 +212,13 @@ interface AgentRunRepository {
         excludeQuotaFailures: Boolean = false,
     ): List<AgentRunRecord>
 
+    /** Alleen inhoudelijke afkeuringen en concrete herstelopdrachten; geen quota/errors/vragen. */
+    fun countTestRejections(storyRunId: Long, subtaskKey: String): Int =
+        recentForRole(storyRunId, AgentRole.TESTER, Int.MAX_VALUE).count {
+            it.subtaskKey == subtaskKey && it.endedAt != null &&
+                it.resultPhase in setOf("test-rejected", "test-environment-repair")
+        }
+
     fun countForRole(storyRunId: Long, role: AgentRole): Int
 
     /** Zoals [countForRole], maar afgebakend tot één subtaak — de developer-loopback-cap geldt per subtaak. */
@@ -299,6 +306,8 @@ data class AgentRunRecord(
      * begon). De harde time-out telt vanaf dit moment i.p.v. vanaf de eerste dispatch.
      */
     val runtimeAttemptStartedAt: OffsetDateTime? = null,
+    val resultPhase: String? = null,
+    val checkoutCommitSha: String? = null,
 )
 
 /**
@@ -328,6 +337,8 @@ data class AgentRunCompletionRecord(
     val costUsdEst: Double,
     val summaryText: String?,
     val rateLimit: AgentRunRateLimit? = null,
+    val resultPhase: String? = null,
+    val checkoutCommitSha: String? = null,
 )
 
 data class CompletedAgentRun(

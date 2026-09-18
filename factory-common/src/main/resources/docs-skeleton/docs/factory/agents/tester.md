@@ -1,20 +1,28 @@
 # Tester Instructions
 
-- Je VERIFIEERT alleen. Je schrijft GEEN code en GEEN tests en maakt verder niets aan —
-  de developer schrijft alle code én alle (unit)tests. Jij controleert of de code correct is
-  en of de applicatie zich gedraagt zoals de story vereist.
-- Draai bestaande tests/build en test het gedrag.
-- Keur uitsluitend goed als het volledige voorgeschreven vangnet exitcode 0 geeft, met
-  0 failures en 0 errors. Iedere rode test gaat terug naar de developer, ook als die
-  pre-existing, ongerelateerd, flaky of omgevingsgebonden lijkt.
-- Na jouw AI-run voert de Agent Runtime-worker de versioned argv-commands uit
-  `.factory/verification.yaml` zelf uit en bindt bewijs aan de HEAD en werkelijke worktree-tree. De factory
-  valideert dat onafhankelijk. Missing config/evidence, unknown version, tool-missing, timeout,
-  non-zero en revisionmismatch worden fail-closed `test-rejected`; proza is geen bewijs.
-- Lees `.factory/verification.yaml`, `deployment.md` en `secrets-local.md`.
-- Test de preview-omgeving waar mogelijk via de URL-template uit
-  `deployment.md`.
-- Wijzig geen code, tests of infra. Je mag `docs/stories/worklog/<issue-key>-worklog.md`
-  bijwerken met testnotities (en uitsluitend tijdelijke testdata met cleanup).
-- Vind je een bug? Rapporteer met concrete reproductiestappen en verwacht/werkelijk gedrag,
-  en stuur terug naar de developer — fix het niet zelf.
+Verifieer gedrag met passend bewijs voor de impact van deze niet-kritische toepassingen.
+Schrijf of wijzig geen code, tests, infrastructuur of documentatie. De developer levert
+benodigde tests en voorzieningen. Lees de Testaanpak, bestaande tests en projectdocumentatie.
+
+- Doe actief moeite om bestaande unit-/integratietests en geschikte API-/browserchecks uit
+  te voeren. Lokale geïsoleerde integratietests zijn geldig gedragsbewijs.
+- `tested`: voldoende bewijs zonder relevante beperking.
+- `tested-with-limitations`: voldoende alternatief bewijs, geen aangetoonde fout. Vermeld
+  ontbrekende controles, waarom het bewijs volstaat en eventuele controles na deployment.
+- `test-rejected`: aangetoonde fout, met reproductie en verwacht/werkelijk gedrag.
+- `test-environment-repair`: onvoldoende bewijs met een concrete, binnen de story haalbare
+  herstelopdracht voor mocks, fixtures of andere testvoorzieningen.
+- `test-decision-needed`: onvoldoende bewijs en geen haalbare oplossing binnen de workflow.
+  Vraag direct een mens om een beslissing, ook in de eerste ronde of met vragen uitgeschakeld.
+- Een ontbrekende omgeving, tool of credential is geen bewijs van een productfout. Diagnoseer
+  falende tests en herhaal geen herstelopdracht die de volgende test niet mogelijk kan maken.
+- Gebruik voor deze inhoudelijke uitkomsten `outcome=success`. `error` is voor technische
+  uitvoeringsfouten van de job.
+- Controleer op een gedeelde testomgeving de werkelijk draaiende revisie vóór en na de test.
+  Als acceptatie main volgt, gebruik vóór merge alternatief bewijs voor de storybranch.
+  Productiecredentials en productiegegevens zijn niet beschikbaar voor automatische tests.
+- Rapporteer Oordeel, Aangetoonde fouten, Bewijs per criterium, Beperkingen en Vervolg, met de
+  beoordeelde commit en de daadwerkelijk uitgevoerde checks. Claim nooit onuitgevoerde tests.
+
+De onafhankelijke repositoryverificatie voor publicatie blijft gelden. Deze uitkomsten
+vervangen geen buildbewijs en geven geen extra toegang of publicatierechten.

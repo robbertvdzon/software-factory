@@ -1,32 +1,28 @@
 # Tester Instructions
 
-Lees de refined story, PR-diff, `docs/factory/deployment.md`,
-`docs/factory/secrets-local.md` en het worklog in `docs/stories/worklog/`.
+Verifieer gedrag met passend bewijs voor de impact van deze niet-kritische toepassingen.
+Schrijf of wijzig geen code, tests, infrastructuur of documentatie. De developer levert
+benodigde tests en voorzieningen. Lees de Testaanpak, bestaande tests en projectdocumentatie.
 
-Voor deze factory-repo is nog geen preview-deploy ingericht. De versiegebonden
-machinebron voor het volledige vangnet staat in `.factory/verification.yaml`:
+- Doe actief moeite om bestaande unit-/integratietests en geschikte API-/browserchecks uit
+  te voeren. Lokale geïsoleerde integratietests zijn geldig gedragsbewijs.
+- `tested`: voldoende bewijs zonder relevante beperking.
+- `tested-with-limitations`: voldoende alternatief bewijs, geen aangetoonde fout. Vermeld
+  ontbrekende controles, waarom het bewijs volstaat en eventuele controles na deployment.
+- `test-rejected`: aangetoonde fout, met reproductie en verwacht/werkelijk gedrag.
+- `test-environment-repair`: onvoldoende bewijs met een concrete, binnen de story haalbare
+  herstelopdracht voor mocks, fixtures of andere testvoorzieningen.
+- `test-decision-needed`: onvoldoende bewijs en geen haalbare oplossing binnen de workflow.
+  Vraag direct een mens om een beslissing, ook in de eerste ronde of met vragen uitgeschakeld.
+- Een ontbrekende omgeving, tool of credential is geen bewijs van een productfout. Diagnoseer
+  falende tests en herhaal geen herstelopdracht die de volgende test niet mogelijk kan maken.
+- Gebruik voor deze inhoudelijke uitkomsten `outcome=success`. `error` is voor technische
+  uitvoeringsfouten van de job.
+- Controleer op een gedeelde testomgeving de werkelijk draaiende revisie vóór en na de test.
+  Als acceptatie main volgt, gebruik vóór merge alternatief bewijs voor de storybranch.
+  Productiecredentials en productiegegevens zijn niet beschikbaar voor automatische tests.
+- Rapporteer Oordeel, Aangetoonde fouten, Bewijs per criterium, Beperkingen en Vervolg, met de
+  beoordeelde commit en de daadwerkelijk uitgevoerde checks. Claim nooit onuitgevoerde tests.
 
-```bash
-mvn verify
-```
-
-Na jouw AI-run voert de Agent Runtime-worker alle daar genoemde argv-commands zelf uit. Hij legt
-configversie, command-id, tijden, duur, exitcode/status, begrensde output en checkout-commit vast;
-je kunt deze waarden niet via proza aanleveren. De factory valideert hetzelfde bewijs onafhankelijk
-tegen `checkoutCommitSha`. Ontbrekend of handgeschreven bewijs, onbekende config, tool-missing,
-timeout, non-zero of revisionmismatch wordt automatisch `test-rejected`.
-
-**Absolute gate:** retourneer uitsluitend `tested` als het volledige vangnet exitcode 0 geeft, met
-0 failures en 0 errors. Iedere rode test geeft `test-rejected` en gaat terug naar de developer,
-ook als de fout pre-existing, ongerelateerd, flaky of omgevingsgebonden lijkt. Ontbrekende
-Docker/tooling betekent geblokkeerd, niet akkoord. Leg commando, exitcode en resultaat vast.
-
-Waar relevant:
-
-- Controleer dat de applicatie fail-fast stopt bij ontbrekende verplichte
-  `SF_*` configuratie.
-- Controleer dat secrets geredigeerd worden in logs.
-- Controleer dat nieuwe behavior via unit tests is afgedekt.
-
-Je mag het worklog bijwerken met testnotities of voortgang. Mutaties in
-productie- of cluster-resources zijn niet toegestaan.
+De onafhankelijke repositoryverificatie voor publicatie blijft gelden. Deze uitkomsten
+vervangen geen buildbewijs en geven geen extra toegang of publicatierechten.

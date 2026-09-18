@@ -121,7 +121,7 @@ class SubtaskPhaseStepper extends StatelessWidget {
         return _StepRow([
           _Step(
             'Testen',
-            _segmentState(phase, active: {'testing', 'tested-with-questions', 'test-questions-answered', 'tested', 'test-rejected'}, approved: 'test-approved'),
+            _segmentState(phase, active: {'testing', 'tested-with-questions', 'test-questions-answered', 'tested', 'test-rejected', 'tested-with-limitations', 'test-environment-repair', 'test-decision-needed', 'test-repair-requested'}, approved: 'test-approved'),
           ),
         ]);
       case 'summary':

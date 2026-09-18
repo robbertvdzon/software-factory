@@ -152,7 +152,8 @@ class TelegramReplyService(
                 approveSubtask(subtaskKey, answer, SubtaskPhase.DEVELOPMENT_APPROVED, SubtaskPhase.DEVELOPMENT_REJECTED)
             SubtaskPhase.REVIEWED ->
                 approveSubtask(subtaskKey, answer, SubtaskPhase.REVIEW_APPROVED, SubtaskPhase.REVIEW_REJECTED)
-            SubtaskPhase.TESTED ->
+            SubtaskPhase.TESTED,
+            SubtaskPhase.TESTED_WITH_LIMITATIONS ->
                 approveSubtask(subtaskKey, answer, SubtaskPhase.TEST_APPROVED, SubtaskPhase.TEST_REJECTED)
             SubtaskPhase.SUMMARIZED ->
                 approveSubtask(subtaskKey, answer, SubtaskPhase.SUMMARY_APPROVED, SubtaskPhase.SUMMARY_REJECTED)

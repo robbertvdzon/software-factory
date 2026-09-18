@@ -53,9 +53,11 @@ object HumanActionPolicy {
             -> HumanGate.QUESTION
             SubtaskPhase.AWAITING_HUMAN,
             SubtaskPhase.MANUAL_APPROVE_NEEDED,
+            SubtaskPhase.TEST_DECISION_NEEDED,
             -> HumanGate.MANUAL
             SubtaskPhase.REVIEWED,
             SubtaskPhase.TESTED,
+            SubtaskPhase.TESTED_WITH_LIMITATIONS,
             SubtaskPhase.SUMMARIZED,
             SubtaskPhase.DOCUMENTED,
             -> HumanGate.APPROVAL

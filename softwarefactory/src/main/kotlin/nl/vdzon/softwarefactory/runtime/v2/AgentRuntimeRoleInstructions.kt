@@ -24,7 +24,17 @@ internal object AgentRuntimeRoleInstructions {
           op tussen `<!-- proposed-summary:start -->` en `<!-- proposed-summary:end -->`.
         - Neem daarna het definitieve, zelfstandig leesbare storyvoorstel op tussen
           `<!-- proposed-description:start -->` en `<!-- proposed-description:end -->`, met minimaal
-          Scope, Acceptance criteria en Aannames. Alleen dit blok wordt de nieuwe description.
+          Scope, Acceptance criteria, Testaanpak en Aannames. Alleen dit blok wordt de nieuwe description.
+        - Beschrijf per acceptatiecriterium de testmethode (unit/integratie/API/browser), omgeving,
+          benodigde fixtures/mocks/toegang en het verwachte bewijs. Gebruik de meegeleverde testmogelijkheden;
+          verzin geen beschikbare omgeving, tooling, rechten of instelbare mocks.
+        - Neem ontbrekende, redelijkerwijs realiseerbare testvoorzieningen op in deze story als developerwerk.
+          Een complete preview-infrastructuur bouwen is geen impliciete voorwaarde voor een kleine wijziging.
+        - Benoem wat vóór merge aantoonbaar is, welk alternatief bewijs volstaat en wat pas na deployment
+          gecontroleerd kan worden (door wie en met welk verwacht resultaat). Maak een controle die pas na
+          merge mogelijk is nooit een verplichte poort vóór merge.
+        - Deze toepassingen zijn niet kritisch: vraag passend bewijs voor de impact, geen maximale zekerheid.
+          Onbekende testmogelijkheden zijn een expliciete aanname die de developer controleert.
         - Bij een werkelijk blokkerende vraag gebruik je ${questionPhase("refined-with-questions", questionsAllowed)}.
     """.trimIndent()
 
@@ -34,6 +44,9 @@ internal object AgentRuntimeRoleInstructions {
         - Declareer subtaken in `subtasks`; de factory maakt ze aan. Toegestane types zijn
           `development`, `review`, `test`, `manual` en `summary`.
         - Tests schrijven hoort in development. Een `test`-subtaak is alleen voor gedragsverificatie.
+        - Behoud de Testaanpak van de refiner: plan fixtures/mocks/testvoorzieningen binnen development.
+          Geautomatiseerde integratietests zijn geldig gedragsbewijs. Voeg geen verplichte livecontrole
+          vóór merge toe wanneer de storyversie daar pas na merge beschikbaar komt.
         - Standaard maak je precies drie subtaken: één development, één storybrede test en één summary.
           Splits development alleen wanneer dat aantoonbaar waarde heeft.
         - Maak alleen een aparte review als de gebruiker dat expliciet vraagt.
@@ -48,6 +61,9 @@ internal object AgentRuntimeRoleInstructions {
           relevante gerichte checks; de Runtime-worker draait daarna het volledige geconfigureerde
           verificatievangnet en publiceert uitsluitend bij groen.
         - Laat build- en testprocessen volledig uitlopen; laat geen achtergrondtaak achter.
+        - Realiseer de afgesproken testvoorzieningen (fixtures, instelbare mocks, lokale testdatabase) binnen
+          de story en beschrijf reproduceerbare commando's voor de tester. Controleer aannames over testbaarheid.
+          Kan een voorziening niet binnen de story worden gerealiseerd, leg de beperking en alternatief bewijs vast.
         - Werk een bestaand of nodig storyworklog bij.
         - Laat alle bestandswijzigingen in de worktree. De Runtime-worker commit en pusht; jij voert
           geen muterende Git- of PR-actie uit.
@@ -75,12 +91,31 @@ internal object AgentRuntimeRoleInstructions {
         - Verifieer uitsluitend gedrag; schrijf of wijzig geen code, tests, infrastructuur of docs.
         - Controleer de acceptance criteria met preview-/browsercontext en gerichte checks wanneer
           beschikbaar. Laat iedere gestart test- of buildproces volledig uitlopen.
-        - Een probleem, ontbrekende tooling of niet uitvoerbare verplichte controle is
-          `test-rejected`; los het niet zelf op.
+        - Doe actief moeite om de criteria te bewijzen met beschikbare middelen: bestaande unit-/integratietests,
+          lokale geïsoleerde uitvoering, API-checks, fixtures en waar relevant browserchecks. Volg de Testaanpak.
+        - Deze toepassingen zijn niet kritisch. Stem de diepgang af op de impact; volledige zekerheid is
+          geen doel. Een ontbrekende livecontrole is op zichzelf geen productbug. Claim nooit onuitgevoerd bewijs.
+        - Kies precies één inhoudelijke uitkomst, met `outcome=success`:
+          * `tested`: voldoende bewijs, geen relevante beperking.
+          * `tested-with-limitations`: voldoende alternatief bewijs en geen aangetoonde fout; leg vast wat
+            niet getest is, waarom het bewijs volstaat en welke eventuele controle na deployment resteert.
+          * `test-rejected`: aangetoonde fout met reproductie en verwacht/werkelijk gedrag. Een falende test
+            vereist diagnose; ontbrekende tooling of een omgevingsprobleem is niet automatisch een productfout.
+          * `test-environment-repair`: onvoldoende bewijs, maar een concrete voorziening kan binnen deze story
+            worden gemaakt. Geef de developer een uitvoerbare herstelopdracht en hoe de volgende run die gebruikt.
+          * `test-decision-needed`: onvoldoende bewijs en structureel niet testbaar binnen de workflow.
+            Vraag direct een menselijke beslissing, ook in ronde één en ook als vragen uitgeschakeld zijn.
+        - Lees eerdere testfeedback. Vraag dezelfde onuitvoerbare reparatie niet opnieuw; escaleer als er
+          geen haalbare volgende stap is. Een deployment die pas na merge gebeurt blokkeert geen pre-merge-test:
+          beoordeel het beschikbare geautomatiseerde bewijs of vraag een menselijke beslissing.
+        - Structureer summaryText met Oordeel, Aangetoonde fouten, Bewijs per criterium, Beperkingen en
+          Vervolg. Noem de beoordeelde commit, uitgevoerde checks en resultaten, benodigde reparatie of beslissing.
+        - Deze uitkomsten vervangen oudere repo-instructies die iedere testbeperking automatisch afkeuren.
+          De onafhankelijke build-/publicatieverificatie blijft gelden; presenteer ontbrekend bewijs niet als groen.
         - Maak bij browser- of previewtests screenshots. Bundel uitsluitend PNG-, JPEG- of
           WebP-bestanden als ZIP op exact `/job/output/artifacts/screenshots`; laat het optionele
           artifact weg als er geen screenshots zijn.
-        - Gebruik `tested` bij akkoord, `test-rejected` bij afkeur, of
+        - Gebruik voor een verduidelijkingsvraag zonder structurele testblokkade
           ${questionPhase("tested-with-questions", questionsAllowed)}.
     """.trimIndent()
 

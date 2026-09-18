@@ -41,6 +41,7 @@ class FactoryOperationsService(
     private val orchestratorApi: OrchestratorApi,
     private val repository: FactoryDashboardRepository,
     private val previewApi: PreviewApi,
+    private val testDecisions: TestDecisionService,
 ) : FactoryOperations {
 
     /**
@@ -136,11 +137,21 @@ class FactoryOperationsService(
     /** Mens-actie op een subtask: zet de `Subtask Phase` + optionele reden/antwoord als comment. */
     override fun setSubtaskPhase(subtaskKey: String, phase: String, comment: String?) {
         val target = SubtaskPhase.fromTracker(phase) ?: error("Onbekende Subtask Phase: $phase")
+        val current = issueTrackerClient.getIssue(subtaskKey)
+        if (current.fields.subtaskPhase == SubtaskPhase.TEST_DECISION_NEEDED.trackerValue ||
+            target == SubtaskPhase.TEST_REPAIR_REQUESTED) {
+            error("Gebruik de expliciete testbeslissing met een reden.")
+        }
         comment?.takeIf { it.isNotBlank() }?.let { issueTrackerClient.postComment(subtaskKey, it) }
         issueTrackerClient.updateIssueFields(
             subtaskKey,
             TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to target.trackerValue),
         )
+    }
+
+    override fun decideTest(subtaskKey: String, phase: String, reason: String) {
+        val target = SubtaskPhase.fromTracker(phase) ?: error("Onbekende testbeslissing: $phase")
+        testDecisions.decide(issueTrackerClient.getIssue(subtaskKey), target, reason)
     }
 
     override fun queueCommand(storyKey: String, command: FactoryCommand, reason: String?) {

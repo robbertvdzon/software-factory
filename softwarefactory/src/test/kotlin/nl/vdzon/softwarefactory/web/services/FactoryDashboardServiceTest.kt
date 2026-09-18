@@ -1183,6 +1183,7 @@ class DashboardQueryServiceTest {
             orchestratorApi = FakeOrchestratorApi(),
             repository = repository,
             previewApi = FakePreviewApi(),
+            testDecisions = org.mockito.Mockito.mock(nl.vdzon.softwarefactory.dashboard.services.TestDecisionService::class.java),
         )
         val deployClient = ProjectDeployClient()
         return DashboardQueryService(
@@ -1227,6 +1228,7 @@ class DashboardQueryServiceTest {
             orchestratorApi = FakeOrchestratorApi(),
             repository = repository,
             previewApi = FakePreviewApi(),
+            testDecisions = org.mockito.Mockito.mock(nl.vdzon.softwarefactory.dashboard.services.TestDecisionService::class.java),
         )
         val deployClient = ProjectDeployClient()
         val queries = DashboardQueryService(

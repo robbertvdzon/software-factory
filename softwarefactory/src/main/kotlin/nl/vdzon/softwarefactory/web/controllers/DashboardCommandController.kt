@@ -51,6 +51,12 @@ class DashboardCommandController(
         return Ack()
     }
 
+    @PostMapping("/subtasks/{subtaskKey}/test-decision")
+    fun decideTest(@PathVariable subtaskKey: String, @RequestBody body: PhaseRequest): Ack {
+        operations.decideTest(subtaskKey, body.phase, body.comment.orEmpty())
+        return Ack()
+    }
+
     @PostMapping("/subtasks/{subtaskKey}/phase")
     fun setSubtaskPhase(@PathVariable subtaskKey: String, @RequestBody body: PhaseRequest): Ack {
         operations.setSubtaskPhase(subtaskKey, body.phase, body.comment)

@@ -18,12 +18,14 @@ import kotlin.test.assertTrue
  *    in de keten mee en ondersteunt het `documentation-with-questions`-pad (vraag → antwoord → approved).
  *  - **SF-1986 (as 3, meldingen)**: een lege eventset levert geen Telegram-bericht op; met uitsluitend
  *    `QUESTION` geselecteerd bereikt een `*-with-questions`-fase de gebruiker wel.
- *  - **SF-200 — test-chain-reset cap**: bij het bereiken van `SF_MAX_TEST_CHAIN_RESETS` (default 3) volgt geen
- *    reset meer maar komt de test-subtaak in `Error` (geen oneindige reset-loop).
+ *  - **Testbeslissing**: na drie inhoudelijke afwijzingen volgt een menselijke beslissing, geen nieuwe reset.
  *
  * Elke test gebruikt een unieke story-key (eigen workspace + story-run).
  */
 class SpecScenarioCoverageE2eTest : E2eTestBase() {
+    @org.springframework.beans.factory.annotation.Autowired
+    private lateinit var operations: nl.vdzon.softwarefactory.core.contracts.FactoryOperations
+
 
     @Test
     fun `silent story doorloopt de keten autonoom zonder enige menselijke actie`() {
@@ -170,11 +172,12 @@ class SpecScenarioCoverageE2eTest : E2eTestBase() {
     }
 
     @Test
-    fun `test-chain reset cap zet de test-subtaak in Error en stopt de reset-loop`() {
+    fun `third tester rejection waits for a human who can override the current revision`() {
         runtime.script.apply {
             refinerAsksQuestion = false
             developerAsksQuestion = false
             plannedSubtasks = AgentScript.subtasks("test")
+            testerPhases = listOf("test-rejected")
         }
         val ui = loginUi()
         val await = awaiter()
@@ -183,22 +186,33 @@ class SpecScenarioCoverageE2eTest : E2eTestBase() {
         approveRefineAndPlan(ui, await, story, expectedSubtasks = 1)
         ui.startDeveloping(story)
         val test = plannedChild(story)
+        await.awaitSubtaskPhase(test.key, "test-decision-needed")
+        assertEquals(3, dispatchCount(story, AgentRole.TESTER))
+        assertEquals(0, dispatchCount(story, AgentRole.DEVELOPER))
+        operations.decideTest(test.key, "test-approved", "Ik accepteer de beschreven beperking")
+        await.awaitSubtaskPhase(test.key, "test-approved")
+        assertTrue(state.issue(test.key)!!.comments.any { it.body.contains("[TEST DECISION]") })
+    }
 
-        // Default cap = SF_MAX_TEST_CHAIN_RESETS (3). De cap blokkeert pas de (cap+1)-de TESTER-run:
-        // 3 bevindingen resetten nog (TESTER-runs 1..3), de 4e bevinding raakt de cap → Error.
-        for (run in 2..4) {
-            await.awaitSubtaskPhase(test.key, "tested")
-            ui.setSubtaskPhase(test.key, "test-rejected")
-            awaitDispatchCount(story, AgentRole.TESTER, run)
+    @Test
+    fun `structural limitation stops automatic story immediately and explicit repair allows alternative evidence`() {
+        runtime.script.apply {
+            refinerAsksQuestion = false
+            developerAsksQuestion = false
+            plannedSubtasks = AgentScript.subtasks("test")
+            testerPhases = listOf("test-decision-needed", "tested-with-limitations")
         }
-
-        // 4e bevinding → cap bereikt → geen reset meer, test-subtaak in Error.
-        await.awaitSubtaskPhase(test.key, "tested")
-        ui.setSubtaskPhase(test.key, "test-rejected")
-        await.awaitErrorContains(test.key, "Test-chain reset cap bereikt")
-
-        assertEquals(4, dispatchCount(story, AgentRole.TESTER), "tester mag de cap (3) niet overschrijden: 4 runs")
-        assertEquals(0, dispatchCount(story, AgentRole.DEVELOPER), "tester doet geen eigen developer-fix")
+        val await = awaiter()
+        val story = "${state.projectKey}-230"
+        createStory(story, autoApprove = true)
+        await.awaitSubtasksCreated(story, 1)
+        val test = plannedChild(story)
+        await.awaitSubtaskPhase(test.key, "test-decision-needed")
+        assertEquals(1, dispatchCount(story, AgentRole.TESTER))
+        operations.decideTest(test.key, "test-repair-requested", "Gebruik de lokale integratiefixture")
+        await.awaitSubtaskPhase(test.key, "test-approved")
+        assertEquals(2, dispatchCount(story, AgentRole.TESTER))
+        assertTrue(state.issue(story)!!.description!!.contains("Gebruik de lokale integratiefixture"))
     }
 
     /** De factory-afgedwongen subtaak van [type] onder [storyKey] (documentation/merge/deploy/manual-approve). */

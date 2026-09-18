@@ -198,47 +198,37 @@ class SubtaskExecutionCoordinator(
         return IssueProcessResult.Chained(rejected.key, subtasks.firstOrNull()?.key)
     }
 
-    /**
-     * SF-200 — een test-bevinding (`test-rejected`) test alleen en oordeelt; de tester doet zelf
-     * geen gerichte fix meer. In plaats van een DEVELOPER-loopback resetten we de hele subtaak-keten
-     * (identiek aan een handmatige reject): (1) de testreden van de laatste TESTER-run komt in een
-     * herhaalbaar te overschrijven, gemarkeerd blok in de parent-story-description zodat develop/
-     * review/test die bij de herstart meekrijgen, en (2) [resetStoryChainAfterRejection] zet de keten
-     * terug op start (zelfde branch). Een cap voorkomt oneindig herstarten: is die bereikt, dan geen
-     * reset maar de test-subtaak in `Error` (handmatige triage), analoog aan de developer-loopback-cap.
-     *
-     * Idempotent t.o.v. de poll: na de reset is deze test-subtaak fase-leeg, dus de volgende poll
-     * triggert geen nieuwe reset.
-     */
+    /** Een derde afwijzing vereist altijd een mens, ongeacht auto-approve of vrageninstelling. */
     private fun handleTestRejection(subtask: TrackerIssue): IssueProcessResult {
         val parentKey = issueTrackerClient.parentStoryKey(subtask.key)
             ?: return IssueProcessResult.Skipped(subtask.key, "subtask-without-parent")
         val storyRun = storyRunRepository.openOrCreate(parentKey, subtask.fields.targetRepo.orEmpty())
-        // De cap telt het aantal TESTER-runs op de gedeelde story-run: elke (afgekeurde) test-run die
-        // tot een reset leidde laat een TESTER-run achter, dus dat is de teller voor uitgevoerde resets.
-        // Net als de developer-loopback-cap mag de N-de reset nog, pas de (N+1)-de wordt geblokkeerd.
-        val testerRuns = agentRunRepository.countForRole(storyRun.id, AgentRole.TESTER)
-        // Per-issue limiet (AI Max Test Chain Resets op de subtaak) gaat vóór de globale default;
-        // `resume` op de subtaak verhoogt 'm — dezelfde uitweg als de developer-loopback-cap.
-        val resetLimit = subtask.fields.testChainResetLimit(settings.maxTestChainResets)
-        if (testerRuns >= resetLimit + 1) {
-            // De teller is `countForRole(storyRun.id, TESTER)` op de persistente story-run en daalt
-            // niet door `Error` te legen: alleen het Error-veld leegmaken loopt op de eerstvolgende
-            // poll direct opnieuw in deze cap. `resume` werkt wél: dat leegt de error ÉN verhoogt de
-            // per-issue limiet (zie ManualCommandService.resume).
-            val message = "[ORCHESTRATOR] Test-chain reset cap bereikt (${resetLimit}x). " +
-                "Zet `resume` op deze subtaak om extra testronde(s) toe te staan, zet `Paused = true` " +
-                "om te parkeren, of `re-implement` de story voor een verse start. Alleen `Error` legen " +
-                "helpt niet: de teller blijft dan boven de cap staan."
-            // Geen reset meer. Error op de test-subtaak zelf (net als de developer-loopback-cap): de
-            // top-level error-guard skipt 'm daarna elke poll, dus de keten stalt netjes en idempotent
-            // tot een mens ingrijpt. De error surfacet op het storyscherm als subtaak-fout.
-            issueTrackerClient.updateIssueFields(subtask.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
-            logger.warn("Test-chain reset cap bereikt voor story {} ({} TESTER-runs).", parentKey, testerRuns)
-            return IssueProcessResult.Errored(subtask.key, message)
-        }
+        val rejections = agentRunRepository.countTestRejections(storyRun.id, subtask.key)
         val reason = agentRunRepository.latestForRole(storyRun.id, AgentRole.TESTER)?.summaryText
         writeTestFeedbackToStory(parentKey, reason)
+        // Een lager ingestelde oude resetlimiet mag eerder stoppen, nooit later dan afwijzing drie.
+        val threshold = minOf(3, subtask.fields.testChainResetLimit(settings.maxTestChainResets) + 1)
+        if (rejections >= threshold) {
+            issueTrackerClient.postComment(subtask.key,
+                "[ORCHESTRATOR] Menselijke beslissing nodig na $rejections afwijzingen. " +
+                    "Bekijk het testrapport: toch doorgaan, gericht herstel aanvragen of parkeren.")
+            issueTrackerClient.updateIssueFields(subtask.key, TrackerFieldUpdate.of(
+                TrackerField.SUBTASK_PHASE to SubtaskPhase.TEST_DECISION_NEEDED.trackerValue,
+                TrackerField.ERROR to null,
+            ))
+            return IssueProcessResult.Recovered(subtask.key, SubtaskPhase.TEST_DECISION_NEEDED.trackerValue)
+        }
+        return resetStoryChainAfterRejection(subtask)
+    }
+
+    /** De menselijke herstelopdracht mag precies één reset passeren, ook boven de afwijzingslimiet. */
+    private fun handleRequestedTestRepair(subtask: TrackerIssue): IssueProcessResult {
+        val parentKey = issueTrackerClient.parentStoryKey(subtask.key)
+            ?: return IssueProcessResult.Skipped(subtask.key, "subtask-without-parent")
+        val instruction = subtask.comments.lastOrNull { it.body.startsWith("[TEST DECISION]") }?.body
+        val run = storyRunRepository.latestFor(parentKey)
+        val report = run?.let { agentRunRepository.latestForRole(it.id, AgentRole.TESTER)?.summaryText }
+        writeTestFeedbackToStory(parentKey, listOfNotNull(report, instruction).joinToString("\n\n"))
         return resetStoryChainAfterRejection(subtask)
     }
 
@@ -334,10 +324,14 @@ class SubtaskExecutionCoordinator(
             -> dispatchSubtask(subtask, AgentRole.TESTER, SubtaskPhase.TESTING)
             SubtaskPhase.TESTING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.TESTING)
             SubtaskPhase.TESTED_WITH_QUESTIONS -> questionsOutcome(subtask)
-            SubtaskPhase.TESTED -> autoAdvanceSubtask(subtask, SubtaskPhase.TEST_APPROVED)
+            SubtaskPhase.TESTED,
+            SubtaskPhase.TESTED_WITH_LIMITATIONS -> autoAdvanceSubtask(subtask, SubtaskPhase.TEST_APPROVED)
             // SF-200 — de tester doet geen eigen developer-fix meer: een bevinding reset de hele
             // subtaak-keten (zoals een handmatige reject), met de testreden als feedback in de story.
-            SubtaskPhase.TEST_REJECTED -> handleTestRejection(subtask)
+            SubtaskPhase.TEST_REJECTED,
+            SubtaskPhase.TEST_ENVIRONMENT_REPAIR -> handleTestRejection(subtask)
+            SubtaskPhase.TEST_DECISION_NEEDED -> IssueProcessResult.Skipped(subtask.key, "waiting-for-test-decision")
+            SubtaskPhase.TEST_REPAIR_REQUESTED -> handleRequestedTestRepair(subtask)
             SubtaskPhase.DEVELOPING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.DEVELOPING)
             SubtaskPhase.DEVELOPED_WITH_QUESTIONS -> questionsOutcome(subtask)
             SubtaskPhase.DEVELOPMENT_QUESTIONS_ANSWERED ->

@@ -375,6 +375,8 @@ class JdbcAgentRunRepository(
                 duration_ms = ?,
                 cost_usd_est = ?,
                 summary_text = ?,
+                result_phase = ?,
+                checkout_commit_sha = ?,
                 rate_limit_status = ?,
                 rate_limit_resets_at = ?,
                 rate_limit_overage_resets_at = ?
@@ -393,6 +395,8 @@ class JdbcAgentRunRepository(
             completion.durationMs,
             completion.costUsdEst,
             completion.summaryText,
+            completion.resultPhase,
+            completion.checkoutCommitSha,
             completion.rateLimit?.status,
             completion.rateLimit?.resetsAt,
             completion.rateLimit?.overageResetsAt,
@@ -455,7 +459,7 @@ class JdbcAgentRunRepository(
             """
             SELECT r.id, r.story_run_id, r.role, r.container_name, r.started_at, r.ended_at, r.outcome, r.summary_text,
                    r.model, r.effort, r.level, r.workspace_path, r.rate_limit_status, r.rate_limit_resets_at,
-                   r.rate_limit_overage_resets_at, r.subtask_key, j.attempt_started_at AS runtime_attempt_started_at
+                   r.rate_limit_overage_resets_at, r.subtask_key, r.result_phase, r.checkout_commit_sha, j.attempt_started_at AS runtime_attempt_started_at
             FROM ${factorySecrets.factoryDatabaseSchema}.agent_runs r
             LEFT JOIN ${factorySecrets.factoryDatabaseSchema}.agent_runtime_jobs j ON j.agent_run_id = r.id
             WHERE ended_at IS NULL
@@ -494,7 +498,7 @@ class JdbcAgentRunRepository(
             """
             SELECT r.id, r.story_run_id, r.role, r.container_name, r.started_at, r.ended_at, r.outcome, r.summary_text,
                    r.model, r.effort, r.level, r.workspace_path, r.rate_limit_status, r.rate_limit_resets_at,
-                   r.rate_limit_overage_resets_at, r.subtask_key, j.attempt_started_at AS runtime_attempt_started_at
+                   r.rate_limit_overage_resets_at, r.subtask_key, r.result_phase, r.checkout_commit_sha, j.attempt_started_at AS runtime_attempt_started_at
             FROM ${factorySecrets.factoryDatabaseSchema}.agent_runs r
             LEFT JOIN ${factorySecrets.factoryDatabaseSchema}.agent_runtime_jobs j ON j.agent_run_id = r.id
             WHERE story_run_id = ? AND role = ?
@@ -508,6 +512,15 @@ class JdbcAgentRunRepository(
             limit,
         )
     }
+
+    override fun countTestRejections(storyRunId: Long, subtaskKey: String): Int =
+        requireNotNull(jdbcTemplate.queryForObject(
+            """
+            SELECT COUNT(*) FROM ${factorySecrets.factoryDatabaseSchema}.agent_runs
+            WHERE story_run_id = ? AND role = 'tester' AND subtask_key = ? AND ended_at IS NOT NULL
+              AND result_phase IN ('test-rejected', 'test-environment-repair')
+            """.trimIndent(), Int::class.java, storyRunId, subtaskKey,
+        ))
 
     override fun countForRole(storyRunId: Long, role: AgentRole): Int =
         requireNotNull(
@@ -670,6 +683,8 @@ private fun ResultSet.toAgentRunRecord(): AgentRunRecord =
         workspacePath = getString("workspace_path"),
         rateLimit = toAgentRunRateLimit(),
         subtaskKey = getString("subtask_key"),
+        resultPhase = getString("result_phase"),
+        checkoutCommitSha = getString("checkout_commit_sha"),
         runtimeAttemptStartedAt = getObject("runtime_attempt_started_at", OffsetDateTime::class.java),
     )
 
