@@ -24,7 +24,7 @@ ARG SF_BUILD_COMMIT_DATE=
 # gh via de officiële apt-repo; oc en kubectl uit één OpenShift-client-tarball zodat ze bij elkaar passen.
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends ca-certificates curl gnupg tzdata; \
+    apt-get install -y --no-install-recommends ca-certificates curl gnupg tzdata tini; \
     curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /usr/share/keyrings/githubcli-archive-keyring.gpg; \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list; \
     apt-get update; \
@@ -47,4 +47,6 @@ COPY properties.default.env /app/properties.default.env
 # Schrijfbare mappen voor logs en (zonder PVC) bijlagen, ook onder een willekeurige OpenShift-uid.
 RUN mkdir -p /app/logs /app/attachments && chgrp -R 0 /app && chmod -R g+rwX /app
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+# tini als PID 1: reapt verweesde kindprocessen (o.a. van `gh`). Java zelf doet dat niet, waardoor
+# zombies zich ophoopten tot de pids-limiet van de pod en niets meer kon forken.
+ENTRYPOINT ["/usr/bin/tini", "--", "java", "-jar", "/app/app.jar"]

@@ -77,7 +77,8 @@ class TelegramPoller(
             } catch (interrupted: InterruptedException) {
                 Thread.currentThread().interrupt()
                 break
-            } catch (exception: Exception) {
+            } catch (exception: Throwable) {
+                // Ook Errors (bv. geen native thread meer): anders sterft de poller stil.
                 logger.warn("Telegram-poll faalde; korte pauze en opnieuw.", exception)
                 sleepQuietly(5_000)
             }

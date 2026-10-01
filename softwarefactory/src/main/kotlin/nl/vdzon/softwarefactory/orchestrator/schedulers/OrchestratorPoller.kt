@@ -68,7 +68,13 @@ class OrchestratorPoller(
 
     private fun loop() {
         while (running) {
-            runOnce()
+            // Vang ook Errors (bv. "unable to create native thread" bij een volle pids-limiet): anders
+            // sterft deze thread stil en pakt de factory geen enkele story meer op.
+            try {
+                runOnce()
+            } catch (error: Throwable) {
+                logger.error("Orchestrator poll faalde onverwacht; poller blijft draaien.", error)
+            }
             if (!running) break
             sleepUntilDeadlineOrWake(settings.pollInterval.toMillis())
         }
